@@ -1306,11 +1306,17 @@
               <span style="font-size:0.65rem;padding:2px 7px;border-radius:10px;background:${s.estado==='pendiente'?'#78350f':'#14532d'};color:${estadoColor[s.estado]||'#94a3b8'};">${s.estado}</span>
             </div>
             <div style="font-size:0.7rem;color:#94a3b8;">${s.correo} · ${s.tipo}</div>
-            ${s.estado === 'pendiente' ? `<div style="margin-top:4px;background:#0f172a;border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:8px;">
-              <span style="font-size:0.7rem;color:#64748b;">Código:</span>
-              <span style="font-size:1rem;font-weight:700;color:#d4af37;letter-spacing:3px;">${s.codigo_temp}</span>
-              <a href="https://wa.me/${WHATSAPP_ADMIN}?text=Hola%20${encodeURIComponent(s.nombre)},%20tu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20*${s.codigo_temp}*%20%F0%9F%94%91"
-                 target="_blank" style="font-size:0.7rem;background:#14532d;color:#4ade80;border-radius:8px;padding:3px 8px;text-decoration:none;">💬 Enviar</a>
+            ${s.estado === 'pendiente' ? `<div style="margin-top:4px;background:#0f172a;border-radius:8px;padding:8px 10px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="font-size:0.7rem;color:#64748b;">Código:</span>
+                <span style="font-size:1rem;font-weight:700;color:#d4af37;letter-spacing:3px;">${s.codigo_temp}</span>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <a href="https://wa.me/?text=Hola%20${encodeURIComponent(s.nombre)},%20tu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20*${s.codigo_temp}*%20%F0%9F%94%91%0AIngresa%20en:%20https://biblioteca-dga-production.up.railway.app/recuperar"
+                   target="_blank" style="font-size:0.7rem;background:#14532d;color:#4ade80;border-radius:8px;padding:5px 10px;text-decoration:none;font-weight:600;">💬 WhatsApp</a>
+                <a href="mailto:${s.correo}?subject=C%C3%B3digo%20de%20recuperaci%C3%B3n%20-%20Aduanas%20RD&body=Hola%20${encodeURIComponent(s.nombre)},%0A%0ATu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20${s.codigo_temp}%0A%0AIngresa%20en:%20https://biblioteca-dga-production.up.railway.app/recuperar%0A%0ASaludos,%0AAdministrador%20Aduanas%20RD"
+                   style="font-size:0.7rem;background:#1e3a5f;color:#93c5fd;border-radius:8px;padding:5px 10px;text-decoration:none;font-weight:600;">✉️ Correo</a>
+              </div>
             </div>` : ''}
             <div style="font-size:0.65rem;color:#334155;margin-top:2px;">${s.fecha}</div>
           </div>
