@@ -667,6 +667,55 @@ def admin_recuperaciones_eliminar():
     return jsonify({"ok": True})
 
 
+@app.route("/solicitar-baja", methods=["POST"])
+@login_required
+def solicitar_baja():
+    if session.get("role") != "invitado":
+        return jsonify({"error": "Only guest users can request unsubscription."}), 403
+
+    d             = request.json or {}
+    porque        = d.get("porque", "").strip()
+    opinion       = d.get("opinion", "").strip()
+    recomendacion = d.get("recomendacion", "").strip()
+
+    if not porque or not opinion or not recomendacion:
+        return jsonify({"error": "All fields are required."}), 400
+
+    correo = session.get("correo", "")
+    nombre = session.get("nombre", "")
+
+    # Construir el cuerpo del correo
+    asunto = f"Unsubscribe Request — {nombre} ({correo})"
+    cuerpo = (
+        f"UNSUBSCRIBE REQUEST\n"
+        f"{'='*50}\n\n"
+        f"User: {nombre}\n"
+        f"Email: {correo}\n"
+        f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        f"{'='*50}\n\n"
+        f"1. WHY DO YOU WANT TO UNSUBSCRIBE?\n{porque}\n\n"
+        f"2. WHAT IS YOUR OPINION OF THE APP?\n{opinion}\n\n"
+        f"3. WHAT RECOMMENDATIONS WOULD YOU GIVE?\n{recomendacion}\n\n"
+        f"{'='*50}\n"
+        f"To APPROVE the unsubscription, reply to this email confirming the account deletion.\n"
+        f"App: https://biblioteca-dga-production.up.railway.app\n"
+    )
+
+    # Construir enlace mailto para que el servidor abra el cliente de correo
+    import urllib.parse
+    mailto_url = (
+        f"mailto:{DISTRIBUTION_EMAIL}"
+        f"?subject={urllib.parse.quote(asunto)}"
+        f"&body={urllib.parse.quote(cuerpo)}"
+    )
+
+    log_historial(correo, nombre, "solicitud_baja", "Solicitó darse de baja")
+
+    return jsonify({"ok": True, "mailto": mailto_url,
+                    "asunto": asunto, "cuerpo": cuerpo,
+                    "destino": DISTRIBUTION_EMAIL})
+
+
 @app.route("/admin/cuadernos")
 @admin_required
 def admin_cuadernos():

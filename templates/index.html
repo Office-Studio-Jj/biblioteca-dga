@@ -501,7 +501,10 @@
             {% endif %}
             <a href="/manual/{{ role }}" style="display:inline-block;margin-top:8px;margin-right:6px;padding:6px 16px;background:#134e4a;color:#5eead4;border-radius:20px;font-size:0.72rem;font-weight:600;text-decoration:none;">📖 Manual de uso</a>
             <button onclick="abrirModalPass()" style="display:inline-block;margin-top:8px;margin-right:6px;padding:6px 16px;background:#1e3a5f;color:#93c5fd;border-radius:20px;font-size:0.72rem;font-weight:600;border:none;cursor:pointer;">🔑 Cambiar clave</button>
-            <a href="/logout" style="display:inline-block;margin-top:8px;padding:6px 16px;background:#7f1d1d;color:#fca5a5;border-radius:20px;font-size:0.72rem;font-weight:600;text-decoration:none;">Cerrar sesión</a>
+            <a href="/logout" style="display:inline-block;margin-top:8px;margin-right:6px;padding:6px 16px;background:#7f1d1d;color:#fca5a5;border-radius:20px;font-size:0.72rem;font-weight:600;text-decoration:none;">Cerrar sesión</a>
+            {% if role == 'invitado' %}
+            <button onclick="abrirModalBaja()" style="display:inline-block;margin-top:8px;padding:6px 16px;background:#1e293b;color:#64748b;border-radius:20px;font-size:0.72rem;font-weight:600;border:1px solid #334155;cursor:pointer;">Unsubscribe</button>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -800,6 +803,43 @@
     <div class="u-btns">
       <button class="u-btn-save" onclick="guardarUsuario()">💾 Guardar</button>
       <button class="u-btn-cancel" onclick="cerrarModalUsuario()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Unsubscribe (solo invitados) -->
+<div class="modal-usuarios" id="modalBaja">
+  <div class="modal-u-box">
+    <h3 style="color:#f87171;">🚪 Unsubscribe</h3>
+    <div style="background:#0f172a;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:0.75rem;color:#94a3b8;line-height:1.6;">
+      To unsubscribe, you must complete all fields below. Your responses will be sent to the administrator at
+      <span style="color:#d4af37;">consultoria.puertos.aduanas@gmail.com</span> for final approval.
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label style="font-size:0.73rem;color:#f87171;font-weight:700;display:block;margin-bottom:4px;">1. Why do you want to unsubscribe? <span style="color:#f87171;">*</span></label>
+      <textarea id="bajaPorque" placeholder="Please explain your reason for unsubscribing..." rows="3"
+        style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.78rem;box-sizing:border-box;resize:vertical;"></textarea>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label style="font-size:0.73rem;color:#f87171;font-weight:700;display:block;margin-bottom:4px;">2. What is your opinion of the app? <span style="color:#f87171;">*</span></label>
+      <textarea id="bajaOpinion" placeholder="Share your overall experience and feedback about the app..." rows="3"
+        style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.78rem;box-sizing:border-box;resize:vertical;"></textarea>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label style="font-size:0.73rem;color:#f87171;font-weight:700;display:block;margin-bottom:4px;">3. What recommendations would you give to improve the app? <span style="color:#f87171;">*</span></label>
+      <textarea id="bajaRecomendacion" placeholder="Your suggestions are valuable to us..." rows="3"
+        style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.78rem;box-sizing:border-box;resize:vertical;"></textarea>
+    </div>
+
+    <div id="bajaError" style="color:#f87171;font-size:0.75rem;margin-bottom:10px;display:none;"></div>
+    <div id="bajaOk" style="background:#14532d;border-radius:8px;padding:10px 12px;color:#4ade80;font-size:0.75rem;margin-bottom:10px;display:none;line-height:1.5;"></div>
+
+    <div class="u-btns">
+      <button class="u-btn-save" onclick="enviarSolicitudBaja()" style="background:#7f1d1d;color:#fca5a5;">📧 Send Unsubscribe Request</button>
+      <button class="u-btn-cancel" onclick="cerrarModalBaja()">Cancel</button>
     </div>
   </div>
 </div>
@@ -1358,6 +1398,56 @@
   // Auto-abrir si es primer acceso
   if (MUST_CHANGE_PASSWORD) {
     window.addEventListener('DOMContentLoaded', () => abrirModalPass(true));
+  }
+
+  // ── Unsubscribe ──────────────────────────────────────────────────────
+  function abrirModalBaja() {
+    document.getElementById('bajaPorque').value       = '';
+    document.getElementById('bajaOpinion').value      = '';
+    document.getElementById('bajaRecomendacion').value= '';
+    document.getElementById('bajaError').style.display= 'none';
+    document.getElementById('bajaOk').style.display   = 'none';
+    document.getElementById('modalBaja').classList.add('show');
+  }
+
+  function cerrarModalBaja() {
+    document.getElementById('modalBaja').classList.remove('show');
+  }
+
+  async function enviarSolicitudBaja() {
+    const porque       = document.getElementById('bajaPorque').value.trim();
+    const opinion      = document.getElementById('bajaOpinion').value.trim();
+    const recomendacion= document.getElementById('bajaRecomendacion').value.trim();
+    const errEl        = document.getElementById('bajaError');
+    const okEl         = document.getElementById('bajaOk');
+    errEl.style.display = 'none';
+    okEl.style.display  = 'none';
+
+    if (!porque || !opinion || !recomendacion) {
+      errEl.textContent   = 'All three fields are required to submit your unsubscribe request.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    const res  = await fetch('/solicitar-baja', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({porque, opinion, recomendacion})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      // Abrir cliente de correo con el mensaje pre-llenado
+      window.location.href = data.mailto;
+      okEl.innerHTML = `✅ <strong>Request sent successfully.</strong><br>
+        Your email client has opened with your unsubscribe request pre-filled.<br>
+        Please <strong>send the email</strong> to complete the process.<br>
+        The administrator at <strong>${data.destino}</strong> will review and confirm your account deactivation.`;
+      okEl.style.display = 'block';
+      document.querySelector('#modalBaja .u-btn-save').style.display = 'none';
+    } else {
+      errEl.textContent   = data.error || 'Error sending request. Please try again.';
+      errEl.style.display = 'block';
+    }
   }
 
   // ── Gestión de Cuadernos ─────────────────────────────────────────────
