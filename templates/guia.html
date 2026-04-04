@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Guía de Instalación — Logistica DGA</title>
+  <meta name="theme-color" content="#0f172a">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: #0f172a; color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 480px; margin: 0 auto; padding: 24px 18px 60px; }
+
+    .header { text-align: center; margin-bottom: 28px; }
+    .header-icon { font-size: 2.4rem; margin-bottom: 8px; }
+    .header h1 { font-size: 1.1rem; font-weight: 800; color: #d4af37; }
+    .header p  { font-size: 0.72rem; color: #64748b; margin-top: 4px; }
+
+    /* Steps */
+    .step-block {
+      background: #1e293b; border-radius: 18px; padding: 22px 18px;
+      margin-bottom: 14px; border: 2px solid #334155;
+      transition: border-color 0.3s, opacity 0.4s;
+    }
+    .step-block.active  { border-color: #d4af37; }
+    .step-block.done    { border-color: #166534; opacity: 0.75; }
+    .step-block.locked  { opacity: 0.4; pointer-events: none; }
+
+    .step-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .step-num {
+      min-width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; font-weight: 800; flex-shrink: 0;
+      background: #d4af37; color: #0f172a;
+    }
+    .step-block.done .step-num  { background: #4ade80; color: #0f172a; }
+    .step-block.locked .step-num{ background: #334155; color: #64748b; }
+    .step-title { font-size: 1rem; font-weight: 700; color: #e2e8f0; }
+    .step-desc  { font-size: 0.78rem; color: #94a3b8; line-height: 1.6; margin-bottom: 14px; }
+
+    /* Buttons */
+    .btn-primary {
+      width: 100%; background: linear-gradient(135deg, #d4af37, #b8962e);
+      color: #0f172a; border: none; border-radius: 12px;
+      padding: 14px; font-size: 0.95rem; font-weight: 800; cursor: pointer;
+    }
+    .btn-green {
+      width: 100%; background: #25d366; color: #fff; border: none;
+      border-radius: 12px; padding: 14px; font-size: 0.95rem; font-weight: 800; cursor: pointer;
+      margin-bottom: 10px;
+    }
+    .btn-outline {
+      width: 100%; background: transparent; border: 2px solid #334155;
+      color: #94a3b8; border-radius: 12px; padding: 12px;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer; margin-top: 8px;
+    }
+
+    /* URL box (admin only) */
+    .url-admin {
+      background: #0f172a; border: 2px solid #d4af37; border-radius: 12px;
+      padding: 14px; text-align: center; margin-bottom: 12px;
+    }
+    .url-admin .lbl { font-size: 0.6rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .url-admin .url { font-size: 1.05rem; font-weight: 800; color: #d4af37; word-break: break-all; }
+
+    /* Platform guide */
+    .platform-tabs { display: flex; gap: 6px; margin: 14px 0 10px; overflow-x: auto; }
+    .ptab {
+      flex-shrink: 0; padding: 6px 13px; border-radius: 20px;
+      border: 2px solid #334155; background: #0f172a;
+      color: #64748b; font-size: 0.72rem; font-weight: 600; cursor: pointer;
+    }
+    .ptab.active { border-color: #d4af37; color: #d4af37; background: #162030; }
+    .pguide { display: none; font-size: 0.78rem; color: #cbd5e1; line-height: 1.8; }
+    .pguide.active { display: block; }
+    .pguide ol { padding-left: 18px; }
+    .pguide li { margin-bottom: 4px; }
+
+    /* Status badge */
+    .badge-done {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #14532d; color: #86efac; border: 1px solid #166534;
+      border-radius: 20px; padding: 4px 12px; font-size: 0.72rem; font-weight: 700;
+      margin-top: 8px;
+    }
+
+    /* Edit section (admin) */
+    .edit-toggle { text-align: right; margin-bottom: 8px; }
+    .btn-edit-sm {
+      background: none; border: 1px solid #334155; color: #64748b;
+      border-radius: 8px; padding: 4px 12px; font-size: 0.7rem; cursor: pointer;
+    }
+    .guia-editor {
+      width: 100%; background: #0f172a; border: 2px solid #334155;
+      border-radius: 12px; color: #e2e8f0; font-size: 0.82rem;
+      padding: 12px; line-height: 1.6; resize: vertical;
+      min-height: 220px; outline: none; font-family: inherit; margin-top: 8px;
+    }
+    .guia-editor:focus { border-color: #d4af37; }
+    .msg-ok  { background:#14532d;border:1px solid #4ade80;color:#86efac;border-radius:10px;padding:9px 13px;font-size:0.78rem;margin-top:8px;display:none; }
+    .msg-err { background:#7f1d1d;border:1px solid #ef4444;color:#fca5a5;border-radius:10px;padding:9px 13px;font-size:0.78rem;margin-top:8px;display:none; }
+
+    .btn-back {
+      display: block; text-align: center; color: #64748b;
+      font-size: 0.75rem; text-decoration: none; margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="header-icon">📲</div>
+    <h1>Guía de Instalación</h1>
+    <p>Logistica de Puertos y Aduanas RD</p>
+  </div>
+
+  <!-- PASO 1 -->
+  <div class="step-block active" id="step1">
+    <div class="step-header">
+      <div class="step-num" id="num1">1</div>
+      <div class="step-title">Conecta al WiFi del servidor</div>
+    </div>
+    <div class="step-desc">
+      Asegúrate de que tu dispositivo esté conectado a la <strong style="color:#d4af37;">misma red WiFi</strong> que el PC donde corre el servidor.
+    </div>
+    <button class="btn-primary" onclick="completarPaso1()">✅ Ya estoy conectado → Continuar</button>
+  </div>
+
+  <!-- PASO 2 -->
+  <div class="step-block locked" id="step2">
+    <div class="step-header">
+      <div class="step-num" id="num2">2</div>
+      <div class="step-title">Abre la App</div>
+    </div>
+    <div class="step-desc" id="desc2">
+      Accede a la app en tu dispositivo usando el botón de abajo.
+    </div>
+
+    {% if role == 'admin' %}
+    <!-- Admin: ve la URL y el QR -->
+    <div class="url-admin">
+      <div class="lbl">Dirección del servidor</div>
+      <div class="url" id="urlDisplay">{{ server_url }}</div>
+    </div>
+    {% if qr_b64 %}
+    <div style="text-align:center;margin-bottom:12px;">
+      <img src="data:image/png;base64,{{ qr_b64 }}" width="150" height="150" style="border-radius:10px;">
+      <div style="font-size:0.65rem;color:#64748b;margin-top:5px;">📷 Escanea con la cámara</div>
+    </div>
+    {% endif %}
+    <button class="btn-primary" onclick="abrirApp()">🚀 Abrir App ahora</button>
+    {% else %}
+    <!-- Invitado: URL oculta, solo botón -->
+    <button class="btn-primary" id="btnAbrirApp" onclick="abrirApp()" disabled>🚀 Abrir App en este dispositivo</button>
+    {% endif %}
+  </div>
+
+  <!-- PASO 3 -->
+  <div class="step-block locked" id="step3">
+    <div class="step-header">
+      <div class="step-num" id="num3">3</div>
+      <div class="step-title">Instala la App en tu pantalla</div>
+    </div>
+    <div class="step-desc">
+      Desde la app ya abierta, instálala en tu dispositivo para acceder siempre con un ícono 🚢.
+    </div>
+
+    <div class="platform-tabs">
+      <div class="ptab active" onclick="showPlatform('android', this)">🤖 Android</div>
+      <div class="ptab" onclick="showPlatform('ios', this)">🍎 iPhone</div>
+      <div class="ptab" onclick="showPlatform('pc', this)">💻 PC</div>
+    </div>
+
+    <div class="pguide active" id="p-android">
+      <ol>
+        <li>Toca los <strong>3 puntos ⋮</strong> en Chrome (esquina superior derecha)</li>
+        <li>Toca <strong>"Añadir a pantalla de inicio"</strong></li>
+        <li>Confirma → el ícono 🚢 aparece en tu pantalla</li>
+      </ol>
+    </div>
+    <div class="pguide" id="p-ios">
+      <ol>
+        <li>Abre la app en <strong>Safari</strong> (obligatorio)</li>
+        <li>Toca el ícono <strong>Compartir 📤</strong> (parte inferior)</li>
+        <li>Toca <strong>"Añadir a inicio"</strong> → <strong>Añadir</strong></li>
+      </ol>
+    </div>
+    <div class="pguide" id="p-pc">
+      <ol>
+        <li>Abre la app en <strong>Chrome o Edge</strong></li>
+        <li>Toca el ícono <strong>⊕</strong> en la barra de dirección</li>
+        <li>Clic en <strong>"Instalar"</strong> → confirma</li>
+      </ol>
+    </div>
+
+    <div id="badgeFinal" style="display:none;">
+      <div class="badge-done">🎉 ¡App instalada correctamente!</div>
+    </div>
+    <button class="btn-outline" onclick="marcarInstalada()">✅ Ya instalé la app</button>
+  </div>
+
+  {% if role == 'admin' %}
+  <!-- Editor de la guía (solo admin) -->
+  <div style="background:#1e293b;border-radius:18px;padding:20px 18px;margin-top:14px;border:1px solid #334155;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span style="font-size:0.65rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;">✏️ Editar texto de la guía</span>
+      <button class="btn-edit-sm" onclick="toggleEditor()">Mostrar/Ocultar</button>
+    </div>
+    <div id="editorWrap" style="display:none;">
+      <textarea class="guia-editor" id="editorTexto">{{ contenido }}</textarea>
+      <button class="btn-primary" onclick="guardarGuia()" style="margin-top:10px;">💾 Guardar cambios</button>
+      <div class="msg-ok"  id="msgOk">✅ Guía guardada.</div>
+      <div class="msg-err" id="msgErr">❌ Error al guardar.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <a class="btn-back" href="/">← Volver a la App</a>
+</div>
+
+<script>
+  const IS_ADMIN = "{{ role }}" === "admin";
+  const APP_URL  = {% if role == 'admin' %}"{{ server_url }}"{% else %}window.location.origin{% endif %};
+
+  /* ── Paso 1 completado ── */
+  function completarPaso1() {
+    // Marcar paso 1 como hecho
+    const s1 = document.getElementById('step1');
+    s1.classList.remove('active');
+    s1.classList.add('done');
+    document.getElementById('num1').textContent = '✓';
+
+    // Activar paso 2
+    const s2 = document.getElementById('step2');
+    s2.classList.remove('locked');
+    s2.classList.add('active');
+
+    // Habilitar botón en invitado
+    const btn = document.getElementById('btnAbrirApp');
+    if (btn) btn.disabled = false;
+
+    // Scroll suave al paso 2
+    s2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ── Abrir app (Paso 2) ── */
+  function abrirApp() {
+    // Abrir la app en nueva pestaña
+    window.open(APP_URL, '_blank');
+
+    // Marcar paso 2 como hecho y activar paso 3
+    const s2 = document.getElementById('step2');
+    s2.classList.remove('active');
+    s2.classList.add('done');
+    document.getElementById('num2').textContent = '✓';
+
+    const s3 = document.getElementById('step3');
+    s3.classList.remove('locked');
+    s3.classList.add('active');
+
+    s3.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ── Marcar app instalada (Paso 3) ── */
+  function marcarInstalada() {
+    const s3 = document.getElementById('step3');
+    s3.classList.remove('active');
+    s3.classList.add('done');
+    document.getElementById('num3').textContent = '✓';
+    document.getElementById('badgeFinal').style.display = 'block';
+    s3.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ── Tabs de plataforma ── */
+  function showPlatform(name, el) {
+    document.querySelectorAll('.pguide').forEach(g => g.classList.remove('active'));
+    document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+    document.getElementById('p-' + name).classList.add('active');
+    el.classList.add('active');
+  }
+
+  {% if role == 'admin' %}
+  /* ── Editor ── */
+  function toggleEditor() {
+    const w = document.getElementById('editorWrap');
+    w.style.display = w.style.display === 'none' ? 'block' : 'none';
+  }
+  async function guardarGuia() {
+    const texto = document.getElementById('editorTexto').value;
+    document.getElementById('msgOk').style.display  = 'none';
+    document.getElementById('msgErr').style.display = 'none';
+    try {
+      const r = await fetch('/guia/guardar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({contenido: texto})
+      });
+      const d = await r.json();
+      document.getElementById(d.ok ? 'msgOk' : 'msgErr').style.display = 'block';
+    } catch(e) {
+      document.getElementById('msgErr').style.display = 'block';
+    }
+  }
+  {% endif %}
+</script>
+</body>
+</html>

@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Logistica de Puertos y Aduanas RD</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#1e3a5f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Puertos y Aduanas">
+  <meta name="user-role" content="{{ role }}">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+
+  <style>
+    :root {
+      --navy:   #0f172a;
+      --navy2:  #1e293b;
+      --navy3:  #0f2744;
+      --gold:   #d4af37;
+      --gold2:  #b8962e;
+      --text:   #e2e8f0;
+      --muted:  #94a3b8;
+      --border: #334155;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bot: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      height: 100%;
+      background: var(--navy);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overscroll-behavior: none;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(160deg, #1e3a5f 0%, #0f2744 100%);
+      border-bottom: 2px solid var(--gold);
+      padding: calc(var(--safe-top) + 14px) 20px 14px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .header-logo { font-size: 1.7rem; line-height: 1; }
+    .header h1  { font-size: 1.05rem; font-weight: 700; color: var(--gold); margin-top: 4px; }
+    .header p   { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+    /* Role badge */
+    .role-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 6px; padding: 3px 12px; border-radius: 20px;
+      font-size: 0.68rem; font-weight: 600;
+    }
+    .role-badge.admin   { background: #1a2a1a; color: #4ade80; border: 1px solid #166534; }
+    .role-badge.invitado{ background: #1e2a3a; color: #93c5fd; border: 1px solid #1d4ed8; }
+
+    /* Users panel */
+    .users-panel { margin-top: 12px; }
+    .user-card {
+      background: #0f172a; border-radius: 12px; padding: 12px 14px;
+      margin-bottom: 10px; border: 1px solid #334155;
+    }
+    .user-card.bloqueado { border-color: #7f1d1d; opacity: 0.7; }
+    .user-name { font-size: 0.88rem; font-weight: 700; color: #e2e8f0; margin-bottom: 2px; }
+    .user-meta { font-size: 0.7rem; color: #64748b; line-height: 1.5; }
+    .user-meta span { display: block; }
+    .user-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+    .btn-bloquear {
+      flex: 1; padding: 7px 8px; border-radius: 10px; border: none;
+      font-size: 0.7rem; font-weight: 700; cursor: pointer;
+      background: #7f1d1d; color: #fca5a5; min-width: 70px;
+    }
+    .btn-desbloquear {
+      flex: 1; padding: 7px 8px; border-radius: 10px; border: none;
+      font-size: 0.7rem; font-weight: 700; cursor: pointer;
+      background: #14532d; color: #86efac; min-width: 70px;
+    }
+    .btn-editar {
+      flex: 1; padding: 7px 8px; border-radius: 10px; border: none;
+      font-size: 0.7rem; font-weight: 700; cursor: pointer;
+      background: #1e3a5f; color: #93c5fd; min-width: 70px;
+    }
+    .btn-eliminar {
+      flex: 1; padding: 7px 8px; border-radius: 10px; border: none;
+      font-size: 0.7rem; font-weight: 700; cursor: pointer;
+      background: #3b0764; color: #e879f9; min-width: 70px;
+    }
+    .badge-bloqueado {
+      display: inline-block; background: #7f1d1d; color: #fca5a5;
+      font-size: 0.62rem; font-weight: 700; padding: 2px 8px;
+      border-radius: 20px; margin-left: 6px; vertical-align: middle;
+    }
+    .badge-tipo-admin {
+      display: inline-block; background: #1a2a1a; color: #4ade80;
+      font-size: 0.62rem; font-weight: 700; padding: 2px 8px;
+      border-radius: 20px; margin-left: 6px; vertical-align: middle;
+    }
+    .no-users { text-align: center; color: #64748b; font-size: 0.78rem; padding: 16px 0; }
+    /* Adjunto ficha técnica */
+    .attach-zone {
+      border: 2px dashed #334155; border-radius: 12px; padding: 12px 14px;
+      margin-bottom: 10px; cursor: pointer; text-align: center;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .attach-zone:hover { border-color: #d4af37; background: #162030; }
+    .attach-zone.has-file { border-color: #4ade80; background: #0d2010; }
+    .attach-zone input[type=file] { display: none; }
+    .attach-label { font-size: 0.78rem; color: #64748b; }
+    .attach-label span { font-size: 1.1rem; }
+    .attach-name { font-size: 0.78rem; color: #4ade80; font-weight: 600; margin-top: 4px; word-break: break-all; }
+    .attach-remove { font-size: 0.68rem; color: #f87171; cursor: pointer; margin-top: 2px; display: none; }
+    /* Modal usuarios */
+    .modal-usuarios { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7);
+      z-index:200; align-items:center; justify-content:center; padding:16px; }
+    .modal-usuarios.show { display:flex; }
+    .modal-u-box { background:#1e293b; border-radius:18px; padding:22px 18px;
+      width:100%; max-width:460px; max-height:90vh; overflow-y:auto; border:1px solid #334155; }
+    .modal-u-box h3 { color:#d4af37; font-size:0.95rem; margin-bottom:16px; }
+    .u-field { margin-bottom:12px; }
+    .u-field label { display:block; font-size:0.65rem; font-weight:700; color:#64748b;
+      text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+    .u-field input, .u-field select {
+      width:100%; background:#0f172a; border:2px solid #334155; border-radius:10px;
+      color:#e2e8f0; font-size:0.88rem; padding:10px 12px; outline:none; }
+    .u-field input:focus, .u-field select:focus { border-color:#d4af37; }
+    .u-btns { display:flex; gap:10px; margin-top:16px; }
+    .u-btns button { flex:1; padding:11px; border-radius:12px; border:none;
+      font-size:0.85rem; font-weight:700; cursor:pointer; }
+    .u-btn-save { background:linear-gradient(135deg,#d4af37,#b8962e); color:#0f172a; }
+    .u-btn-cancel { background:#334155; color:#94a3b8; }
+
+    /* Solicitudes */
+    .sol-card { background:#0f172a;border-radius:12px;padding:12px 14px;margin-bottom:10px;border:1px solid #334155; }
+    .sol-card.enviado { border-color:#166534;opacity:0.6; }
+    .sol-nombre { font-size:0.88rem;font-weight:700;color:#e2e8f0;margin-bottom:2px; }
+    .sol-meta   { font-size:0.7rem;color:#64748b;margin-bottom:10px;line-height:1.5; }
+    .btn-enviar-sol {
+      width:100%;padding:8px;border-radius:10px;border:none;
+      background:linear-gradient(135deg,#d4af37,#b8962e);color:#0f172a;
+      font-size:0.75rem;font-weight:700;cursor:pointer;
+    }
+    .badge-enviado { display:inline-block;background:#14532d;color:#86efac;font-size:0.62rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px; }
+
+    /* Restricted modal */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75); z-index: 100;
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: #1e293b; border: 1px solid #334155; border-radius: 20px;
+      padding: 28px 22px; text-align: center; max-width: 340px; width: 100%;
+    }
+    .modal-ico  { font-size: 2.8rem; margin-bottom: 12px; }
+    .modal h3   { font-size: 1rem; font-weight: 700; color: #f87171; margin-bottom: 8px; }
+    .modal p    { font-size: 0.82rem; color: #94a3b8; line-height: 1.6; margin-bottom: 20px; }
+    .modal-btns { display: flex; flex-direction: column; gap: 10px; }
+    .btn-wa  {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px; border-radius: 14px; border: none;
+      background: #25d366; color: #fff; font-size: 0.9rem; font-weight: 700;
+      text-decoration: none; cursor: pointer;
+    }
+    .btn-email {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px; border-radius: 14px; border: 1px solid #334155;
+      background: #0f172a; color: #93c5fd; font-size: 0.9rem; font-weight: 600;
+      text-decoration: none; cursor: pointer;
+    }
+    .btn-cerrar {
+      padding: 10px; border-radius: 14px; border: none;
+      background: transparent; color: #64748b; font-size: 0.82rem; cursor: pointer;
+    }
+    /* Formulario modal */
+    .mf-label {
+      font-size: 0.7rem; font-weight: 700; color: #94a3b8;
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin-bottom: 5px; margin-top: 12px;
+    }
+    .mf-input {
+      width: 100%; background: #0f172a; border: 1px solid #334155;
+      border-radius: 10px; color: #e2e8f0; font-size: 0.88rem;
+      padding: 10px 12px; outline: none; font-family: inherit;
+      transition: border-color 0.2s; margin-bottom: 2px;
+    }
+    .mf-input:focus { border-color: #d4af37; }
+    .mf-ta { min-height: 64px; resize: none; }
+
+    .wa-header  {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 8px; padding: 5px 14px; border-radius: 20px;
+      background: #25d366; color: #fff;
+      font-size: 0.75rem; font-weight: 600;
+      text-decoration: none;
+    }
+    .wa-header:active { opacity: 0.85; }
+
+    /* ── Nav tabs ── */
+    .tabs {
+      display: flex;
+      background: var(--navy2);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px 4px;
+      text-align: center;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+    /* ── Scrollable body ── */
+    .body {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ── Screens ── */
+    .screen { display: none; padding: 16px; }
+    .screen.active { display: block; }
+
+    /* ── Section label ── */
+    .label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 8px;
+    }
+
+    /* ── Notebook grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .nb-btn {
+      background: var(--navy2);
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 10px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .nb-btn:active { transform: scale(0.94); }
+    .nb-btn.sel    { border-color: var(--gold); background: #162030; }
+    .nb-btn .ico   { font-size: 1.6rem; line-height: 1; display: block; margin-bottom: 5px; }
+    .nb-btn .txt   { font-size: 0.68rem; color: var(--muted); line-height: 1.3; }
+    .nb-btn.sel .txt { color: var(--gold); }
+
+    /* ── Input card ── */
+    .card {
+      background: var(--navy2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .sel-tag {
+      padding: 8px 14px 0;
+      font-size: 0.72rem;
+      color: var(--gold);
+      display: none;
+    }
+    .sel-tag.show { display: block; }
+    textarea {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 0.95rem;
+      padding: 12px 14px;
+      min-height: 80px;
+      resize: none;
+      outline: none;
+      font-family: inherit;
+    }
+    textarea::placeholder { color: #475569; }
+
+    .btn-primary {
+      width: 100%;
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: #0f172a;
+      border: none;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+    }
+    .btn-primary:active { opacity: 0.8; }
+    .btn-primary:disabled { opacity: 0.45; cursor: default; }
+
+    /* ── Response ── */
+    .resp-card {
+      background: var(--navy2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      display: none;
+    }
+    .resp-card.show { display: block; }
+    .resp-header { font-size: 0.65rem; color: #475569; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+    .resp-body   { font-size: 0.88rem; line-height: 1.7; color: #cbd5e1; white-space: pre-wrap; word-break: break-word; }
+    .resp-nb     { font-size: 0.68rem; color: var(--gold); margin-top: 10px; }
+
+    /* ── Loading ── */
+    .loading-row { display: flex; align-items: center; gap: 10px; color: #64748b; font-size: 0.82rem; }
+    .spin {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid var(--border);
+      border-top-color: var(--gold);
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── History screen ── */
+    .hist-item {
+      background: var(--navy2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 13px;
+      margin-bottom: 10px;
+    }
+    .hist-q    { font-size: 0.82rem; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .hist-nb   { font-size: 0.65rem; color: var(--gold); margin-bottom: 6px; }
+    .hist-a    { font-size: 0.78rem; color: var(--muted); line-height: 1.5;
+                 display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .hist-empty { text-align: center; color: #475569; font-size: 0.85rem; padding: 40px 0; }
+
+    /* ── Info screen ── */
+    .info-section { margin-bottom: 20px; }
+    .info-section h3 { font-size: 0.78rem; color: var(--gold); font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .info-row    { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #1e293b; align-items: flex-start; }
+    .info-ico    { font-size: 1.2rem; flex-shrink: 0; width: 28px; text-align: center; }
+    .info-text   { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+    .info-text strong { color: var(--text); display: block; margin-bottom: 2px; }
+    .badge {
+      display: inline-block;
+      background: #162030;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      font-size: 0.65rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-top: 4px;
+    }
+
+    /* ── Footer safe area ── */
+    .footer-pad { height: calc(var(--safe-bot) + 8px); }
+
+    .error { color: #f87171; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">🚢</div>
+    <h1>Logistica de Puertos y Aduanas RD</h1>
+    <p>auditoria.puertos.aduanas@gmail.com</p>
+    <a class="wa-header" href="https://wa.me/18093547636" target="_blank">
+      <span>💬</span> WhatsApp (809) 354-7636
+    </a>
+    <div>
+      {% if role == 'admin' %}
+      <span class="role-badge admin">👑 Administrador</span>
+      {% else %}
+      <span class="role-badge invitado">👤 Invitado — Solo consultas</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('consulta', this)">🔍 Consulta</div>
+    <div class="tab" onclick="showTab('historial', this)">🕑 Historial</div>
+    <div class="tab" onclick="showTab('info', this)">ℹ️ Info</div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- ── Consulta ── -->
+    <div id="tab-consulta" class="screen active">
+
+      <div class="label">1. Elige el cuaderno</div>
+      <div class="grid" id="nbGrid">
+        {% for nb in notebooks %}
+        <button class="nb-btn" data-id="{{ nb.id }}" data-name="{{ nb.nombre }}" onclick="selectNb(this)">
+          <span class="ico">{{ nb.emoji }}</span>
+          <span class="txt">{{ nb.nombre }}</span>
+        </button>
+        {% endfor %}
+      </div>
+
+      <div class="label">2. Escribe tu consulta</div>
+      <div class="card">
+        <div class="sel-tag" id="selTag"></div>
+        <textarea id="qInput" placeholder="Escribe tu pregunta..." rows="3"></textarea>
+
+        <!-- Adjuntar ficha técnica -->
+        <div class="attach-zone" id="attachZone" onclick="document.getElementById('fileInput').click()">
+          <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" onchange="onFileSelected(this)">
+          <div class="attach-label"><span>📎</span> Adjuntar ficha técnica (PDF o JPG) — opcional</div>
+          <div class="attach-name" id="attachName"></div>
+          <div class="attach-remove" id="attachRemove" onclick="removeFile(event)">✕ Quitar archivo</div>
+        </div>
+
+        <button class="btn-primary" id="btnSend" onclick="send()" disabled>Consultar →</button>
+      </div>
+
+      <div class="resp-card" id="respCard">
+        <div class="resp-header">Respuesta</div>
+        <div class="resp-body" id="respBody"></div>
+        <div class="resp-nb" id="respNb"></div>
+      </div>
+
+      <div class="footer-pad"></div>
+    </div>
+
+    <!-- ── Historial ── -->
+    <div id="tab-historial" class="screen">
+      <div class="label">Consultas recientes</div>
+      <div id="histList"><div class="hist-empty">Aún no hay consultas.</div></div>
+      <div class="footer-pad"></div>
+    </div>
+
+    <!-- ── Info ── -->
+    <div id="tab-info" class="screen">
+
+      <div class="info-section">
+        <h3>Sobre esta app</h3>
+        <div class="info-row">
+          <div class="info-ico">🏛️</div>
+          <div class="info-text">
+            <strong>Logistica de Puertos y Aduanas RD</strong>
+            Consulta directa a la documentación oficial de la Dirección General de Aduanas de la República Dominicana.
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-ico">📖</div>
+          <div class="info-text">
+            <strong>7 cuadernos disponibles</strong>
+            Nomenclaturas · Legal · Valoración · Regímenes · Aforo · VUCERD · Normas de Origen
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <h3>Los 7 cuadernos</h3>
+        {% for nb in notebooks %}
+        <div class="info-row">
+          <div class="info-ico">{{ nb.emoji }}</div>
+          <div class="info-text">
+            <strong>{{ nb.nombre }}</strong>
+            <span class="badge">{{ nb.id.replace('biblioteca-','').replace('-dga','').replace('-',' ') }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="info-section">
+        <h3>Sesión</h3>
+        <div class="info-row">
+          <div class="info-ico">{% if role == 'admin' %}👑{% else %}👤{% endif %}</div>
+          <div class="info-text">
+            <strong>{% if role == 'admin' %}Administrador{% else %}Invitado{% endif %}</strong>
+            {% if role == 'invitado' %}
+            <span style="display:block;font-size:0.72rem;color:#93c5fd;margin-top:3px;">Acceso solo a consultas</span>
+            {% endif %}
+            <a href="/logout" style="display:inline-block;margin-top:8px;padding:6px 16px;background:#7f1d1d;color:#fca5a5;border-radius:20px;font-size:0.72rem;font-weight:600;text-decoration:none;">Cerrar sesión</a>
+          </div>
+        </div>
+      </div>
+
+      {% if role == 'admin' %}
+      <div class="info-section">
+        <h3>Panel Administrador</h3>
+        <div class="info-row">
+          <div class="info-ico">➕</div>
+          <div class="info-text">
+            <strong>Agregar cuaderno</strong>
+            <button onclick="accionRestringida('agregar')" style="display:none"></button>
+            <span style="font-size:0.72rem;color:#4ade80;">Disponible — eres administrador</span>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-ico">🗑️</div>
+          <div class="info-text">
+            <strong>Eliminar cuaderno</strong>
+            <span style="font-size:0.72rem;color:#4ade80;">Disponible — eres administrador</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Solicitudes de instalador -->
+      <div class="info-section">
+        <h3 style="display:flex;align-items:center;justify-content:space-between;">
+          <span>📨 Solicitudes de Instalador</span>
+          <button onclick="cargarSolicitudes()" style="background:none;border:1px solid #334155;color:#94a3b8;border-radius:8px;padding:4px 10px;font-size:0.7rem;cursor:pointer;">↻</button>
+        </h3>
+        <div id="solicitudesPanel"><div style="text-align:center;color:#64748b;font-size:0.78rem;padding:12px 0;">Cargando...</div></div>
+      </div>
+
+      <!-- Usuarios registrados -->
+      <div class="info-section">
+        <h3 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+          <span>👥 Usuarios y Administradores</span>
+          <div style="display:flex;gap:6px;">
+            <button onclick="abrirCrearUsuario()" style="background:#d4af37;border:none;color:#0f172a;border-radius:8px;padding:5px 10px;font-size:0.7rem;font-weight:700;cursor:pointer;">➕ Crear</button>
+            <button onclick="cargarUsuarios()" style="background:none;border:1px solid #334155;color:#94a3b8;border-radius:8px;padding:4px 10px;font-size:0.7rem;cursor:pointer;">↻</button>
+          </div>
+        </h3>
+        <div class="users-panel" id="usersPanel">
+          <div class="no-users">Cargando usuarios...</div>
+        </div>
+      </div>
+      {% else %}
+      <div class="info-section">
+        <h3>Acciones restringidas</h3>
+        <div class="info-row">
+          <div class="info-ico">🔒</div>
+          <div class="info-text">
+            <strong>Crear / Modificar / Eliminar</strong>
+            <span style="font-size:0.72rem;color:#f87171;display:block;margin-top:3px;">Solo el administrador puede realizar estas acciones.</span>
+            <button onclick="accionRestringida()" style="display:inline-block;margin-top:8px;padding:7px 16px;background:#1e3a5f;color:#d4af37;border:1px solid #d4af37;border-radius:20px;font-size:0.72rem;font-weight:600;cursor:pointer;">Solicitar al administrador →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recibir instalador por correo (solo invitados) -->
+      <div class="info-section">
+        <h3>📱 Instalar App en tu dispositivo</h3>
+        <div style="background:#0f172a;border-radius:12px;padding:14px;margin-bottom:12px;border:1px solid #334155;">
+          <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:4px;">Tu correo registrado:</div>
+          <div style="font-size:0.9rem;font-weight:700;color:#d4af37;">{{ correo if correo else '—' }}</div>
+        </div>
+        <button id="btnSolicitarApp" onclick="solicitarInstalador()"
+          style="width:100%;background:linear-gradient(135deg,#d4af37,#b8962e);color:#0f172a;border:none;border-radius:12px;padding:13px;font-size:0.88rem;font-weight:700;cursor:pointer;margin-bottom:8px;">
+          📧 Recibir instalador en mi correo
+        </button>
+        <div id="msgSolicitud" style="display:none;background:#14532d;border:1px solid #4ade80;border-radius:10px;padding:10px 13px;font-size:0.78rem;color:#86efac;line-height:1.5;"></div>
+        <a href="/instalar" target="_blank"
+           style="display:block;background:#1e293b;border:2px solid #334155;color:#94a3b8;border-radius:12px;padding:11px;font-size:0.82rem;font-weight:600;text-align:center;text-decoration:none;margin-top:8px;">
+          📲 Ver guía de instalación
+        </a>
+      </div>
+      {% endif %}
+
+      <!-- Guía de instalación -->
+      <div class="info-section">
+        <h3>📲 Guía de Instalación</h3>
+        <a href="/guia" style="display:block;background:linear-gradient(135deg,#1e3a5f,#0f2744);border:2px solid #d4af37;color:#d4af37;border-radius:12px;padding:13px;font-size:0.88rem;font-weight:700;text-align:center;text-decoration:none;">
+          {% if role == 'admin' %}✏️ Ver y Editar guía{% else %}📖 Ver guía de instalación{% endif %}
+        </a>
+      </div>
+
+      <!-- Compartir / Descargar App -->
+      <div class="info-section">
+        <h3>📥 Compartir esta App</h3>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;">
+          <a href="/instalar" target="_blank"
+             style="display:block;background:linear-gradient(135deg,#d4af37,#b8962e);color:#0f172a;border:none;border-radius:12px;padding:13px;font-size:0.88rem;font-weight:700;text-align:center;text-decoration:none;">
+            📲 Ver guía de instalación
+          </a>
+          <a href="/descargar-app" download="Logistica-Puertos-Aduanas-RD.html"
+             style="display:block;background:#1e293b;border:2px solid #334155;color:#e2e8f0;border-radius:12px;padding:12px;font-size:0.85rem;font-weight:600;text-align:center;text-decoration:none;">
+            📥 Descargar archivo para enviar
+          </a>
+          <a id="shareWaBtn" href="#"
+             style="display:block;background:#0a1f12;border:2px solid #25d366;color:#25d366;border-radius:12px;padding:12px;font-size:0.85rem;font-weight:600;text-align:center;text-decoration:none;">
+            💬 Compartir por WhatsApp
+          </a>
+        </div>
+        <div style="font-size:0.68rem;color:#475569;margin-top:10px;line-height:1.5;">
+          Envía el archivo o el enlace a cualquier persona para que instale la app en su móvil, tablet o PC.
+        </div>
+      </div>
+
+      <div class="info-section">
+        <h3>Contacto</h3>
+        <div class="info-row">
+          <div class="info-ico">💬</div>
+          <div class="info-text">
+            <strong>WhatsApp</strong>
+            <a href="https://wa.me/18093547636" target="_blank" style="color:#25d366;font-weight:600;text-decoration:none;">(809) 354-7636</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <h3>Cómo instalar esta app</h3>
+        <div class="info-row">
+          <div class="info-ico">🤖</div>
+          <div class="info-text">
+            <strong>Android (Chrome)</strong>
+            Toca el menú ⋮ → "Añadir a pantalla de inicio" → Instalar
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-ico">🍎</div>
+          <div class="info-text">
+            <strong>iPhone (Safari)</strong>
+            Toca el botón compartir ↑ → "Añadir a pantalla de inicio" → Añadir
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-pad"></div>
+    </div>
+
+  </div><!-- /body -->
+</div><!-- /app -->
+
+<!-- Modal Crear / Editar Usuario (solo admin) -->
+<div class="modal-usuarios" id="modalUsuario">
+  <div class="modal-u-box">
+    <h3 id="modalUsuarioTitulo">➕ Crear nuevo usuario</h3>
+
+    <div class="u-field">
+      <label>Tipo de acceso</label>
+      <select id="uTipo">
+        <option value="invitado">👤 Invitado</option>
+        <option value="admin">👑 Administrador</option>
+      </select>
+    </div>
+    <div class="u-field">
+      <label>Nombre completo *</label>
+      <input type="text" id="uNombre" placeholder="Nombre completo">
+    </div>
+    <div class="u-field">
+      <label>Correo electrónico *</label>
+      <input type="email" id="uCorreo" placeholder="correo@ejemplo.com">
+    </div>
+    <div class="u-field">
+      <label>WhatsApp</label>
+      <input type="tel" id="uWhatsapp" placeholder="(809) 000-0000">
+    </div>
+    <div class="u-field">
+      <label>Profesión</label>
+      <input type="text" id="uProfesion" placeholder="Agente Aduanal, Abogado...">
+    </div>
+    <div class="u-field">
+      <label>Se dedica a</label>
+      <input type="text" id="uDedicacion" placeholder="Importaciones, Exportaciones...">
+    </div>
+    <div class="u-field">
+      <label>País</label>
+      <input type="text" id="uPais" placeholder="República Dominicana">
+    </div>
+    <div class="u-field">
+      <label>Provincia</label>
+      <input type="text" id="uProvincia" placeholder="Santo Domingo">
+    </div>
+    <div class="u-field">
+      <label>Municipio</label>
+      <input type="text" id="uMunicipio" placeholder="Distrito Nacional">
+    </div>
+    <div class="u-field">
+      <label>Calle</label>
+      <input type="text" id="uCalle" placeholder="Av. Winston Churchill">
+    </div>
+    <div class="u-field">
+      <label>Número</label>
+      <input type="text" id="uNumero" placeholder="123">
+    </div>
+
+    <div id="uError" style="color:#f87171;font-size:0.75rem;margin-top:4px;display:none;"></div>
+
+    <div class="u-btns">
+      <button class="u-btn-save" onclick="guardarUsuario()">💾 Guardar</button>
+      <button class="u-btn-cancel" onclick="cerrarModalUsuario()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal acceso restringido — Formulario de solicitud -->
+<div class="modal-overlay" id="modalRestringido">
+  <div class="modal" style="max-height:92vh;overflow-y:auto;text-align:left;">
+
+    <!-- Paso 1: formulario -->
+    <div id="pasoForm">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:2rem;">📋</div>
+        <h3 style="color:#d4af37;font-size:0.95rem;margin-top:6px;">Solicitud al Administrador</h3>
+        <p style="font-size:0.75rem;color:#64748b;margin-top:4px;">Completa el formulario y envía tu requerimiento</p>
+      </div>
+
+      <div class="mf-label">1. ¿Cuál es su nombre?</div>
+      <input class="mf-input" id="fNombre" type="text" placeholder="Nombre completo">
+
+      <div class="mf-label">2. ¿Cuál es su WhatsApp?</div>
+      <input class="mf-input" id="fWassap" type="tel" placeholder="(809) 000-0000">
+
+      <div class="mf-label">3. ¿Cuál es su correo electrónico?</div>
+      <input class="mf-input" id="fCorreo" type="email" placeholder="correo@ejemplo.com">
+
+      <div class="mf-label">4. ¿Cuál es su situación?</div>
+      <textarea class="mf-input mf-ta" id="fSituacion" placeholder="Describe brevemente tu situación..."></textarea>
+
+      <div class="mf-label">5. ¿Qué deseas realizar?</div>
+      <textarea class="mf-input mf-ta" id="fAccion" placeholder="¿Qué acción necesitas ejecutar?"></textarea>
+
+      <div class="mf-label">6. ¿Qué aporte de investigación legal puedes ofrecer para agregar y completar tu requerimiento?</div>
+      <textarea class="mf-input mf-ta" id="fAporte" placeholder="Anexa link de consulta y/o ley de la República Dominicana y fuentes de autores reconocidos..."></textarea>
+
+      <div id="fError" style="color:#f87171;font-size:0.75rem;margin-bottom:10px;display:none;">
+        Por favor completa todos los campos.
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px;">
+        <button class="btn-wa" onclick="enviarSolicitud('wa')">💬 Enviar por WhatsApp</button>
+        <button class="btn-email" onclick="enviarSolicitud('email')">✉️ Enviar por Correo</button>
+        <button class="btn-cerrar" onclick="cerrarModal()">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- Paso 2: confirmación enviado -->
+    <div id="pasoOk" style="display:none;text-align:center;">
+      <div style="font-size:3rem;margin-bottom:14px;">✅</div>
+      <h3 style="color:#4ade80;margin-bottom:10px;">¡Solicitud enviada!</h3>
+      <p style="font-size:0.82rem;color:#94a3b8;line-height:1.6;margin-bottom:20px;">
+        Tu requerimiento fue enviado al administrador.<br>
+        Te contactaremos a la brevedad.
+      </p>
+      <button class="btn-login" style="border-radius:14px;border:none;cursor:pointer;" onclick="cerrarModal()">Cerrar</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const USER_ROLE = document.querySelector('meta[name="user-role"]').content;
+  const IS_ADMIN  = USER_ROLE === 'admin';
+
+  // Intercepta cualquier acción restringida para invitados
+  function accionRestringida(accion) {
+    if (!IS_ADMIN) {
+      document.getElementById('modalRestringido').classList.add('show');
+      return true; // bloqueado
+    }
+    return false; // permitido
+  }
+  function cerrarModal() {
+    document.getElementById('modalRestringido').classList.remove('show');
+    // Reset form
+    document.getElementById('pasoForm').style.display = 'block';
+    document.getElementById('pasoOk').style.display   = 'none';
+    ['fNombre','fWassap','fCorreo','fSituacion','fAccion','fAporte'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('fError').style.display = 'none';
+  }
+
+  function enviarSolicitud(via) {
+    const nombre    = document.getElementById('fNombre').value.trim();
+    const wassap    = document.getElementById('fWassap').value.trim();
+    const correo    = document.getElementById('fCorreo').value.trim();
+    const situacion = document.getElementById('fSituacion').value.trim();
+    const accion    = document.getElementById('fAccion').value.trim();
+    const aporte    = document.getElementById('fAporte').value.trim();
+
+    if (!nombre || !wassap || !correo || !situacion || !accion || !aporte) {
+      document.getElementById('fError').style.display = 'block';
+      return;
+    }
+    document.getElementById('fError').style.display = 'none';
+
+    const msg =
+`📋 SOLICITUD - Logistica Puertos y Aduanas RD
+
+👤 Nombre: ${nombre}
+📱 WhatsApp: ${wassap}
+📧 Correo: ${correo}
+📌 Situación: ${situacion}
+🎯 Desea realizar: ${accion}
+📚 Aporte legal / fuentes: ${aporte}`;
+
+    if (via === 'wa') {
+      const url = 'https://wa.me/18093547636?text=' + encodeURIComponent(msg);
+      window.open(url, '_blank');
+    } else {
+      const subject = 'Solicitud de administrador - ' + nombre;
+      const url = 'mailto:consulta.puertos.aduanas@gmail.com?subject='
+        + encodeURIComponent(subject) + '&body=' + encodeURIComponent(msg);
+      window.open(url, '_blank');
+    }
+
+    document.getElementById('pasoForm').style.display = 'none';
+    document.getElementById('pasoOk').style.display   = 'block';
+  }
+
+  let selId = null, selName = '';
+  const history = JSON.parse(localStorage.getItem('dga_history') || '[]');
+
+  function showTab(name, el) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    el.classList.add('active');
+    if (name === 'historial') renderHistory();
+  }
+
+  function selectNb(btn) {
+    document.querySelectorAll('.nb-btn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    selId   = btn.dataset.id;
+    selName = btn.dataset.name;
+    const tag = document.getElementById('selTag');
+    tag.textContent = '📖 ' + selName;
+    tag.classList.add('show');
+    document.getElementById('btnSend').disabled = false;
+  }
+
+  let _attachedFile = null;
+
+  function onFileSelected(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const allowed = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowed.includes(file.type)) {
+      alert('Solo se permiten archivos PDF, JPG o PNG.');
+      input.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('El archivo no puede superar 10 MB.');
+      input.value = '';
+      return;
+    }
+    _attachedFile = file;
+    const zone = document.getElementById('attachZone');
+    zone.classList.add('has-file');
+    document.getElementById('attachName').textContent = '📄 ' + file.name + ' (' + (file.size/1024).toFixed(0) + ' KB)';
+    document.getElementById('attachRemove').style.display = 'block';
+  }
+
+  function removeFile(e) {
+    e.stopPropagation();
+    _attachedFile = null;
+    document.getElementById('fileInput').value = '';
+    document.getElementById('attachZone').classList.remove('has-file');
+    document.getElementById('attachName').textContent = '';
+    document.getElementById('attachRemove').style.display = 'none';
+  }
+
+  async function send() {
+    const q = document.getElementById('qInput').value.trim();
+    if (!q || !selId) return;
+    const btn  = document.getElementById('btnSend');
+    const card = document.getElementById('respCard');
+    const body = document.getElementById('respBody');
+    const nb   = document.getElementById('respNb');
+
+    btn.disabled = true;
+    btn.textContent = 'Consultando...';
+    card.classList.add('show');
+    body.innerHTML = '<div class="loading-row"><div class="spin"></div>Abriendo NotebookLM... (puede tardar 1-2 min)</div>';
+    nb.textContent = '';
+
+    try {
+      let res;
+      if (_attachedFile) {
+        // Enviar con archivo adjunto (multipart)
+        const fd = new FormData();
+        fd.append('question', q);
+        fd.append('notebook_id', selId);
+        fd.append('archivo', _attachedFile);
+        res = await fetch('/consultar', { method: 'POST', body: fd });
+      } else {
+        res = await fetch('/consultar', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({question: q, notebook_id: selId})
+        });
+      }
+      const data = await res.json();
+      if (data.error) {
+        body.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
+      } else {
+        body.textContent = data.answer;
+        nb.textContent = '📖 ' + selName;
+        saveHistory(q, selName, data.answer);
+      }
+    } catch(e) {
+      body.innerHTML = '<span class="error">No se pudo conectar con el servidor.<br>Verifica que el PC esté encendido y el servidor activo.</span>';
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Consultar →';
+    card.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }
+
+  function saveHistory(q, nb, ans) {
+    history.unshift({q, nb, ans, ts: new Date().toLocaleString('es-DO')});
+    if (history.length > 30) history.pop();
+    localStorage.setItem('dga_history', JSON.stringify(history));
+  }
+
+  function renderHistory() {
+    const el = document.getElementById('histList');
+    if (!history.length) { el.innerHTML = '<div class="hist-empty">Aún no hay consultas.</div>'; return; }
+    el.innerHTML = history.map(h => `
+      <div class="hist-item">
+        <div class="hist-q">${h.q}</div>
+        <div class="hist-nb">📖 ${h.nb} · ${h.ts}</div>
+        <div class="hist-a">${h.ans}</div>
+      </div>`).join('');
+  }
+
+  document.getElementById('qInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey && selId) { e.preventDefault(); send(); }
+  });
+
+  // Register Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+  }
+
+  // ── Compartir app por WhatsApp ──────────────────────────────────────
+  (function() {
+    const appUrl = window.location.origin;
+    const msg = encodeURIComponent(
+      '🚢 *Logistica de Puertos y Aduanas RD*\n\n' +
+      'Te comparto la app de consulta de la Biblioteca DGA.\n\n' +
+      '👉 ' + appUrl + '\n\n' +
+      '📲 Instalar en móvil:\n' +
+      '• Android: Chrome → ⋮ → Añadir a inicio\n' +
+      '• iPhone: Safari → 📤 → Añadir a inicio\n\n' +
+      '⚠️ Requiere estar en el mismo WiFi'
+    );
+    const btn = document.getElementById('shareWaBtn');
+    if (btn) btn.href = 'https://wa.me/18093547636?text=' + msg;
+  })();
+
+  // ── Solicitar instalador (invitado) ─────────────────────────────────
+  async function solicitarInstalador() {
+    const btn = document.getElementById('btnSolicitarApp');
+    const msg = document.getElementById('msgSolicitud');
+    btn.disabled = true;
+    btn.textContent = 'Enviando solicitud...';
+    try {
+      const r = await fetch('/solicitar-app', { method: 'POST' });
+      const d = await r.json();
+      msg.style.display = 'block';
+      msg.textContent   = d.mensaje || d.error || 'Solicitud registrada.';
+      if (d.ok) {
+        btn.textContent = '✅ Solicitud enviada';
+        msg.style.background = '#14532d';
+        msg.style.borderColor = '#4ade80';
+        msg.style.color = '#86efac';
+      } else {
+        btn.disabled = false;
+        btn.textContent = '📧 Recibir instalador en mi correo';
+        msg.style.background = '#7f1d1d';
+        msg.style.borderColor = '#ef4444';
+        msg.style.color = '#fca5a5';
+      }
+    } catch(e) {
+      btn.disabled = false;
+      btn.textContent = '📧 Recibir instalador en mi correo';
+    }
+  }
+
+  // ── Solicitudes pendientes (admin) ───────────────────────────────────
+  async function cargarSolicitudes() {
+    if (!IS_ADMIN) return;
+    const panel = document.getElementById('solicitudesPanel');
+    if (!panel) return;
+    panel.innerHTML = '<div style="text-align:center;color:#64748b;font-size:0.78rem;padding:12px 0;">Cargando...</div>';
+    try {
+      const r    = await fetch('/admin/solicitudes');
+      const data = await r.json();
+      const lista = (data.solicitudes || []).slice().reverse();
+      if (!lista.length) {
+        panel.innerHTML = '<div style="text-align:center;color:#64748b;font-size:0.78rem;padding:12px 0;">No hay solicitudes aún.</div>';
+        return;
+      }
+      const appUrl = window.location.origin;
+      panel.innerHTML = lista.map(s => `
+        <div class="sol-card ${s.estado === 'enviado' ? 'enviado' : ''}">
+          <div class="sol-nombre">
+            ${s.nombre}
+            ${s.estado === 'enviado' ? '<span class="badge-enviado">✅ Enviado</span>' : '<span style="display:inline-block;background:#7c2d12;color:#fdba74;font-size:0.62rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px;">⏳ Pendiente</span>'}
+          </div>
+          <div class="sol-meta">
+            <span>📧 ${s.correo}</span>
+            <span>🗓 ${s.fecha}</span>
+          </div>
+          ${s.estado !== 'enviado' ? `
+          <button class="btn-enviar-sol" onclick="enviarInstaladorCorreo('${s.id}','${s.correo}','${s.nombre}','${appUrl}')">
+            📧 Enviar instalador a ${s.correo}
+          </button>` : ''}
+        </div>`).join('');
+    } catch(e) {
+      panel.innerHTML = '<div style="text-align:center;color:#64748b;font-size:0.78rem;padding:12px 0;">Error al cargar.</div>';
+    }
+  }
+
+  function enviarInstaladorCorreo(id, correo, nombre, appUrl) {
+    const subj = encodeURIComponent('🚢 Tu instalador — Logistica de Puertos y Aduanas RD');
+    const body = encodeURIComponent(
+      'Hola ' + nombre + ',\n\n' +
+      'A continuación tu acceso a la app Logistica de Puertos y Aduanas RD.\n\n' +
+      '👉 Dirección de la app: ' + appUrl + '\n' +
+      '📲 Guía de instalación: ' + appUrl + '/instalar\n\n' +
+      'CÓMO INSTALAR:\n' +
+      '• Android: Chrome → ⋮ → Añadir a pantalla de inicio\n' +
+      '• iPhone/iPad: Safari → 📤 → Añadir a inicio\n' +
+      '• PC/Mac: Chrome → ícono ⊕ → Instalar\n\n' +
+      'Tu acceso como Invitado:\n' +
+      '• Contraseña: Puertos2024\n' +
+      '• Ingresa con tu correo registrado: ' + correo + '\n\n' +
+      '⚠️ Debes estar conectado al mismo WiFi del servidor.\n\n' +
+      'Distribuido por: consultoria.puertos.aduanas@gmail.com\n' +
+      'WhatsApp: (809) 354-7636'
+    );
+    window.open('mailto:' + correo + '?subject=' + subj + '&body=' + body, '_blank');
+    // Marcar como enviado
+    fetch('/admin/solicitudes/marcar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id, estado: 'enviado'})
+    }).then(() => cargarSolicitudes());
+  }
+
+  // ── Gestión de usuarios (solo admin) ────────────────────────────────
+  async function cargarUsuarios() {
+    if (!IS_ADMIN) return;
+    const panel = document.getElementById('usersPanel');
+    if (!panel) return;
+    panel.innerHTML = '<div class="no-users">Cargando...</div>';
+    try {
+      const r = await fetch('/admin/usuarios');
+      const data = await r.json();
+      const lista = data.usuarios || [];
+      if (!lista.length) {
+        panel.innerHTML = '<div class="no-users">No hay usuarios registrados aún.<br>Usa ➕ Crear para agregar uno.</div>';
+        return;
+      }
+      panel.innerHTML = lista.map(u => `
+        <div class="user-card ${u.bloqueado ? 'bloqueado' : ''}" id="uc-${u.id}">
+          <div class="user-name">
+            ${u.nombre}
+            ${u.tipo === 'admin' ? '<span class="badge-tipo-admin">👑 Admin</span>' : ''}
+            ${u.bloqueado ? '<span class="badge-bloqueado">🚫 BLOQUEADO</span>' : ''}
+          </div>
+          <div class="user-meta">
+            <span>📧 ${u.correo}</span>
+            <span>📱 ${u.whatsapp || '—'}</span>
+            <span>💼 ${u.profesion || '—'} — ${u.dedicacion || '—'}</span>
+            <span>📍 ${[u.municipio, u.provincia, u.pais].filter(Boolean).join(', ') || '—'}</span>
+            ${u.calle ? `<span>🏠 ${u.calle} ${u.numero}</span>` : ''}
+            <span style="color:#475569;">🗓 Registro: ${u.fecha_registro}</span>
+          </div>
+          <div class="user-actions">
+            ${u.bloqueado
+              ? `<button class="btn-desbloquear" onclick="toggleBloqueo('${u.id}', false)">✅ Activar</button>`
+              : `<button class="btn-bloquear"    onclick="toggleBloqueo('${u.id}', true)">🚫 Bloquear</button>`
+            }
+            <button class="btn-editar"   onclick="abrirEditarUsuario(${JSON.stringify(u).replace(/'/g,"&#39;")})">✏️ Editar</button>
+            <button class="btn-eliminar" onclick="eliminarUsuario('${u.id}','${u.nombre.replace(/'/g,"\\'")}')">🗑️ Borrar</button>
+          </div>
+        </div>`).join('');
+    } catch(e) {
+      panel.innerHTML = '<div class="no-users">Error al cargar usuarios.</div>';
+    }
+  }
+
+  async function toggleBloqueo(id, bloquear) {
+    if (!confirm(`¿Deseas ${bloquear ? 'bloquear' : 'activar'} a este usuario?`)) return;
+    try {
+      const r = await fetch('/admin/bloquear', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id, bloqueado: bloquear})
+      });
+      const d = await r.json();
+      if (d.ok) cargarUsuarios();
+      else alert(d.error || 'Error al actualizar.');
+    } catch(e) { alert('Error de conexión.'); }
+  }
+
+  async function eliminarUsuario(id, nombre) {
+    if (!confirm(`¿Eliminar permanentemente a "${nombre}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      const r = await fetch('/admin/usuarios/eliminar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id})
+      });
+      const d = await r.json();
+      if (d.ok) cargarUsuarios();
+      else alert(d.error || 'Error al eliminar.');
+    } catch(e) { alert('Error de conexión.'); }
+  }
+
+  let _editUserId = null;
+
+  function abrirCrearUsuario() {
+    _editUserId = null;
+    document.getElementById('modalUsuarioTitulo').textContent = '➕ Crear nuevo usuario';
+    ['uNombre','uCorreo','uWhatsapp','uProfesion','uDedicacion','uProvincia','uMunicipio','uCalle','uNumero'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('uPais').value  = 'República Dominicana';
+    document.getElementById('uTipo').value  = 'invitado';
+    document.getElementById('uCorreo').readOnly = false;
+    document.getElementById('uError').style.display = 'none';
+    document.getElementById('modalUsuario').classList.add('show');
+  }
+
+  function abrirEditarUsuario(u) {
+    _editUserId = u.id;
+    document.getElementById('modalUsuarioTitulo').textContent = '✏️ Editar usuario';
+    document.getElementById('uTipo').value       = u.tipo || 'invitado';
+    document.getElementById('uNombre').value     = u.nombre || '';
+    document.getElementById('uCorreo').value     = u.correo || '';
+    document.getElementById('uCorreo').readOnly  = true;  // no cambiar correo (clave)
+    document.getElementById('uWhatsapp').value   = u.whatsapp || '';
+    document.getElementById('uProfesion').value  = u.profesion || '';
+    document.getElementById('uDedicacion').value = u.dedicacion || '';
+    document.getElementById('uPais').value       = u.pais || 'República Dominicana';
+    document.getElementById('uProvincia').value  = u.provincia || '';
+    document.getElementById('uMunicipio').value  = u.municipio || '';
+    document.getElementById('uCalle').value      = u.calle || '';
+    document.getElementById('uNumero').value     = u.numero || '';
+    document.getElementById('uError').style.display = 'none';
+    document.getElementById('modalUsuario').classList.add('show');
+  }
+
+  function cerrarModalUsuario() {
+    document.getElementById('modalUsuario').classList.remove('show');
+    _editUserId = null;
+  }
+
+  async function guardarUsuario() {
+    const nombre = document.getElementById('uNombre').value.trim();
+    const correo = document.getElementById('uCorreo').value.trim();
+    const errEl  = document.getElementById('uError');
+    if (!nombre || !correo) {
+      errEl.textContent = 'Nombre y correo son obligatorios.';
+      errEl.style.display = 'block';
+      return;
+    }
+    errEl.style.display = 'none';
+
+    const payload = {
+      tipo:       document.getElementById('uTipo').value,
+      nombre, correo,
+      whatsapp:   document.getElementById('uWhatsapp').value.trim(),
+      profesion:  document.getElementById('uProfesion').value.trim(),
+      dedicacion: document.getElementById('uDedicacion').value.trim(),
+      pais:       document.getElementById('uPais').value.trim(),
+      provincia:  document.getElementById('uProvincia').value.trim(),
+      municipio:  document.getElementById('uMunicipio').value.trim(),
+      calle:      document.getElementById('uCalle').value.trim(),
+      numero:     document.getElementById('uNumero').value.trim(),
+    };
+
+    const url    = _editUserId ? '/admin/usuarios/editar' : '/admin/usuarios/crear';
+    if (_editUserId) payload.id = _editUserId;
+
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const d = await r.json();
+      if (d.ok) {
+        cerrarModalUsuario();
+        cargarUsuarios();
+      } else {
+        errEl.textContent = d.error || 'Error al guardar.';
+        errEl.style.display = 'block';
+      }
+    } catch(e) {
+      errEl.textContent = 'Error de conexión.';
+      errEl.style.display = 'block';
+    }
+  }
+
+  // Cargar usuarios automáticamente si es admin y está en tab Info
+  if (IS_ADMIN) {
+    document.addEventListener('DOMContentLoaded', () => {
+      // Cargar cuando se abra el tab de Info
+      const origShowTab = window.showTab;
+      window._tabInfoLoaded = false;
+    });
+    // Cargar al abrir la pestaña Info
+    const origShowTab = window.showTab;
+    window.showTab = function(name, el) {
+      if (typeof origShowTab === 'function') origShowTab(name, el);
+      if (name === 'info' && IS_ADMIN) { cargarUsuarios(); cargarSolicitudes(); }
+    };
+    // También cargar si ya estamos en Info
+    setTimeout(() => {
+      if (document.getElementById('tab-info')?.classList.contains('active')) cargarUsuarios();
+    }, 500);
+  }
+</script>
+</body>
+</html>

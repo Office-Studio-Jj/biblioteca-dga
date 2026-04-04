@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Instalar App — Logistica de Puertos y Aduanas RD</title>
+  <meta name="theme-color" content="#0f172a">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: #0f172a; color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 460px; margin: 0 auto; padding: 28px 20px 60px; }
+
+    .hero { text-align: center; margin-bottom: 28px; }
+    .hero-icon { font-size: 3.5rem; margin-bottom: 10px; }
+    .hero h1  { font-size: 1.2rem; font-weight: 800; color: #d4af37; line-height: 1.3; }
+    .hero p   { font-size: 0.75rem; color: #64748b; margin-top: 5px; }
+
+    .card { background: #1e293b; border-radius: 18px; padding: 20px 18px; margin-bottom: 16px; }
+    .card-title {
+      font-size: 0.65rem; font-weight: 700; color: #d4af37;
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    /* URL display */
+    .url-box {
+      background: #0f172a; border: 2px solid #d4af37;
+      border-radius: 12px; padding: 13px 14px;
+      font-size: 1rem; font-weight: 700; color: #d4af37;
+      word-break: break-all; text-align: center; margin-bottom: 10px;
+      letter-spacing: 0.5px;
+    }
+    .btn-copy {
+      width: 100%; background: #1e293b; border: 2px solid #334155;
+      color: #94a3b8; border-radius: 10px; padding: 10px;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+    }
+    .btn-copy.copied { border-color: #4ade80; color: #4ade80; }
+
+    /* QR */
+    .qr-wrap { text-align: center; margin: 16px 0 10px; }
+    .qr-wrap img { width: 180px; height: 180px; border-radius: 12px; }
+    .qr-label { font-size: 0.68rem; color: #64748b; margin-top: 6px; }
+
+    /* Open button */
+    .btn-open {
+      display: block; width: 100%;
+      background: linear-gradient(135deg, #d4af37, #b8962e);
+      color: #0f172a; border: none; border-radius: 14px;
+      padding: 14px; font-size: 1rem; font-weight: 800;
+      text-align: center; text-decoration: none; margin-bottom: 10px;
+      cursor: pointer;
+    }
+    .btn-wa {
+      display: block; width: 100%;
+      background: #25d366; color: #fff; border: none; border-radius: 14px;
+      padding: 13px; font-size: 0.88rem; font-weight: 700;
+      text-align: center; text-decoration: none; margin-bottom: 10px;
+      cursor: pointer;
+    }
+    .btn-dl {
+      display: block; width: 100%;
+      background: #1e293b; border: 2px solid #334155; color: #e2e8f0;
+      border-radius: 14px; padding: 13px; font-size: 0.88rem; font-weight: 700;
+      text-align: center; text-decoration: none; cursor: pointer;
+    }
+
+    /* Steps */
+    .step { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+    .step-num {
+      min-width: 28px; height: 28px; background: #d4af37; color: #0f172a;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 0.78rem; font-weight: 800; flex-shrink: 0; margin-top: 2px;
+    }
+    .step-text strong { display: block; font-size: 0.88rem; color: #e2e8f0; margin-bottom: 2px; }
+    .step-text span   { font-size: 0.75rem; color: #64748b; line-height: 1.4; }
+
+    /* Platform tabs */
+    .ptabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; }
+    .ptab {
+      flex-shrink: 0; padding: 7px 14px; border-radius: 20px;
+      border: 2px solid #334155; background: #0f172a;
+      color: #64748b; font-size: 0.75rem; font-weight: 600; cursor: pointer;
+    }
+    .ptab.active { border-color: #d4af37; color: #d4af37; background: #162030; }
+    .pguide { display: none; }
+    .pguide.active { display: block; }
+
+    .back-link { text-align: center; margin-top: 24px; }
+    .back-link a { color: #64748b; font-size: 0.75rem; text-decoration: none; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-icon">🚢</div>
+    <h1>Logistica de Puertos y Aduanas RD</h1>
+    <p>Instala la app en tu dispositivo en 3 pasos</p>
+  </div>
+
+  <!-- URL y QR — solo visible para administrador -->
+  <div class="card">
+    <div class="card-title">📥 Descarga la App desde aquí</div>
+
+    {% if role == 'admin' %}
+    <div class="url-box" id="urlBox">{{ server_url }}</div>
+    <button class="btn-copy" id="btnCopy" onclick="copyUrl()">📋 Copiar dirección</button>
+    {% if qr_b64 %}
+    <div class="qr-wrap">
+      <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR Code">
+      <div class="qr-label">Escanea con la cámara de tu móvil</div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div style="background:#0f172a;border:2px solid #334155;border-radius:12px;padding:16px;text-align:center;">
+      <div style="font-size:1.8rem;margin-bottom:8px;">🔒</div>
+      <div style="font-size:0.82rem;color:#64748b;line-height:1.5;">La dirección de acceso es visible<br>solo para el <strong style="color:#d4af37;">Administrador</strong>.<br><br>
+      Usa el botón de abajo para acceder<br>o contacta al administrador.</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Distribuidor -->
+  <div style="background:#1e293b;border-radius:14px;padding:14px 16px;margin-bottom:16px;border:1px solid #334155;text-align:center;">
+    <div style="font-size:0.6rem;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Distribuido oficialmente por</div>
+    <div style="font-size:0.92rem;font-weight:700;color:#d4af37;">consultoria.puertos.aduanas@gmail.com</div>
+  </div>
+
+  <!-- Acciones -->
+  <div class="card">
+    <div class="card-title">⚡ Acceso rápido</div>
+    <a class="btn-open" href="#" id="btnAbrirApp" target="_blank">🚀 Abrir App ahora</a>
+    {% if role == 'admin' %}
+    <a class="btn-wa" id="btnWa" href="#">💬 Compartir por WhatsApp</a>
+    <a class="btn-dl" id="btnEmail" href="#">✉️ Compartir por Correo</a>
+    <a class="btn-dl" href="/descargar-app" download="Logistica-Puertos-Aduanas-RD.html" style="margin-top:8px;">📥 Descargar archivo instalador</a>
+    {% endif %}
+  </div>
+
+  <!-- Guías de instalación -->
+  <div class="card">
+    <div class="card-title">📲 Cómo instalar la App</div>
+
+    <div class="ptabs">
+      <div class="ptab active" onclick="showGuide('android', this)">🤖 Android</div>
+      <div class="ptab" onclick="showGuide('ios', this)">🍎 iPhone / iPad</div>
+      <div class="ptab" onclick="showGuide('pc', this)">💻 PC / Mac</div>
+    </div>
+
+    <!-- Android -->
+    <div class="pguide active" id="g-android">
+      <div class="step"><div class="step-num">1</div>
+        <div class="step-text"><strong>Abre Chrome en tu Android</strong>
+          <span>Copia la dirección de arriba y pégala en Chrome</span></div></div>
+      <div class="step"><div class="step-num">2</div>
+        <div class="step-text"><strong>Toca los 3 puntos ⋮</strong>
+          <span>Menú en la esquina superior derecha de Chrome</span></div></div>
+      <div class="step"><div class="step-num">3</div>
+        <div class="step-text"><strong>Selecciona "Añadir a pantalla de inicio"</strong>
+          <span>La app aparecerá como ícono en tu pantalla. ¡Lista!</span></div></div>
+    </div>
+
+    <!-- iOS -->
+    <div class="pguide" id="g-ios">
+      <div class="step"><div class="step-num">1</div>
+        <div class="step-text"><strong>Abre Safari en tu iPhone o iPad</strong>
+          <span>Solo funciona desde Safari (no Chrome en iOS)</span></div></div>
+      <div class="step"><div class="step-num">2</div>
+        <div class="step-text"><strong>Toca el ícono de Compartir 📤</strong>
+          <span>Está en la barra inferior del navegador</span></div></div>
+      <div class="step"><div class="step-num">3</div>
+        <div class="step-text"><strong>Selecciona "Añadir a inicio"</strong>
+          <span>Baja en el menú y toca esa opción. Confirma con "Añadir"</span></div></div>
+    </div>
+
+    <!-- PC -->
+    <div class="pguide" id="g-pc">
+      <div class="step"><div class="step-num">1</div>
+        <div class="step-text"><strong>Abre Chrome o Edge en tu PC</strong>
+          <span>Navega a la dirección de la app</span></div></div>
+      <div class="step"><div class="step-num">2</div>
+        <div class="step-text"><strong>Clic en el ícono de instalación ⊕</strong>
+          <span>Aparece en la barra de dirección a la derecha</span></div></div>
+      <div class="step"><div class="step-num">3</div>
+        <div class="step-text"><strong>Clic en "Instalar"</strong>
+          <span>La app se abre como ventana independiente sin la barra del navegador</span></div></div>
+    </div>
+  </div>
+
+  <div class="back-link"><a href="/login">← Ir al inicio de sesión</a></div>
+</div>
+
+<script>
+  const APP_URL = {% if role == 'admin' %}"{{ server_url }}"{% else %}window.location.origin{% endif %};
+
+  // Asignar href del botón principal dinámicamente (nunca en el HTML estático)
+  document.getElementById('btnAbrirApp').href = APP_URL;
+
+  {% if role == 'admin' %}
+  const DIST_EMAIL = 'consultoria.puertos.aduanas@gmail.com';
+
+  document.getElementById('btnWa').href =
+    'https://wa.me/18093547636?text=' +
+    encodeURIComponent('🚢 *Logistica de Puertos y Aduanas RD*\n\nTe comparto la app de la Biblioteca DGA.\n👉 ' + APP_URL + '\n\n📲 Guía de instalación: ' + APP_URL + '/instalar\n\n✉️ Contacto: ' + DIST_EMAIL);
+
+  document.getElementById('btnEmail').href =
+    'mailto:?subject=' + encodeURIComponent('🚢 Logistica de Puertos y Aduanas RD — Instala la App') +
+    '&body=' + encodeURIComponent(
+      'Hola,\n\nTe comparto el acceso a la app Logistica de Puertos y Aduanas RD.\n\n' +
+      '👉 Dirección: ' + APP_URL + '\n' +
+      '📲 Guía de instalación: ' + APP_URL + '/instalar\n\n' +
+      'INSTALAR EN MÓVIL:\n' +
+      '• Android: Chrome → ⋮ → Añadir a pantalla de inicio\n' +
+      '• iPhone/iPad: Safari → 📤 → Añadir a inicio\n' +
+      '• PC/Mac: Chrome → ícono ⊕ → Instalar\n\n' +
+      '⚠️ Debes estar en el mismo WiFi del servidor.\n\n' +
+      'Distribuido por: ' + DIST_EMAIL
+    );
+  {% endif %}
+
+  function copyUrl() {
+    navigator.clipboard.writeText(APP_URL).then(() => {
+      const btn = document.getElementById('btnCopy');
+      btn.textContent = '✅ ¡Copiado!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = '📋 Copiar dirección'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  function showGuide(name, el) {
+    document.querySelectorAll('.pguide').forEach(g => g.classList.remove('active'));
+    document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+    document.getElementById('g-' + name).classList.add('active');
+    el.classList.add('active');
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.bat
+generar_iconos.py
+notebooklm_skill/data/browser_state/
