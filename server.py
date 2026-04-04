@@ -42,6 +42,7 @@ USERS_FILE       = str(_DATA_DIR / "usuarios.json")
 SOLICITUDES_FILE = str(_DATA_DIR / "solicitudes.json")
 PASSWORDS_FILE   = str(_DATA_DIR / "passwords.json")
 HISTORIAL_FILE   = str(_DATA_DIR / "historial_invitados.json")
+RECOVERY_FILE    = str(_DATA_DIR / "recuperaciones.json")
 
 # ── Helpers de historial (solo admin puede ver/gestionar) ────────────────
 def load_historial():
@@ -53,6 +54,17 @@ def load_historial():
 
 def save_historial(data):
     with open(HISTORIAL_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_recovery():
+    try:
+        with open(RECOVERY_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"solicitudes": []}
+
+def save_recovery(data):
+    with open(RECOVERY_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def log_historial(correo, nombre, evento, detalle=""):
@@ -531,6 +543,111 @@ def cambiar_contrasena():
             return jsonify({"error": "Acceso denegado."}), 403
     else:
         return jsonify({"error": "Tipo de contraseña no válido."}), 400
+
+
+@app.route("/recuperar", methods=["GET", "POST"])
+def recuperar():
+    if request.method == "GET":
+        return render_template("recuperar.html", mensaje=None, error=None)
+
+    correo = request.form.get("correo", "").strip().lower()
+    tipo   = request.form.get("tipo", "invitado")   # "admin" o "invitado"
+
+    if not correo:
+        return render_template("recuperar.html", error="Ingresa tu correo.", mensaje=None)
+
+    # Validar que el correo exista (excepto admin maestro)
+    if tipo == "invitado":
+        usuario = find_user_by_email(correo)
+        if not usuario:
+            return render_template("recuperar.html", error="Correo no registrado.", mensaje=None)
+        nombre = usuario["nombre"]
+    else:
+        nombre = "Administrador"
+
+    # Generar código de 6 dígitos
+    import random
+    codigo = str(random.randint(100000, 999999))
+    codigo_hash = hashlib.sha256(codigo.encode()).hexdigest()
+
+    data = load_recovery()
+    # Cancelar solicitudes previas del mismo correo
+    data["solicitudes"] = [s for s in data["solicitudes"] if s["correo"] != correo]
+    data["solicitudes"].append({
+        "id":          str(uuid.uuid4()),
+        "correo":      correo,
+        "nombre":      nombre,
+        "tipo":        tipo,
+        "codigo_hash": codigo_hash,
+        "codigo_temp": codigo,      # Admin lo ve en el panel
+        "estado":      "pendiente",
+        "fecha":       datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
+    save_recovery(data)
+    log_historial(correo, nombre, "recuperacion_solicitada", f"Solicitó recuperación de contraseña ({tipo})")
+
+    wa_msg = f"Hola%20{nombre},%20tu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20*{codigo}*%20%F0%9F%94%91%20%0AApp:%20https://biblioteca-dga-production.up.railway.app"
+    wa_url = f"https://wa.me/{WHATSAPP_ADMIN}?text={wa_msg}"
+
+    return render_template("recuperar.html", mensaje="Solicitud enviada. El administrador recibirá tu pedido y te enviará el código por WhatsApp.", error=None, wa_url=wa_url)
+
+
+@app.route("/recuperar/verificar", methods=["POST"])
+def recuperar_verificar():
+    correo = (request.json or {}).get("correo", "").strip().lower()
+    codigo = (request.json or {}).get("codigo", "").strip()
+    nueva  = (request.json or {}).get("nueva", "").strip()
+
+    if not correo or not codigo or not nueva:
+        return jsonify({"error": "Todos los campos son obligatorios."}), 400
+    if len(nueva) < 6:
+        return jsonify({"error": "La nueva contraseña debe tener al menos 6 caracteres."}), 400
+
+    data = load_recovery()
+    sol  = next((s for s in data["solicitudes"] if s["correo"] == correo and s["estado"] == "pendiente"), None)
+    if not sol:
+        return jsonify({"error": "No hay solicitud pendiente para este correo."}), 404
+
+    if hashlib.sha256(codigo.encode()).hexdigest() != sol["codigo_hash"]:
+        return jsonify({"error": "Código incorrecto."}), 400
+
+    # Cambiar contraseña
+    passwords = load_passwords()
+    nueva_hash = hashlib.sha256(nueva.encode()).hexdigest()
+    if sol["tipo"] == "admin":
+        passwords["admin"] = nueva_hash
+    else:
+        passwords["invitado"] = nueva_hash
+        # Marcar password_changed
+        udata = load_users()
+        for u in udata["usuarios"]:
+            if u["correo"].lower() == correo:
+                u["password_changed"] = True
+                break
+        save_users(udata)
+    save_passwords(passwords)
+
+    # Marcar solicitud como usada
+    sol["estado"] = "completada"
+    save_recovery(data)
+    log_historial(correo, sol["nombre"], "recuperacion_completada", "Contraseña recuperada exitosamente")
+
+    return jsonify({"ok": True, "mensaje": "Contraseña cambiada exitosamente. Ya puedes iniciar sesión."})
+
+
+@app.route("/admin/recuperaciones")
+@admin_required
+def admin_recuperaciones():
+    return jsonify(load_recovery())
+
+@app.route("/admin/recuperaciones/eliminar", methods=["POST"])
+@admin_required
+def admin_recuperaciones_eliminar():
+    rid  = (request.json or {}).get("id", "")
+    data = load_recovery()
+    data["solicitudes"] = [s for s in data["solicitudes"] if s["id"] != rid]
+    save_recovery(data)
+    return jsonify({"ok": True})
 
 
 @app.route("/admin/historial")

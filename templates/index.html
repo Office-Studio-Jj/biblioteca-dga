@@ -545,6 +545,17 @@
         </div>
       </div>
 
+      <!-- Recuperaciones de contraseña (solo admin) -->
+      <div class="info-section">
+        <h3 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+          <span>🔑 Recuperaciones de Contraseña</span>
+          <button onclick="cargarRecuperaciones()" style="background:none;border:1px solid #334155;color:#94a3b8;border-radius:8px;padding:4px 10px;font-size:0.7rem;cursor:pointer;">↻</button>
+        </h3>
+        <div id="recuperacionesPanel" style="max-height:280px;overflow-y:auto;">
+          <div style="text-align:center;color:#64748b;font-size:0.78rem;padding:12px 0;">Cargando...</div>
+        </div>
+      </div>
+
       <!-- Historial de Invitados (solo admin) -->
       <div class="info-section">
         <h3 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
@@ -1273,6 +1284,52 @@
     window.addEventListener('DOMContentLoaded', () => abrirModalPass(true));
   }
 
+  // ── Recuperaciones de contraseña (solo admin) ───────────────────────
+  async function cargarRecuperaciones() {
+    if (!IS_ADMIN) return;
+    const panel = document.getElementById('recuperacionesPanel');
+    if (!panel) return;
+    try {
+      const r    = await fetch('/admin/recuperaciones');
+      const data = await r.json();
+      const sols = (data.solicitudes || []).slice().reverse();
+      if (!sols.length) {
+        panel.innerHTML = '<div style="text-align:center;color:#64748b;font-size:0.78rem;padding:12px 0;">Sin solicitudes pendientes.</div>';
+        return;
+      }
+      const estadoColor = { pendiente: '#fbbf24', completada: '#4ade80' };
+      panel.innerHTML = sols.map(s => `
+        <div style="border-bottom:1px solid #1e293b;padding:10px 4px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+              <span style="font-size:0.78rem;color:#e2e8f0;font-weight:600;">${s.nombre}</span>
+              <span style="font-size:0.65rem;padding:2px 7px;border-radius:10px;background:${s.estado==='pendiente'?'#78350f':'#14532d'};color:${estadoColor[s.estado]||'#94a3b8'};">${s.estado}</span>
+            </div>
+            <div style="font-size:0.7rem;color:#94a3b8;">${s.correo} · ${s.tipo}</div>
+            ${s.estado === 'pendiente' ? `<div style="margin-top:4px;background:#0f172a;border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:8px;">
+              <span style="font-size:0.7rem;color:#64748b;">Código:</span>
+              <span style="font-size:1rem;font-weight:700;color:#d4af37;letter-spacing:3px;">${s.codigo_temp}</span>
+              <a href="https://wa.me/${WHATSAPP_ADMIN}?text=Hola%20${encodeURIComponent(s.nombre)},%20tu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20*${s.codigo_temp}*%20%F0%9F%94%91"
+                 target="_blank" style="font-size:0.7rem;background:#14532d;color:#4ade80;border-radius:8px;padding:3px 8px;text-decoration:none;">💬 Enviar</a>
+            </div>` : ''}
+            <div style="font-size:0.65rem;color:#334155;margin-top:2px;">${s.fecha}</div>
+          </div>
+          <button onclick="eliminarRecuperacion('${s.id}')" style="background:none;border:none;color:#f87171;font-size:0.85rem;cursor:pointer;flex-shrink:0;">🗑</button>
+        </div>`).join('');
+    } catch(e) {
+      panel.innerHTML = '<div style="color:#f87171;font-size:0.75rem;padding:8px;">Error al cargar.</div>';
+    }
+  }
+
+  async function eliminarRecuperacion(id) {
+    await fetch('/admin/recuperaciones/eliminar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id})
+    });
+    cargarRecuperaciones();
+  }
+
   // ── Historial de invitados (solo admin) ──────────────────────────────
   const EVENTOS = {
     'registro':         '🆕 Registro',
@@ -1387,7 +1444,7 @@
     const origShowTab = window.showTab;
     window.showTab = function(name, el) {
       if (typeof origShowTab === 'function') origShowTab(name, el);
-      if (name === 'info' && IS_ADMIN) { cargarUsuarios(); cargarSolicitudes(); cargarHistorial(); }
+      if (name === 'info' && IS_ADMIN) { cargarUsuarios(); cargarSolicitudes(); cargarRecuperaciones(); cargarHistorial(); }
     };
     // También cargar si ya estamos en Info
     setTimeout(() => {

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Recuperar Contraseña — Aduanas RD</title>
+  <meta name="theme-color" content="#1e3a5f">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      min-height: 100%; background: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #e2e8f0; display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .box { width: 100%; max-width: 360px; text-align: center; }
+    .logo { font-size: 3rem; margin-bottom: 10px; }
+    h1 { font-size: 1rem; font-weight: 700; color: #d4af37; margin-bottom: 4px; }
+    .sub { font-size: 0.72rem; color: #64748b; margin-bottom: 28px; }
+    .card { background: #1e293b; border-radius: 18px; padding: 22px 20px; text-align: left; margin-bottom: 16px; }
+    .field-label { font-size: 0.65rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; display: block; }
+    input[type="email"], input[type="text"], input[type="password"] {
+      width: 100%; background: #0f172a; border: 2px solid #334155;
+      border-radius: 12px; color: #e2e8f0; font-size: 0.95rem;
+      padding: 12px 14px; outline: none; transition: border-color 0.2s; margin-bottom: 14px;
+    }
+    input:focus { border-color: #d4af37; }
+    .roles { display: flex; gap: 10px; margin-bottom: 16px; }
+    .role-btn {
+      flex: 1; padding: 10px 8px; border-radius: 12px; border: 2px solid #334155;
+      background: #0f172a; color: #94a3b8; font-size: 0.75rem; font-weight: 600;
+      cursor: pointer; text-align: center; transition: all 0.2s;
+    }
+    .role-btn.active { border-color: #d4af37; color: #d4af37; }
+    .btn-main {
+      width: 100%; background: linear-gradient(135deg, #d4af37, #b8962e);
+      color: #0f172a; border: none; border-radius: 12px;
+      padding: 13px; font-size: 0.9rem; font-weight: 700; cursor: pointer; margin-top: 4px;
+    }
+    .btn-sec {
+      width: 100%; background: none; border: 1px solid #334155; color: #94a3b8;
+      border-radius: 12px; padding: 11px; font-size: 0.82rem; cursor: pointer; margin-top: 10px;
+    }
+    .alert-ok  { background: #14532d; border: 1px solid #4ade80; color: #4ade80; border-radius: 10px; padding: 10px 14px; font-size: 0.78rem; margin-bottom: 14px; line-height: 1.5; }
+    .alert-err { background: #7f1d1d; border: 1px solid #ef4444; color: #fca5a5; border-radius: 10px; padding: 10px 14px; font-size: 0.78rem; margin-bottom: 14px; }
+    .back { margin-top: 20px; font-size: 0.72rem; color: #64748b; }
+    .back a { color: #d4af37; text-decoration: none; font-weight: 600; }
+    .step-title { font-size: 0.8rem; font-weight: 700; color: #d4af37; margin-bottom: 12px; }
+    #paso2 { display: none; }
+    #btnWa { display: none; margin-top: 10px; width: 100%; background: #14532d; color: #4ade80; border: none; border-radius: 12px; padding: 11px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+  </style>
+</head>
+<body>
+<div class="box">
+  <div class="logo">🔑</div>
+  <h1>Recuperar Contraseña</h1>
+  <div class="sub">Te enviaremos un código de acceso temporal</div>
+
+  {% if error %}
+  <div class="alert-err">{{ error }}</div>
+  {% endif %}
+
+  <!-- Paso 1: Solicitar código -->
+  <div id="paso1">
+    <div class="card">
+      <div class="step-title">Paso 1 — Solicitar código</div>
+
+      <div class="roles">
+        <div class="role-btn active" id="btnRoleAdmin" onclick="setTipo('admin')">👑 Admin</div>
+        <div class="role-btn" id="btnRoleInv" onclick="setTipo('invitado')">👤 Invitado</div>
+      </div>
+
+      <form method="POST" action="/recuperar">
+        <input type="hidden" name="tipo" id="tipoInput" value="admin">
+        <label class="field-label" id="correoLabel">Correo del administrador</label>
+        <input type="email" name="correo" id="correoInput" placeholder="tu@correo.com" required>
+        <button type="submit" class="btn-main">Solicitar código →</button>
+      </form>
+    </div>
+
+    {% if mensaje %}
+    <div class="alert-ok">✅ {{ mensaje }}</div>
+    {% if wa_url %}
+    <a href="{{ wa_url }}" target="_blank">
+      <button class="btn-main" style="background:linear-gradient(135deg,#25d366,#128c7e);">💬 Notificar al Admin por WhatsApp</button>
+    </a>
+    {% endif %}
+    <button class="btn-sec" onclick="mostrarPaso2()">Ya tengo mi código →</button>
+    {% endif %}
+  </div>
+
+  <!-- Paso 2: Ingresar código y nueva contraseña -->
+  <div id="paso2">
+    <div class="card">
+      <div class="step-title">Paso 2 — Ingresar código</div>
+      <label class="field-label">Tu correo</label>
+      <input type="email" id="r_correo" placeholder="tu@correo.com">
+      <label class="field-label">Código recibido (6 dígitos)</label>
+      <input type="text" id="r_codigo" placeholder="123456" maxlength="6" inputmode="numeric">
+      <label class="field-label">Nueva contraseña</label>
+      <input type="password" id="r_nueva" placeholder="Mínimo 6 caracteres">
+      <div id="r_error" style="color:#f87171;font-size:0.75rem;margin-bottom:10px;display:none;"></div>
+      <div id="r_ok" style="color:#4ade80;font-size:0.75rem;margin-bottom:10px;display:none;"></div>
+      <button class="btn-main" onclick="verificarCodigo()">Cambiar contraseña ✓</button>
+      <button class="btn-sec" onclick="mostrarPaso1()">← Volver</button>
+    </div>
+  </div>
+
+  <div class="back"><a href="/login">← Volver al inicio de sesión</a></div>
+</div>
+
+<script>
+  function setTipo(t) {
+    document.getElementById('tipoInput').value = t;
+    document.getElementById('btnRoleAdmin').classList.toggle('active', t === 'admin');
+    document.getElementById('btnRoleInv').classList.toggle('active', t === 'invitado');
+    document.getElementById('correoLabel').textContent = t === 'admin'
+      ? 'Correo del administrador' : 'Tu correo registrado';
+  }
+
+  function mostrarPaso2() {
+    document.getElementById('paso1').style.display = 'none';
+    document.getElementById('paso2').style.display = 'block';
+  }
+
+  function mostrarPaso1() {
+    document.getElementById('paso2').style.display = 'none';
+    document.getElementById('paso1').style.display = 'block';
+  }
+
+  async function verificarCodigo() {
+    const correo = document.getElementById('r_correo').value.trim();
+    const codigo = document.getElementById('r_codigo').value.trim();
+    const nueva  = document.getElementById('r_nueva').value.trim();
+    const errEl  = document.getElementById('r_error');
+    const okEl   = document.getElementById('r_ok');
+    errEl.style.display = 'none';
+    okEl.style.display  = 'none';
+
+    const res  = await fetch('/recuperar/verificar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({correo, codigo, nueva})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      okEl.textContent    = data.mensaje;
+      okEl.style.display  = 'block';
+      setTimeout(() => window.location.href = '/login', 2500);
+    } else {
+      errEl.textContent   = data.error || 'Error al verificar.';
+      errEl.style.display = 'block';
+    }
+  }
+
+  {% if mensaje %}
+  // Si ya se envió la solicitud, mostrar opción de ingresar código
+  document.getElementById('paso1').querySelector('form').style.display = 'none';
+  {% endif %}
+</script>
+</body>
+</html>
