@@ -35,4 +35,4 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Arranque con gunicorn
-CMD gunicorn --bind 0.0.0.0:$PORT --timeout 1800 --workers 1 --threads 2 server:app
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --timeout 1800 --workers 1 --threads 2 server:app"]
