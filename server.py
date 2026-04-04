@@ -16,9 +16,9 @@ from flask import Flask, request, jsonify, render_template, session, redirect, u
 app = Flask(__name__, static_folder='static')
 app.secret_key = secrets.token_hex(32)   # clave de sesion aleatoria por arranque
 
-# ── Contraseñas (hash SHA-256) ───────────────────────────────────────────
-ADMIN_PASSWORD_HASH  = hashlib.sha256(b"DGA2024*").hexdigest()
-GUEST_PASSWORD_HASH  = hashlib.sha256(b"Puertos2024").hexdigest()
+# ── Contraseñas por defecto (hash SHA-256) ───────────────────────────────
+_DEFAULT_ADMIN_HASH = hashlib.sha256(b"DGA2024*").hexdigest()
+_DEFAULT_GUEST_HASH = hashlib.sha256(b"Puertos2024").hexdigest()
 
 import sys
 from pathlib import Path
@@ -40,6 +40,25 @@ else:
 _DATA_DIR.mkdir(parents=True, exist_ok=True)
 USERS_FILE       = str(_DATA_DIR / "usuarios.json")
 SOLICITUDES_FILE = str(_DATA_DIR / "solicitudes.json")
+PASSWORDS_FILE   = str(_DATA_DIR / "passwords.json")
+
+# ── Helpers de contraseñas ───────────────────────────────────────────────
+def load_passwords():
+    try:
+        with open(PASSWORDS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"admin": _DEFAULT_ADMIN_HASH, "invitado": _DEFAULT_GUEST_HASH}
+
+def save_passwords(data):
+    with open(PASSWORDS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def get_admin_hash():
+    return load_passwords().get("admin", _DEFAULT_ADMIN_HASH)
+
+def get_guest_hash():
+    return load_passwords().get("invitado", _DEFAULT_GUEST_HASH)
 
 # ── Correos oficiales del sistema ────────────────────────────────────────
 DISTRIBUTION_EMAIL = "consultoria.puertos.aduanas@gmail.com"   # envia la app
@@ -140,7 +159,7 @@ def login():
         correo   = request.form.get("correo", "").strip().lower()
         pwd_hash = hashlib.sha256(pwd.encode()).hexdigest()
 
-        if role_req == "admin" and pwd_hash == ADMIN_PASSWORD_HASH:
+        if role_req == "admin" and pwd_hash == get_admin_hash():
             # Admins creados en el panel usan su correo + contraseña admin
             if correo:
                 usuario = find_user_by_email(correo)
@@ -164,7 +183,7 @@ def login():
                 session["nombre"]    = "Administrador"
                 return redirect(url_for("index"))
 
-        elif role_req == "invitado" and pwd_hash == GUEST_PASSWORD_HASH:
+        elif role_req == "invitado" and pwd_hash == get_guest_hash():
             if not correo:
                 error = "Ingresa tu correo registrado para acceder como invitado."
             else:
@@ -416,6 +435,54 @@ def admin_eliminar_usuario():
         return jsonify({"error": "Usuario no encontrado"}), 404
     save_users(data)
     return jsonify({"ok": True})
+
+@app.route("/cambiar-contrasena", methods=["POST"])
+@login_required
+def cambiar_contrasena():
+    d            = request.json or {}
+    tipo         = d.get("tipo", "")          # "admin" o "invitado"
+    actual       = d.get("actual", "")
+    nueva        = d.get("nueva", "")
+    confirmacion = d.get("confirmacion", "")
+    role         = session.get("role", "")
+
+    if not actual or not nueva or not confirmacion:
+        return jsonify({"error": "Todos los campos son obligatorios."}), 400
+    if nueva != confirmacion:
+        return jsonify({"error": "La nueva contraseña y la confirmación no coinciden."}), 400
+    if len(nueva) < 6:
+        return jsonify({"error": "La contraseña debe tener al menos 6 caracteres."}), 400
+
+    actual_hash = hashlib.sha256(actual.encode()).hexdigest()
+    nueva_hash  = hashlib.sha256(nueva.encode()).hexdigest()
+    passwords   = load_passwords()
+
+    if tipo == "admin":
+        if role != "admin":
+            return jsonify({"error": "Solo el administrador puede cambiar esta contraseña."}), 403
+        if actual_hash != passwords.get("admin", _DEFAULT_ADMIN_HASH):
+            return jsonify({"error": "La contraseña actual es incorrecta."}), 400
+        passwords["admin"] = nueva_hash
+        save_passwords(passwords)
+        return jsonify({"ok": True, "mensaje": "Contraseña de administrador actualizada correctamente."})
+
+    elif tipo == "invitado":
+        if role == "admin":
+            # Admin puede cambiar la clave de invitado sin verificar la actual
+            passwords["invitado"] = nueva_hash
+            save_passwords(passwords)
+            return jsonify({"ok": True, "mensaje": "Contraseña de invitado actualizada correctamente."})
+        elif role == "invitado":
+            if actual_hash != passwords.get("invitado", _DEFAULT_GUEST_HASH):
+                return jsonify({"error": "La contraseña actual es incorrecta."}), 400
+            passwords["invitado"] = nueva_hash
+            save_passwords(passwords)
+            return jsonify({"ok": True, "mensaje": "Contraseña actualizada correctamente."})
+        else:
+            return jsonify({"error": "Acceso denegado."}), 403
+    else:
+        return jsonify({"error": "Tipo de contraseña no válido."}), 400
+
 
 GUIA_FILE = str((_BASE / "app/guia_instalacion.txt") if _IS_CLOUD else Path(r"C:\Users\Usuario\Desktop\Biblioteca Notebooklm DGA\servidor-movil\guia_instalacion.txt"))
 

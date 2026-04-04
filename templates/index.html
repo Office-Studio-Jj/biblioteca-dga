@@ -496,6 +496,7 @@
             {% if role == 'invitado' %}
             <span style="display:block;font-size:0.72rem;color:#93c5fd;margin-top:3px;">Acceso solo a consultas</span>
             {% endif %}
+            <button onclick="abrirModalPass()" style="display:inline-block;margin-top:8px;margin-right:6px;padding:6px 16px;background:#1e3a5f;color:#93c5fd;border-radius:20px;font-size:0.72rem;font-weight:600;border:none;cursor:pointer;">🔑 Cambiar clave</button>
             <a href="/logout" style="display:inline-block;margin-top:8px;padding:6px 16px;background:#7f1d1d;color:#fca5a5;border-radius:20px;font-size:0.72rem;font-weight:600;text-decoration:none;">Cerrar sesión</a>
           </div>
         </div>
@@ -698,6 +699,42 @@
     <div class="u-btns">
       <button class="u-btn-save" onclick="guardarUsuario()">💾 Guardar</button>
       <button class="u-btn-cancel" onclick="cerrarModalUsuario()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Cambiar Contraseña -->
+<div class="modal-usuarios" id="modalCambiarPass">
+  <div class="modal-u-box">
+    <h3>🔑 Cambiar Contraseña</h3>
+    {% if role == 'admin' %}
+    <div style="margin-bottom:12px;">
+      <label style="font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:6px;">¿Qué contraseña deseas cambiar?</label>
+      <select id="tipoPassCambiar" style="width:100%;padding:8px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;">
+        <option value="admin">Contraseña de Administrador</option>
+        <option value="invitado">Contraseña de Invitado</option>
+      </select>
+    </div>
+    {% else %}
+    <input type="hidden" id="tipoPassCambiar" value="invitado">
+    {% endif %}
+    <div style="margin-bottom:10px;">
+      <label style="font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:4px;">Contraseña actual</label>
+      <input type="password" id="passActual" placeholder="Contraseña actual" style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:4px;">Nueva contraseña</label>
+      <input type="password" id="passNueva" placeholder="Nueva contraseña (mín. 6 caracteres)" style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:4px;">Confirmar nueva contraseña</label>
+      <input type="password" id="passConfirmar" placeholder="Repite la nueva contraseña" style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;box-sizing:border-box;">
+    </div>
+    <div id="passError" style="color:#f87171;font-size:0.75rem;margin-bottom:10px;display:none;"></div>
+    <div id="passOk" style="color:#4ade80;font-size:0.75rem;margin-bottom:10px;display:none;"></div>
+    <div class="u-btns">
+      <button class="u-btn-save" onclick="guardarContrasena()">🔒 Guardar</button>
+      <button class="u-btn-cancel" onclick="cerrarModalPass()">Cancelar</button>
     </div>
   </div>
 </div>
@@ -1155,6 +1192,46 @@
     document.getElementById('uNumero').value     = u.numero || '';
     document.getElementById('uError').style.display = 'none';
     document.getElementById('modalUsuario').classList.add('show');
+  }
+
+  function abrirModalPass() {
+    document.getElementById('passActual').value = '';
+    document.getElementById('passNueva').value = '';
+    document.getElementById('passConfirmar').value = '';
+    document.getElementById('passError').style.display = 'none';
+    document.getElementById('passOk').style.display = 'none';
+    document.getElementById('modalCambiarPass').classList.add('show');
+  }
+
+  function cerrarModalPass() {
+    document.getElementById('modalCambiarPass').classList.remove('show');
+  }
+
+  async function guardarContrasena() {
+    const tipoEl = document.getElementById('tipoPassCambiar');
+    const tipo   = tipoEl.tagName === 'SELECT' ? tipoEl.value : tipoEl.value;
+    const actual = document.getElementById('passActual').value;
+    const nueva  = document.getElementById('passNueva').value;
+    const conf   = document.getElementById('passConfirmar').value;
+    const errEl  = document.getElementById('passError');
+    const okEl   = document.getElementById('passOk');
+    errEl.style.display = 'none';
+    okEl.style.display  = 'none';
+
+    const res = await fetch('/cambiar-contrasena', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({tipo, actual, nueva, confirmacion: conf})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      okEl.textContent = data.mensaje;
+      okEl.style.display = 'block';
+      setTimeout(() => cerrarModalPass(), 2000);
+    } else {
+      errEl.textContent = data.error || 'Error al cambiar la contraseña.';
+      errEl.style.display = 'block';
+    }
   }
 
   function cerrarModalUsuario() {
