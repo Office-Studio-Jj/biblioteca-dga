@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Manual del Invitado — Aduanas RD</title>
+  <meta name="theme-color" content="#0f172a">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+    .wrap { max-width: 500px; margin: 0 auto; padding: 24px 18px 80px; }
+
+    .header { text-align: center; margin-bottom: 28px; padding: 22px 18px; background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 20px; border: 1px solid #334155; }
+    .header-icon { font-size: 2.8rem; margin-bottom: 8px; }
+    .header h1 { font-size: 1.15rem; font-weight: 800; color: #93c5fd; }
+    .header p  { font-size: 0.72rem; color: #64748b; margin-top: 4px; }
+
+    .indice { background: #1e293b; border-radius: 16px; padding: 18px; margin-bottom: 24px; border: 1px solid #334155; }
+    .indice h2 { font-size: 0.82rem; font-weight: 700; color: #93c5fd; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+    .indice-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #0f172a; cursor: pointer; text-decoration: none; }
+    .indice-item:last-child { border-bottom: none; }
+    .indice-num { min-width: 26px; height: 26px; background: #1e3a5f; color: #93c5fd; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; flex-shrink: 0; border: 1px solid #3b82f6; }
+    .indice-txt { font-size: 0.78rem; color: #cbd5e1; }
+    .indice-item:hover .indice-txt { color: #93c5fd; }
+
+    .seccion { background: #1e293b; border-radius: 18px; padding: 22px 18px; margin-bottom: 16px; border-left: 4px solid #3b82f6; }
+    .sec-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .sec-num { min-width: 36px; height: 36px; background: #1e3a5f; color: #93c5fd; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 800; flex-shrink: 0; border: 2px solid #3b82f6; }
+    .sec-title { font-size: 0.95rem; font-weight: 700; color: #93c5fd; }
+    .sec-sub   { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
+
+    .paso { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; }
+    .paso-num { min-width: 22px; height: 22px; background: #334155; color: #94a3b8; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+    .paso-txt { font-size: 0.78rem; color: #cbd5e1; line-height: 1.5; }
+    .paso-txt strong { color: #e2e8f0; }
+    .paso-txt code { background: #0f172a; color: #93c5fd; padding: 1px 6px; border-radius: 4px; font-size: 0.75rem; }
+
+    .nota { background: #0f172a; border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 0.72rem; color: #64748b; line-height: 1.5; border-left: 3px solid #334155; }
+    .nota.aviso { border-left-color: #fbbf24; color: #fbbf24; }
+    .nota.ok    { border-left-color: #4ade80; color: #4ade80; }
+
+    .back-btn { display: block; text-align: center; margin-top: 10px; padding: 13px; background: #1e293b; border-radius: 14px; color: #94a3b8; text-decoration: none; font-size: 0.82rem; font-weight: 600; border: 1px solid #334155; }
+    .back-btn:active { opacity: 0.7; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Encabezado -->
+  <div class="header">
+    <div class="header-icon">👤</div>
+    <h1>Manual del Invitado</h1>
+    <p>Guía de uso de todas las funciones disponibles para ti</p>
+  </div>
+
+  <!-- Índice -->
+  <div class="indice">
+    <h2>📋 Índice de Funciones</h2>
+    <a class="indice-item" href="#sec1"><div class="indice-num">1</div><div class="indice-txt">Registrarse por primera vez</div></a>
+    <a class="indice-item" href="#sec2"><div class="indice-num">2</div><div class="indice-txt">Iniciar sesión como invitado</div></a>
+    <a class="indice-item" href="#sec3"><div class="indice-num">3</div><div class="indice-txt">Cambio obligatorio de contraseña (primer acceso)</div></a>
+    <a class="indice-item" href="#sec4"><div class="indice-num">4</div><div class="indice-txt">Realizar una consulta al cuaderno DGA</div></a>
+    <a class="indice-item" href="#sec5"><div class="indice-num">5</div><div class="indice-txt">Adjuntar ficha técnica (PDF o JPG)</div></a>
+    <a class="indice-item" href="#sec6"><div class="indice-num">6</div><div class="indice-txt">Cambiar tu contraseña</div></a>
+    <a class="indice-item" href="#sec7"><div class="indice-num">7</div><div class="indice-txt">Recuperar contraseña olvidada</div></a>
+    <a class="indice-item" href="#sec8"><div class="indice-num">8</div><div class="indice-txt">Instalar la app en tu celular</div></a>
+    <a class="indice-item" href="#sec9"><div class="indice-num">9</div><div class="indice-txt">Solicitar acceso al administrador</div></a>
+    <a class="indice-item" href="#sec10"><div class="indice-num">10</div><div class="indice-txt">Cerrar sesión</div></a>
+  </div>
+
+  <!-- Sección 1 -->
+  <div class="seccion" id="sec1">
+    <div class="sec-header">
+      <div class="sec-num">1</div>
+      <div><div class="sec-title">Registrarse por primera vez</div><div class="sec-sub">Crear tu cuenta de invitado</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">En la pantalla de login, toca <strong>¿Primera vez? Regístrate aquí →</strong></div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Completa el formulario con tus datos: nombre, correo, WhatsApp, profesión, país y dirección</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Toca <strong>Registrarse</strong>. Serás redirigido automáticamente a la app</div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">En tu primer acceso, el sistema te pedirá <strong>cambiar tu contraseña obligatoriamente</strong></div></div>
+    <div class="nota aviso">⚠️ El correo es tu identificador único. No lo compartas con otros usuarios.</div>
+  </div>
+
+  <!-- Sección 2 -->
+  <div class="seccion" id="sec2">
+    <div class="sec-header">
+      <div class="sec-num">2</div>
+      <div><div class="sec-title">Iniciar sesión como invitado</div><div class="sec-sub">Acceso a tus consultas</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Abre la app y selecciona el rol <strong>👤 Invitado</strong></div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Ingresa tu <strong>correo registrado</strong></div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Ingresa tu <strong>contraseña</strong> (la que estableciste al registrarte o en tu último cambio)</div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Toca <strong>Ingresar →</strong></div></div>
+    <div class="nota">💡 Si olvidaste tu contraseña, usa la opción <strong>"¿Olvidaste tu contraseña?"</strong> en la pantalla de login.</div>
+  </div>
+
+  <!-- Sección 3 -->
+  <div class="seccion" id="sec3">
+    <div class="sec-header">
+      <div class="sec-num">3</div>
+      <div><div class="sec-title">Cambio obligatorio de contraseña</div><div class="sec-sub">Solo en el primer acceso</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Al ingresar por primera vez, se abre automáticamente el formulario de cambio de contraseña</div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">En <strong>Contraseña actual</strong> ingresa: <code>Puertos2024</code> (clave por defecto)</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Escribe tu <strong>nueva contraseña</strong> (mínimo 6 caracteres) y confírmala</div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Toca <strong>🔒 Guardar</strong>. A partir de ese momento usarás tu nueva contraseña</div></div>
+    <div class="nota aviso">⚠️ No podrás acceder a la app hasta completar este paso. Es obligatorio por seguridad.</div>
+  </div>
+
+  <!-- Sección 4 -->
+  <div class="seccion" id="sec4">
+    <div class="sec-header">
+      <div class="sec-num">4</div>
+      <div><div class="sec-title">Realizar una consulta al cuaderno DGA</div><div class="sec-sub">Búsqueda inteligente</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">En la pantalla principal, en la sección <strong>1. Selecciona el cuaderno</strong>, toca el tema que necesitas (Nomenclaturas, Legal, Valoración, etc.)</div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">En la sección <strong>2. Escribe tu consulta</strong>, redacta tu pregunta con el mayor detalle posible</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Toca el botón <strong>Consultar</strong></div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Espera la respuesta. Puede tardar entre 1 y 30 minutos según la complejidad</div></div>
+    <div class="nota ok">✅ Cuanto más detallada sea tu pregunta, más precisa será la respuesta.</div>
+  </div>
+
+  <!-- Sección 5 -->
+  <div class="seccion" id="sec5">
+    <div class="sec-header">
+      <div class="sec-num">5</div>
+      <div><div class="sec-title">Adjuntar ficha técnica</div><div class="sec-sub">PDF o imagen JPG/PNG opcional</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Debajo del campo de consulta, toca <strong>📎 Adjuntar ficha técnica (PDF o JPG) — opcional</strong></div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Selecciona el archivo desde tu dispositivo (máximo recomendado: 5 páginas)</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">El nombre del archivo aparecerá en verde cuando esté listo</div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Si deseas quitarlo, toca <strong>✕ Quitar archivo</strong> y luego envía tu consulta normalmente</div></div>
+    <div class="nota">💡 El sistema extrae el texto del documento y lo incluye automáticamente en tu consulta.</div>
+  </div>
+
+  <!-- Sección 6 -->
+  <div class="seccion" id="sec6">
+    <div class="sec-header">
+      <div class="sec-num">6</div>
+      <div><div class="sec-title">Cambiar tu contraseña</div><div class="sec-sub">En cualquier momento</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">En la pantalla principal, toca tu <strong>nombre</strong> en la parte superior para ver tu perfil</div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Toca el botón <strong>🔑 Cambiar clave</strong></div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Ingresa tu contraseña actual, luego la nueva contraseña y confírmala</div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Toca <strong>🔒 Guardar</strong></div></div>
+    <div class="nota aviso">⚠️ La nueva contraseña aplica para todos los invitados de la plataforma.</div>
+  </div>
+
+  <!-- Sección 7 -->
+  <div class="seccion" id="sec7">
+    <div class="sec-header">
+      <div class="sec-num">7</div>
+      <div><div class="sec-title">Recuperar contraseña olvidada</div><div class="sec-sub">Solicitar código al administrador</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">En la pantalla de login, toca <strong>"¿Olvidaste tu contraseña? Recupérala aquí"</strong></div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Selecciona el rol <strong>👤 Invitado</strong> e ingresa tu correo registrado</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Toca <strong>Solicitar código →</strong></div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Toca <strong>💬 Notificar al Admin por WhatsApp</strong> para avisarle que necesitas el código</div></div>
+    <div class="paso"><div class="paso-num">5</div><div class="paso-txt">Una vez que el admin te envíe el código de 6 dígitos, toca <strong>Ya tengo mi código →</strong></div></div>
+    <div class="paso"><div class="paso-num">6</div><div class="paso-txt">Ingresa tu correo, el código recibido y tu nueva contraseña. Toca <strong>Cambiar contraseña ✓</strong></div></div>
+    <div class="nota ok">✅ Serás redirigido al login automáticamente al completar el proceso.</div>
+  </div>
+
+  <!-- Sección 8 -->
+  <div class="seccion" id="sec8">
+    <div class="sec-header">
+      <div class="sec-num">8</div>
+      <div><div class="sec-title">Instalar la app en tu celular</div><div class="sec-sub">Acceso rápido desde la pantalla de inicio</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Abre Chrome en tu celular y visita la URL que te compartió el administrador</div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Toca los <strong>3 puntos</strong> (menú de Chrome) en la esquina superior derecha</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Selecciona <strong>"Añadir a pantalla de inicio"</strong></div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Confirma el nombre y toca <strong>Añadir</strong>. El ícono aparecerá en tu pantalla de inicio</div></div>
+    <div class="nota">💡 Si tu Samsung bloquea la instalación: ve a Ajustes → Pantalla de inicio → desactiva "Bloquear diseño".</div>
+  </div>
+
+  <!-- Sección 9 -->
+  <div class="seccion" id="sec9">
+    <div class="sec-header">
+      <div class="sec-num">9</div>
+      <div><div class="sec-title">Solicitar acceso al administrador</div><div class="sec-sub">Para casos que requieren ayuda</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Si necesitas ayuda o tienes un requerimiento especial, ve a la pestaña <strong>ℹ️ Info</strong></div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Toca el botón <strong>📋 Enviar solicitud al Admin</strong></div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Completa el formulario: nombre, WhatsApp, correo, situación y acción requerida</div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Elige enviar por <strong>💬 WhatsApp</strong> o <strong>✉️ Correo</strong></div></div>
+    <div class="nota ok">✅ El administrador recibirá tu solicitud y te contactará a la brevedad.</div>
+  </div>
+
+  <!-- Sección 10 -->
+  <div class="seccion" id="sec10">
+    <div class="sec-header">
+      <div class="sec-num">10</div>
+      <div><div class="sec-title">Cerrar sesión</div><div class="sec-sub">Salir de forma segura</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Toca tu <strong>nombre</strong> en la parte superior de la pantalla para abrir tu perfil</div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Toca el botón <strong>Cerrar sesión</strong></div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Serás redirigido a la pantalla de login</div></div>
+    <div class="nota aviso">⚠️ Por seguridad, cierra siempre la sesión si usas un dispositivo compartido.</div>
+  </div>
+
+  <a href="/" class="back-btn">← Volver a la app</a>
+
+</div>
+</body>
+</html>

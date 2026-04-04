@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Manual del Administrador — Aduanas RD</title>
+  <meta name="theme-color" content="#0f172a">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+    .wrap { max-width: 500px; margin: 0 auto; padding: 24px 18px 80px; }
+
+    .header { text-align: center; margin-bottom: 28px; padding: 22px 18px; background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 20px; border: 1px solid #334155; }
+    .header-icon { font-size: 2.8rem; margin-bottom: 8px; }
+    .header h1 { font-size: 1.15rem; font-weight: 800; color: #d4af37; }
+    .header p  { font-size: 0.72rem; color: #64748b; margin-top: 4px; }
+
+    /* Índice */
+    .indice { background: #1e293b; border-radius: 16px; padding: 18px; margin-bottom: 24px; border: 1px solid #334155; }
+    .indice h2 { font-size: 0.82rem; font-weight: 700; color: #d4af37; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+    .indice-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #0f172a; cursor: pointer; text-decoration: none; }
+    .indice-item:last-child { border-bottom: none; }
+    .indice-num { min-width: 26px; height: 26px; background: #d4af37; color: #0f172a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; flex-shrink: 0; }
+    .indice-txt { font-size: 0.78rem; color: #cbd5e1; }
+    .indice-item:hover .indice-txt { color: #d4af37; }
+
+    /* Secciones */
+    .seccion { background: #1e293b; border-radius: 18px; padding: 22px 18px; margin-bottom: 16px; border-left: 4px solid #d4af37; }
+    .sec-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .sec-num { min-width: 36px; height: 36px; background: #d4af37; color: #0f172a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 800; flex-shrink: 0; }
+    .sec-title { font-size: 0.95rem; font-weight: 700; color: #d4af37; }
+    .sec-sub   { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
+
+    .paso { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; }
+    .paso-num { min-width: 22px; height: 22px; background: #334155; color: #94a3b8; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+    .paso-txt { font-size: 0.78rem; color: #cbd5e1; line-height: 1.5; }
+    .paso-txt strong { color: #e2e8f0; }
+    .paso-txt code { background: #0f172a; color: #d4af37; padding: 1px 6px; border-radius: 4px; font-size: 0.75rem; }
+
+    .nota { background: #0f172a; border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 0.72rem; color: #64748b; line-height: 1.5; border-left: 3px solid #334155; }
+    .nota.aviso { border-left-color: #d4af37; color: #fbbf24; }
+    .nota.ok    { border-left-color: #4ade80; color: #4ade80; }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.65rem; font-weight: 700; }
+    .badge-admin { background: #78350f; color: #fbbf24; }
+    .badge-solo  { background: #1e3a5f; color: #93c5fd; }
+
+    .back-btn { display: block; text-align: center; margin-top: 10px; padding: 13px; background: #1e293b; border-radius: 14px; color: #94a3b8; text-decoration: none; font-size: 0.82rem; font-weight: 600; border: 1px solid #334155; }
+    .back-btn:active { opacity: 0.7; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Encabezado -->
+  <div class="header">
+    <div class="header-icon">👑</div>
+    <h1>Manual del Administrador</h1>
+    <p>Guía completa de todas las funciones disponibles</p>
+  </div>
+
+  <!-- Índice -->
+  <div class="indice">
+    <h2>📋 Índice de Funciones</h2>
+    <a class="indice-item" href="#sec1"><div class="indice-num">1</div><div class="indice-txt">Iniciar sesión como administrador</div></a>
+    <a class="indice-item" href="#sec2"><div class="indice-num">2</div><div class="indice-txt">Realizar consultas a los cuadernos DGA</div></a>
+    <a class="indice-item" href="#sec3"><div class="indice-num">3</div><div class="indice-txt">Adjuntar ficha técnica (PDF o JPG)</div></a>
+    <a class="indice-item" href="#sec4"><div class="indice-num">4</div><div class="indice-txt">Gestionar usuarios e invitados</div></a>
+    <a class="indice-item" href="#sec5"><div class="indice-num">5</div><div class="indice-txt">Crear nuevo usuario (invitado o admin)</div></a>
+    <a class="indice-item" href="#sec6"><div class="indice-num">6</div><div class="indice-txt">Editar y eliminar usuarios</div></a>
+    <a class="indice-item" href="#sec7"><div class="indice-num">7</div><div class="indice-txt">Bloquear y desbloquear usuarios</div></a>
+    <a class="indice-item" href="#sec8"><div class="indice-num">8</div><div class="indice-txt">Cambiar contraseña (admin o invitado)</div></a>
+    <a class="indice-item" href="#sec9"><div class="indice-num">9</div><div class="indice-txt">Recuperación de contraseña</div></a>
+    <a class="indice-item" href="#sec10"><div class="indice-num">10</div><div class="indice-txt">Historial de invitados</div></a>
+    <a class="indice-item" href="#sec11"><div class="indice-num">11</div><div class="indice-txt">Ver solicitudes de instalador</div></a>
+    <a class="indice-item" href="#sec12"><div class="indice-num">12</div><div class="indice-txt">Compartir e instalar la app</div></a>
+    <a class="indice-item" href="#sec13"><div class="indice-num">13</div><div class="indice-txt">Acceso desde la nube (Railway)</div></a>
+  </div>
+
+  <!-- Sección 1 -->
+  <div class="seccion" id="sec1">
+    <div class="sec-header">
+      <div class="sec-num">1</div>
+      <div><div class="sec-title">Iniciar sesión como administrador</div><div class="sec-sub">Acceso al sistema completo</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Abre la app en tu dispositivo o en <code>biblioteca-dga-production.up.railway.app</code></div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Selecciona el rol <strong>👑 Administrador</strong></div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Si eres el <strong>administrador maestro</strong>: deja el correo vacío e ingresa la contraseña maestra</div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Si eres un <strong>admin creado en el panel</strong>: ingresa tu correo y la contraseña de administrador</div></div>
+    <div class="paso"><div class="paso-num">5</div><div class="paso-txt">Haz clic en <strong>Ingresar →</strong></div></div>
+    <div class="nota aviso">⚠️ La contraseña maestra por defecto es <code>DGA2024*</code>. Cámbiala después del primer uso.</div>
+  </div>
+
+  <!-- Sección 2 -->
+  <div class="seccion" id="sec2">
+    <div class="sec-header">
+      <div class="sec-num">2</div>
+      <div><div class="sec-title">Realizar consultas a los cuadernos DGA</div><div class="sec-sub">Búsqueda inteligente por cuaderno</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">En la pantalla principal, selecciona el <strong>cuaderno</strong> correspondiente (Nomenclaturas, Legal, Valoración, etc.)</div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Escribe tu consulta en el campo <strong>"Escribe tu consulta"</strong></div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Opcionalmente adjunta una ficha técnica en PDF o JPG</div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Haz clic en <strong>Consultar</strong> y espera la respuesta (puede tardar hasta 30 minutos)</div></div>
+    <div class="nota">💡 Cada cuaderno está especializado en un área distinta de la DGA. Selecciona el más adecuado para tu consulta.</div>
+  </div>
+
+  <!-- Sección 3 -->
+  <div class="seccion" id="sec3">
+    <div class="sec-header">
+      <div class="sec-num">3</div>
+      <div><div class="sec-title">Adjuntar ficha técnica</div><div class="sec-sub">PDF o imagen JPG/PNG</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">En el área de consulta, toca <strong>📎 Adjuntar ficha técnica (PDF o JPG) — opcional</strong></div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Selecciona el archivo desde tu dispositivo</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">El nombre del archivo aparecerá confirmado. Si deseas quitarlo, toca <strong>✕ Quitar archivo</strong></div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Escribe tu consulta y envía. El sistema extrae el texto del archivo y lo incluye en la consulta</div></div>
+    <div class="nota">💡 El sistema extrae automáticamente el texto del PDF para enriquecer la consulta al cuaderno.</div>
+  </div>
+
+  <!-- Sección 4 -->
+  <div class="seccion" id="sec4">
+    <div class="sec-header">
+      <div class="sec-num">4</div>
+      <div><div class="sec-title">Gestionar usuarios e invitados</div><div class="sec-sub">Panel de administración</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">En la pantalla principal, toca la pestaña <strong>ℹ️ Info</strong> (parte inferior)</div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Desplázate hasta la sección <strong>👥 Usuarios y Administradores</strong></div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Verás la lista completa de todos los usuarios registrados con su tipo, estado y opciones de acción</div></div>
+    <div class="nota ok">✅ Solo el administrador puede ver y gestionar esta sección.</div>
+  </div>
+
+  <!-- Sección 5 -->
+  <div class="seccion" id="sec5">
+    <div class="sec-header">
+      <div class="sec-num">5</div>
+      <div><div class="sec-title">Crear nuevo usuario</div><div class="sec-sub">Invitado o administrador</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">En la sección de usuarios, toca el botón <strong>➕ Crear</strong></div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Completa el formulario: nombre, correo, WhatsApp, profesión, país, etc.</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">En <strong>Tipo</strong> selecciona <code>invitado</code> o <code>admin</code></div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Haz clic en <strong>💾 Guardar</strong></div></div>
+    <div class="nota aviso">⚠️ Los usuarios creados como <code>admin</code> acceden con su correo + la contraseña maestra de administrador.</div>
+  </div>
+
+  <!-- Sección 6 -->
+  <div class="seccion" id="sec6">
+    <div class="sec-header">
+      <div class="sec-num">6</div>
+      <div><div class="sec-title">Editar y eliminar usuarios</div><div class="sec-sub">Modificar o borrar registros</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">En la lista de usuarios, localiza el usuario deseado</div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Toca el ícono <strong>✏️ Editar</strong> para modificar sus datos → modifica y guarda</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Toca el ícono <strong>🗑 Eliminar</strong> para borrar permanentemente el usuario</div></div>
+    <div class="nota aviso">⚠️ La eliminación es permanente. El usuario no podrá recuperar su acceso.</div>
+  </div>
+
+  <!-- Sección 7 -->
+  <div class="seccion" id="sec7">
+    <div class="sec-header">
+      <div class="sec-num">7</div>
+      <div><div class="sec-title">Bloquear y desbloquear usuarios</div><div class="sec-sub">Control de acceso temporal</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">En la lista de usuarios, localiza el usuario</div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Toca el botón <strong>🔒 Bloquear</strong> para impedir su acceso sin eliminar su cuenta</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Para restaurar el acceso, toca <strong>🔓 Desbloquear</strong></div></div>
+    <div class="nota">💡 Un usuario bloqueado ve el mensaje "Tu acceso ha sido bloqueado" al intentar ingresar.</div>
+  </div>
+
+  <!-- Sección 8 -->
+  <div class="seccion" id="sec8">
+    <div class="sec-header">
+      <div class="sec-num">8</div>
+      <div><div class="sec-title">Cambiar contraseña</div><div class="sec-sub">Admin puede cambiar cualquier contraseña</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Toca tu perfil (nombre arriba) y luego el botón <strong>🔑 Cambiar clave</strong></div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Selecciona si deseas cambiar la contraseña de <strong>Administrador</strong> o de <strong>Invitado</strong></div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Ingresa la contraseña actual, la nueva y confirma la nueva</div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Haz clic en <strong>🔒 Guardar</strong></div></div>
+    <div class="nota aviso">⚠️ Al cambiar la contraseña de invitado, todos los invitados deberán usar la nueva clave.</div>
+  </div>
+
+  <!-- Sección 9 -->
+  <div class="seccion" id="sec9">
+    <div class="sec-header">
+      <div class="sec-num">9</div>
+      <div><div class="sec-title">Recuperación de contraseña</div><div class="sec-sub">Gestionar solicitudes de recuperación</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Cuando un usuario olvida su contraseña, genera una solicitud desde la pantalla de login</div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">En la pestaña <strong>ℹ️ Info</strong>, ve a la sección <strong>🔑 Recuperaciones de Contraseña</strong></div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Verás la solicitud con el <strong>código de 6 dígitos</strong> generado automáticamente</div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Toca <strong>💬 WhatsApp</strong> o <strong>✉️ Correo</strong> para enviar el código al usuario</div></div>
+    <div class="paso"><div class="paso-num">5</div><div class="paso-txt">El usuario ingresa el código en la página de recuperación y establece su nueva contraseña</div></div>
+    <div class="nota ok">✅ El código se invalida automáticamente una vez usado.</div>
+  </div>
+
+  <!-- Sección 10 -->
+  <div class="seccion" id="sec10">
+    <div class="sec-header">
+      <div class="sec-num">10</div>
+      <div><div class="sec-title">Historial de invitados</div><div class="sec-sub">Registro completo de actividad</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">En la pestaña <strong>ℹ️ Info</strong>, desplázate a la sección <strong>📋 Historial de Invitados</strong></div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Verás todos los eventos registrados: registros, inicios de sesión, cambios de contraseña</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Para eliminar un registro individual, toca el ícono <strong>🗑</strong> junto al registro</div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Para limpiar todo el historial, toca <strong>🗑 Limpiar</strong> en el encabezado de la sección</div></div>
+    <div class="nota ok">✅ Esta sección es completamente invisible para los invitados.</div>
+  </div>
+
+  <!-- Sección 11 -->
+  <div class="seccion" id="sec11">
+    <div class="sec-header">
+      <div class="sec-num">11</div>
+      <div><div class="sec-title">Ver solicitudes de instalador</div><div class="sec-sub">Gestionar peticiones de acceso</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">En la pestaña <strong>ℹ️ Info</strong>, ve a la sección <strong>📨 Solicitudes de Instalador</strong></div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Verás las solicitudes pendientes de usuarios que piden el instalador de la app</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Toca <strong>✅ Marcar enviado</strong> cuando hayas enviado el instalador al usuario</div></div>
+  </div>
+
+  <!-- Sección 12 -->
+  <div class="seccion" id="sec12">
+    <div class="sec-header">
+      <div class="sec-num">12</div>
+      <div><div class="sec-title">Compartir e instalar la app</div><div class="sec-sub">Distribución a nuevos usuarios</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">En la pantalla principal, toca la pestaña <strong>📲 Instalar</strong></div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Verás el <strong>código QR</strong> de acceso y la URL pública de la app</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Comparte por <strong>💬 WhatsApp</strong> o <strong>✉️ Correo</strong> usando los botones disponibles</div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">El nuevo usuario escanea el QR o abre la URL, se registra y accede</div></div>
+    <div class="nota">💡 Solo el administrador puede ver el QR, la URL y los botones de compartir.</div>
+  </div>
+
+  <!-- Sección 13 -->
+  <div class="seccion" id="sec13">
+    <div class="sec-header">
+      <div class="sec-num">13</div>
+      <div><div class="sec-title">Acceso desde la nube</div><div class="sec-sub">Disponible 24/7 aunque el PC esté apagado</div></div>
+    </div>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">La app está alojada en Railway y disponible siempre en: <code>biblioteca-dga-production.up.railway.app</code></div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Al encender tu PC, se sincroniza automáticamente con los últimos cambios de la nube</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">El backup local se actualiza automáticamente en el disco externo <code>D:\BIBLIOTECA-DGA-APP</code></div></div>
+    <div class="nota ok">✅ 3 niveles de respaldo: Nube (Railway) → Disco externo (D:) → PC local.</div>
+  </div>
+
+  <a href="/" class="back-btn">← Volver a la app</a>
+
+</div>
+</body>
+</html>

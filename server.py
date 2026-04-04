@@ -740,6 +740,18 @@ def _gen_qr_base64(url):
     except Exception:
         return None
 
+@app.route("/manual/admin")
+@login_required
+def manual_admin():
+    if session.get("role") != "admin":
+        return redirect(url_for("manual_invitado"))
+    return render_template("manual_admin.html")
+
+@app.route("/manual/invitado")
+@login_required
+def manual_invitado():
+    return render_template("manual_invitado.html")
+
 @app.route("/instalar")
 def instalar():
     server_url = _get_public_url()
