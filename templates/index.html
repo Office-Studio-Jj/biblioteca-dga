@@ -403,6 +403,9 @@
     <div class="tab active" onclick="showTab('consulta', this)">🔍 Consulta</div>
     <div class="tab" onclick="showTab('historial', this)">🕑 Historial</div>
     <div class="tab" onclick="showTab('info', this)">ℹ️ Info</div>
+    {% if role == 'admin' %}
+    <div class="tab" onclick="showTab('adminpanel', this)">👑 Admin</div>
+    {% endif %}
   </div>
 
   <!-- Body -->
@@ -665,6 +668,34 @@
     </div>
 
   </div><!-- /body -->
+
+  {% if role == 'admin' %}
+  <!-- ── Panel Admin (solo administrador) ── -->
+  <div id="tab-adminpanel" class="screen" style="padding:14px 12px 80px;">
+
+    <!-- Encabezado -->
+    <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #334155;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:1rem;font-weight:800;color:#d4af37;">👑 Panel de Administración</div>
+        <div style="font-size:0.7rem;color:#64748b;margin-top:2px;">Gestión individual de usuarios</div>
+      </div>
+      <button onclick="abrirCrearUsuario()" style="background:#d4af37;border:none;color:#0f172a;border-radius:10px;padding:8px 14px;font-size:0.75rem;font-weight:800;cursor:pointer;">➕ Nuevo</button>
+    </div>
+
+    <!-- Buscador -->
+    <div style="position:relative;margin-bottom:12px;">
+      <input type="text" id="adminBuscar" oninput="filtrarUsuariosAdmin()" placeholder="🔍 Buscar usuario por nombre o correo..."
+        style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:12px;color:#e2e8f0;font-size:0.82rem;padding:10px 14px;outline:none;">
+    </div>
+
+    <!-- Lista de tarjetas de usuarios -->
+    <div id="adminUserCards">
+      <div style="text-align:center;color:#64748b;font-size:0.78rem;padding:24px 0;">Cargando usuarios...</div>
+    </div>
+
+  </div>
+  {% endif %}
+
 </div><!-- /app -->
 
 <!-- Modal Crear / Editar Usuario (solo admin) -->
@@ -1285,6 +1316,117 @@
     window.addEventListener('DOMContentLoaded', () => abrirModalPass(true));
   }
 
+  // ── Panel Admin: tarjetas individuales ──────────────────────────────
+  let _adminUsuarios = [];
+
+  async function cargarAdminPanel() {
+    if (!IS_ADMIN) return;
+    const panel = document.getElementById('adminUserCards');
+    if (!panel) return;
+    try {
+      const r    = await fetch('/admin/usuarios');
+      const data = await r.json();
+      _adminUsuarios = data.usuarios || [];
+      renderAdminCards(_adminUsuarios);
+    } catch(e) {
+      panel.innerHTML = '<div style="color:#f87171;font-size:0.75rem;padding:8px;">Error al cargar usuarios.</div>';
+    }
+  }
+
+  function filtrarUsuariosAdmin() {
+    const q = document.getElementById('adminBuscar').value.toLowerCase();
+    const filtrados = _adminUsuarios.filter(u =>
+      u.nombre.toLowerCase().includes(q) || u.correo.toLowerCase().includes(q)
+    );
+    renderAdminCards(filtrados);
+  }
+
+  function renderAdminCards(lista) {
+    const panel = document.getElementById('adminUserCards');
+    if (!lista.length) {
+      panel.innerHTML = '<div style="text-align:center;color:#64748b;font-size:0.78rem;padding:24px 0;">No se encontraron usuarios.</div>';
+      return;
+    }
+    panel.innerHTML = lista.map(u => {
+      const bloqueado  = u.bloqueado;
+      const tipo       = u.tipo || 'invitado';
+      const tipoColor  = tipo === 'admin' ? '#fbbf24' : '#93c5fd';
+      const tipoBg     = tipo === 'admin' ? '#78350f' : '#1e3a5f';
+      const estadoBg   = bloqueado ? '#7f1d1d' : '#14532d';
+      const estadoColor= bloqueado ? '#fca5a5' : '#4ade80';
+      const estadoTxt  = bloqueado ? '🔒 Bloqueado' : '✅ Activo';
+      const inicial    = (u.nombre || '?')[0].toUpperCase();
+      return `
+      <div style="background:#1e293b;border-radius:16px;padding:16px;margin-bottom:12px;border:1px solid ${bloqueado?'#7f1d1d':'#334155'};">
+        <!-- Cabecera usuario -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <div style="min-width:44px;height:44px;border-radius:50%;background:#0f172a;border:2px solid ${tipoColor};display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:800;color:${tipoColor};flex-shrink:0;">${inicial}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:0.88rem;font-weight:700;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.nombre || '—'}</div>
+            <div style="font-size:0.68rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.correo}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+            <span style="font-size:0.62rem;padding:2px 8px;border-radius:10px;background:${tipoBg};color:${tipoColor};font-weight:700;">${tipo.toUpperCase()}</span>
+            <span style="font-size:0.62rem;padding:2px 8px;border-radius:10px;background:${estadoBg};color:${estadoColor};font-weight:700;">${estadoTxt}</span>
+          </div>
+        </div>
+
+        <!-- Datos del usuario -->
+        <div style="background:#0f172a;border-radius:10px;padding:10px 12px;margin-bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          ${u.whatsapp   ? `<div style="font-size:0.67rem;color:#64748b;">📱 ${u.whatsapp}</div>` : ''}
+          ${u.profesion  ? `<div style="font-size:0.67rem;color:#64748b;">💼 ${u.profesion}</div>` : ''}
+          ${u.pais       ? `<div style="font-size:0.67rem;color:#64748b;">🌎 ${u.pais}</div>` : ''}
+          ${u.provincia  ? `<div style="font-size:0.67rem;color:#64748b;">📍 ${u.provincia}</div>` : ''}
+          ${u.fecha_registro ? `<div style="font-size:0.67rem;color:#334155;grid-column:1/-1;">🗓 Registro: ${u.fecha_registro}</div>` : ''}
+        </div>
+
+        <!-- Botones de acción -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button onclick="abrirEditarUsuario('${u.id}')"
+            style="background:#1e3a5f;color:#93c5fd;border:none;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
+          <button onclick="toggleBloqueoAdmin('${u.id}', ${bloqueado})"
+            style="background:${bloqueado?'#14532d':'#78350f'};color:${bloqueado?'#4ade80':'#fbbf24'};border:none;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">${bloqueado?'🔓 Desbloquear':'🔒 Bloquear'}</button>
+          <button onclick="cambiarTipoAdmin('${u.id}', '${tipo}')"
+            style="background:#1e293b;color:#d4af37;border:1px solid #334155;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">🔄 Cambiar tipo</button>
+          <button onclick="eliminarUsuarioAdmin('${u.id}', '${u.nombre.replace(/'/g,"\\'")}' )"
+            style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">🗑 Eliminar</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function toggleBloqueoAdmin(uid, bloqueado) {
+    const nuevoEstado = !bloqueado;
+    await fetch('/admin/bloquear', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: uid, bloqueado: nuevoEstado})
+    });
+    cargarAdminPanel();
+  }
+
+  async function cambiarTipoAdmin(uid, tipoActual) {
+    const nuevoTipo = tipoActual === 'admin' ? 'invitado' : 'admin';
+    if (!confirm(`¿Cambiar este usuario de "${tipoActual}" a "${nuevoTipo}"?`)) return;
+    await fetch('/admin/usuarios/editar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: uid, tipo: nuevoTipo})
+    });
+    cargarAdminPanel();
+  }
+
+  async function eliminarUsuarioAdmin(uid, nombre) {
+    if (!confirm(`¿Eliminar permanentemente a "${nombre}"? Esta acción no se puede deshacer.`)) return;
+    await fetch('/admin/usuarios/eliminar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: uid})
+    });
+    cargarAdminPanel();
+    cargarUsuarios();
+  }
+
   // ── Recuperaciones de contraseña (solo admin) ───────────────────────
   async function cargarRecuperaciones() {
     if (!IS_ADMIN) return;
@@ -1452,6 +1594,7 @@
     window.showTab = function(name, el) {
       if (typeof origShowTab === 'function') origShowTab(name, el);
       if (name === 'info' && IS_ADMIN) { cargarUsuarios(); cargarSolicitudes(); cargarRecuperaciones(); cargarHistorial(); }
+      if (name === 'adminpanel' && IS_ADMIN) { cargarAdminPanel(); }
     };
     // También cargar si ya estamos en Info
     setTimeout(() => {
