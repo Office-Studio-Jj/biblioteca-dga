@@ -693,10 +693,54 @@
       <div style="text-align:center;color:#64748b;font-size:0.78rem;padding:24px 0;">Cargando usuarios...</div>
     </div>
 
+    <!-- ── Gestión de Cuadernos ── -->
+    <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px;padding:16px;margin-top:20px;margin-bottom:14px;border:1px solid #334155;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:1rem;font-weight:800;color:#d4af37;">📚 Mis Cuadernos NotebookLM</div>
+        <div style="font-size:0.7rem;color:#64748b;margin-top:2px;">Agregar, editar o eliminar cuadernos</div>
+      </div>
+      <button onclick="abrirModalCuaderno()" style="background:#d4af37;border:none;color:#0f172a;border-radius:10px;padding:8px 14px;font-size:0.75rem;font-weight:800;cursor:pointer;">➕ Nuevo</button>
+    </div>
+    <div id="adminCuadernosPanel">
+      <div style="text-align:center;color:#64748b;font-size:0.78rem;padding:16px 0;">Cargando cuadernos...</div>
+    </div>
+
   </div>
   {% endif %}
 
 </div><!-- /app -->
+
+<!-- Modal Crear / Editar Cuaderno -->
+<div class="modal-usuarios" id="modalCuaderno">
+  <div class="modal-u-box">
+    <h3 id="modalCuadernoTitulo">📚 Nuevo Cuaderno</h3>
+    <input type="hidden" id="cUid">
+    <div style="margin-bottom:10px;">
+      <label style="font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:4px;">Emoji</label>
+      <input type="text" id="cEmoji" placeholder="📋" maxlength="4"
+        style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:1.2rem;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:4px;">Nombre del cuaderno</label>
+      <input type="text" id="cNombre" placeholder="Ej: Nomenclaturas"
+        style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:6px;">
+      <label style="font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:4px;">ID del cuaderno (de la URL de NotebookLM)</label>
+      <input type="text" id="cId" placeholder="Ej: biblioteca-de-nomenclaturas"
+        style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.78rem;box-sizing:border-box;">
+    </div>
+    <div style="background:#0f172a;border-radius:8px;padding:8px 10px;margin-bottom:14px;font-size:0.68rem;color:#64748b;line-height:1.5;">
+      💡 El ID lo encuentras en la URL de tu cuaderno en NotebookLM:<br>
+      <span style="color:#d4af37;">notebooklm.google.com/notebooklm/notebook/<strong>ID-aqui</strong></span>
+    </div>
+    <div id="cError" style="color:#f87171;font-size:0.75rem;margin-bottom:10px;display:none;"></div>
+    <div class="u-btns">
+      <button class="u-btn-save" onclick="guardarCuaderno()">💾 Guardar</button>
+      <button class="u-btn-cancel" onclick="cerrarModalCuaderno()">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <!-- Modal Crear / Editar Usuario (solo admin) -->
 <div class="modal-usuarios" id="modalUsuario">
@@ -1316,6 +1360,102 @@
     window.addEventListener('DOMContentLoaded', () => abrirModalPass(true));
   }
 
+  // ── Gestión de Cuadernos ─────────────────────────────────────────────
+  async function cargarCuadernosAdmin() {
+    if (!IS_ADMIN) return;
+    const panel = document.getElementById('adminCuadernosPanel');
+    if (!panel) return;
+    const r    = await fetch('/admin/cuadernos');
+    const data = await r.json();
+    const lista = data.cuadernos || [];
+    if (!lista.length) {
+      panel.innerHTML = '<div style="text-align:center;color:#64748b;font-size:0.78rem;padding:16px 0;">Sin cuadernos registrados.</div>';
+      return;
+    }
+    panel.innerHTML = lista.map((c, i) => `
+      <div style="background:#1e293b;border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid #334155;display:flex;align-items:center;gap:12px;">
+        <div style="font-size:1.8rem;flex-shrink:0;">${c.emoji || '📚'}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:0.85rem;font-weight:700;color:#e2e8f0;">${c.nombre}</div>
+          <div style="font-size:0.65rem;color:#475569;margin-top:2px;word-break:break-all;">${c.id}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+          <button onclick="abrirEditarCuaderno('${c.id}','${(c.nombre||'').replace(/'/g,"\\'")}','${c.emoji||'📚'}')"
+            style="background:#1e3a5f;color:#93c5fd;border:none;border-radius:8px;padding:5px 10px;font-size:0.7rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
+          <button onclick="eliminarCuaderno('${c.id}','${(c.nombre||'').replace(/'/g,"\\'")}')"
+            style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:8px;padding:5px 10px;font-size:0.7rem;font-weight:700;cursor:pointer;">🗑 Eliminar</button>
+        </div>
+      </div>`).join('');
+  }
+
+  function abrirModalCuaderno() {
+    document.getElementById('cUid').value    = '';
+    document.getElementById('cEmoji').value  = '📚';
+    document.getElementById('cNombre').value = '';
+    document.getElementById('cId').value     = '';
+    document.getElementById('cError').style.display = 'none';
+    document.getElementById('modalCuadernoTitulo').textContent = '📚 Nuevo Cuaderno';
+    document.getElementById('modalCuaderno').classList.add('show');
+  }
+
+  function abrirEditarCuaderno(id, nombre, emoji) {
+    document.getElementById('cUid').value    = id;
+    document.getElementById('cEmoji').value  = emoji;
+    document.getElementById('cNombre').value = nombre;
+    document.getElementById('cId').value     = id;
+    document.getElementById('cError').style.display = 'none';
+    document.getElementById('modalCuadernoTitulo').textContent = '✏️ Editar Cuaderno';
+    document.getElementById('modalCuaderno').classList.add('show');
+  }
+
+  function cerrarModalCuaderno() {
+    document.getElementById('modalCuaderno').classList.remove('show');
+  }
+
+  async function guardarCuaderno() {
+    const uid    = document.getElementById('cUid').value.trim();
+    const emoji  = document.getElementById('cEmoji').value.trim() || '📚';
+    const nombre = document.getElementById('cNombre').value.trim();
+    const id     = document.getElementById('cId').value.trim().toLowerCase().replace(/\s+/g,'-');
+    const errEl  = document.getElementById('cError');
+    errEl.style.display = 'none';
+
+    if (!nombre || !id) {
+      errEl.textContent = 'El nombre y el ID son obligatorios.';
+      errEl.style.display = 'block';
+      return;
+    }
+    const res  = await fetch('/admin/cuadernos/guardar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({uid: uid || '', id, nombre, emoji})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      cerrarModalCuaderno();
+      cargarCuadernosAdmin();
+      // Recargar cuadernos en la pantalla de consulta
+      location.reload();
+    } else {
+      errEl.textContent = data.error || 'Error al guardar.';
+      errEl.style.display = 'block';
+    }
+  }
+
+  async function eliminarCuaderno(id, nombre) {
+    if (!confirm(`¿Eliminar el cuaderno "${nombre}"? Esta acción no afecta a NotebookLM, solo lo quita de la app.`)) return;
+    const res  = await fetch('/admin/cuadernos/eliminar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      cargarCuadernosAdmin();
+      location.reload();
+    }
+  }
+
   // ── Panel Admin: tarjetas individuales ──────────────────────────────
   let _adminUsuarios = [];
 
@@ -1594,7 +1734,7 @@
     window.showTab = function(name, el) {
       if (typeof origShowTab === 'function') origShowTab(name, el);
       if (name === 'info' && IS_ADMIN) { cargarUsuarios(); cargarSolicitudes(); cargarRecuperaciones(); cargarHistorial(); }
-      if (name === 'adminpanel' && IS_ADMIN) { cargarAdminPanel(); }
+      if (name === 'adminpanel' && IS_ADMIN) { cargarAdminPanel(); cargarCuadernosAdmin(); }
     };
     // También cargar si ya estamos en Info
     setTimeout(() => {

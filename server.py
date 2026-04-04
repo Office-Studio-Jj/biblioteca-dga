@@ -43,6 +43,7 @@ SOLICITUDES_FILE = str(_DATA_DIR / "solicitudes.json")
 PASSWORDS_FILE   = str(_DATA_DIR / "passwords.json")
 HISTORIAL_FILE   = str(_DATA_DIR / "historial_invitados.json")
 RECOVERY_FILE    = str(_DATA_DIR / "recuperaciones.json")
+CUADERNOS_FILE   = str(_DATA_DIR / "cuadernos.json")
 
 # ── Helpers de historial (solo admin puede ver/gestionar) ────────────────
 def load_historial():
@@ -102,7 +103,8 @@ DISTRIBUTION_EMAIL = "consultoria.puertos.aduanas@gmail.com"   # envia la app
 SUPPORT_EMAIL      = "consulta.puertos.aduanas@gmail.com"      # recibe solicitudes
 WHATSAPP_ADMIN     = "18093547636"                              # WhatsApp admin
 
-NOTEBOOKS = [
+# ── Cuadernos dinámicos ──────────────────────────────────────────────────
+_DEFAULT_NOTEBOOKS = [
     {"id": "biblioteca-de-nomenclaturas",                        "nombre": "Nomenclaturas",          "emoji": "📋"},
     {"id": "biblioteca-legal-y-procedimiento-dga",               "nombre": "Legal y Procedimientos", "emoji": "⚖️"},
     {"id": "biblioteca-para-valoracion-dga",                     "nombre": "Valoracion",             "emoji": "💰"},
@@ -111,6 +113,21 @@ NOTEBOOKS = [
     {"id": "biblioteca-procedimiento-vucerd",                    "nombre": "VUCERD",                 "emoji": "🪟"},
     {"id": "biblioteca-de-normas-y-origen-dga",                  "nombre": "Normas y Origen",        "emoji": "🌐"},
 ]
+
+def load_cuadernos():
+    try:
+        with open(CUADERNOS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data.get("cuadernos", _DEFAULT_NOTEBOOKS)
+    except Exception:
+        return _DEFAULT_NOTEBOOKS
+
+def save_cuadernos(lista):
+    with open(CUADERNOS_FILE, "w", encoding="utf-8") as f:
+        json.dump({"cuadernos": lista}, f, ensure_ascii=False, indent=2)
+
+def get_notebooks():
+    return load_cuadernos()
 
 # ── Helpers de usuarios ──────────────────────────────────────────────────
 def load_users():
@@ -260,7 +277,7 @@ def index():
     role                = session.get("role", "invitado")
     nombre              = session.get("nombre", "")
     must_change_password = session.get("must_change_password", False)
-    return render_template("index.html", notebooks=NOTEBOOKS, role=role, nombre=nombre,
+    return render_template("index.html", notebooks=get_notebooks(), role=role, nombre=nombre,
                            must_change_password=must_change_password)
 
 @app.route("/consultar", methods=["POST"])
@@ -647,6 +664,69 @@ def admin_recuperaciones_eliminar():
     data = load_recovery()
     data["solicitudes"] = [s for s in data["solicitudes"] if s["id"] != rid]
     save_recovery(data)
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/cuadernos")
+@admin_required
+def admin_cuadernos():
+    return jsonify({"cuadernos": get_notebooks()})
+
+@app.route("/admin/cuadernos/guardar", methods=["POST"])
+@admin_required
+def admin_cuadernos_guardar():
+    d      = request.json or {}
+    nombre = d.get("nombre", "").strip()
+    nid    = d.get("id", "").strip()
+    emoji  = d.get("emoji", "📚").strip()
+    uid    = d.get("uid", "")   # Si existe → editar; si vacío → crear
+
+    if not nombre or not nid:
+        return jsonify({"error": "Nombre e ID son obligatorios."}), 400
+
+    lista = load_cuadernos()
+    if uid:
+        # Editar existente
+        for c in lista:
+            if c.get("uid") == uid or c.get("id") == uid:
+                c["nombre"] = nombre
+                c["id"]     = nid
+                c["emoji"]  = emoji
+                break
+        else:
+            return jsonify({"error": "Cuaderno no encontrado."}), 404
+    else:
+        # Crear nuevo — verificar que el ID no exista
+        if any(c["id"] == nid for c in lista):
+            return jsonify({"error": "Ya existe un cuaderno con ese ID."}), 400
+        lista.append({"id": nid, "nombre": nombre, "emoji": emoji, "uid": str(uuid.uuid4())})
+
+    save_cuadernos(lista)
+    return jsonify({"ok": True, "cuadernos": lista})
+
+@app.route("/admin/cuadernos/eliminar", methods=["POST"])
+@admin_required
+def admin_cuadernos_eliminar():
+    nid   = (request.json or {}).get("id", "")
+    lista = load_cuadernos()
+    orig  = len(lista)
+    lista = [c for c in lista if c["id"] != nid]
+    if len(lista) == orig:
+        return jsonify({"error": "Cuaderno no encontrado."}), 404
+    save_cuadernos(lista)
+    return jsonify({"ok": True, "cuadernos": lista})
+
+@app.route("/admin/cuadernos/reordenar", methods=["POST"])
+@admin_required
+def admin_cuadernos_reordenar():
+    orden = (request.json or {}).get("orden", [])  # lista de IDs en nuevo orden
+    lista = load_cuadernos()
+    mapa  = {c["id"]: c for c in lista}
+    nueva = [mapa[i] for i in orden if i in mapa]
+    # Agregar los que no estén en el orden (por seguridad)
+    ids_nuevos = set(orden)
+    nueva += [c for c in lista if c["id"] not in ids_nuevos]
+    save_cuadernos(nueva)
     return jsonify({"ok": True})
 
 
