@@ -41,6 +41,31 @@ _DATA_DIR.mkdir(parents=True, exist_ok=True)
 USERS_FILE       = str(_DATA_DIR / "usuarios.json")
 SOLICITUDES_FILE = str(_DATA_DIR / "solicitudes.json")
 PASSWORDS_FILE   = str(_DATA_DIR / "passwords.json")
+HISTORIAL_FILE   = str(_DATA_DIR / "historial_invitados.json")
+
+# ── Helpers de historial (solo admin puede ver/gestionar) ────────────────
+def load_historial():
+    try:
+        with open(HISTORIAL_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"registros": []}
+
+def save_historial(data):
+    with open(HISTORIAL_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def log_historial(correo, nombre, evento, detalle=""):
+    data = load_historial()
+    data["registros"].append({
+        "id":      str(uuid.uuid4()),
+        "correo":  correo,
+        "nombre":  nombre,
+        "evento":  evento,
+        "detalle": detalle,
+        "fecha":   datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
+    save_historial(data)
 
 # ── Helpers de contraseñas ───────────────────────────────────────────────
 def load_passwords():
@@ -134,17 +159,20 @@ def registro():
             "municipio":  d.get("municipio", "").strip(),
             "calle":      d.get("calle", "").strip(),
             "numero":     d.get("numero", "").strip(),
-            "fecha_registro": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "bloqueado":  False
+            "fecha_registro":   datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "bloqueado":        False,
+            "password_changed": False
         }
         data = load_users()
         data["usuarios"].append(nuevo)
         save_users(data)
+        log_historial(correo, nuevo["nombre"], "registro", "Nuevo usuario registrado")
 
-        session["logged_in"] = True
-        session["role"]      = "invitado"
-        session["correo"]    = correo
-        session["nombre"]    = nuevo["nombre"]
+        session["logged_in"]            = True
+        session["role"]                 = "invitado"
+        session["correo"]               = correo
+        session["nombre"]               = nuevo["nombre"]
+        session["must_change_password"] = True
         return redirect(url_for("index"))
 
     return render_template("registro.html", error=None)
@@ -193,10 +221,15 @@ def login():
                 elif usuario.get("bloqueado"):
                     error = "Tu acceso ha sido bloqueado por el administrador."
                 else:
-                    session["logged_in"] = True
-                    session["role"]      = "invitado"
-                    session["correo"]    = correo
-                    session["nombre"]    = usuario["nombre"]
+                    primer_acceso = not usuario.get("password_changed", False)
+                    session["logged_in"]          = True
+                    session["role"]               = "invitado"
+                    session["correo"]             = correo
+                    session["nombre"]             = usuario["nombre"]
+                    session["must_change_password"] = primer_acceso
+                    evento = "primer_acceso" if primer_acceso else "inicio_sesion"
+                    log_historial(correo, usuario["nombre"], evento,
+                                  "Primer acceso — debe cambiar contraseña" if primer_acceso else "Inicio de sesión")
                     return redirect(url_for("index"))
         else:
             error = "Contraseña incorrecta. Intenta de nuevo."
@@ -212,9 +245,11 @@ def logout():
 @app.route("/")
 @login_required
 def index():
-    role   = session.get("role", "invitado")
-    nombre = session.get("nombre", "")
-    return render_template("index.html", notebooks=NOTEBOOKS, role=role, nombre=nombre)
+    role                = session.get("role", "invitado")
+    nombre              = session.get("nombre", "")
+    must_change_password = session.get("must_change_password", False)
+    return render_template("index.html", notebooks=NOTEBOOKS, role=role, nombre=nombre,
+                           must_change_password=must_change_password)
 
 @app.route("/consultar", methods=["POST"])
 @login_required
@@ -457,6 +492,9 @@ def cambiar_contrasena():
     nueva_hash  = hashlib.sha256(nueva.encode()).hexdigest()
     passwords   = load_passwords()
 
+    correo_session = session.get("correo", "")
+    nombre_session = session.get("nombre", "")
+
     if tipo == "admin":
         if role != "admin":
             return jsonify({"error": "Solo el administrador puede cambiar esta contraseña."}), 403
@@ -464,6 +502,7 @@ def cambiar_contrasena():
             return jsonify({"error": "La contraseña actual es incorrecta."}), 400
         passwords["admin"] = nueva_hash
         save_passwords(passwords)
+        log_historial(correo_session, nombre_session, "cambio_contrasena", "Cambió la contraseña de administrador")
         return jsonify({"ok": True, "mensaje": "Contraseña de administrador actualizada correctamente."})
 
     elif tipo == "invitado":
@@ -471,17 +510,51 @@ def cambiar_contrasena():
             # Admin puede cambiar la clave de invitado sin verificar la actual
             passwords["invitado"] = nueva_hash
             save_passwords(passwords)
+            log_historial(correo_session, nombre_session, "cambio_contrasena", "Admin cambió la contraseña de invitados")
             return jsonify({"ok": True, "mensaje": "Contraseña de invitado actualizada correctamente."})
         elif role == "invitado":
             if actual_hash != passwords.get("invitado", _DEFAULT_GUEST_HASH):
                 return jsonify({"error": "La contraseña actual es incorrecta."}), 400
             passwords["invitado"] = nueva_hash
             save_passwords(passwords)
+            # Marcar que ya cambió la contraseña
+            data = load_users()
+            for u in data["usuarios"]:
+                if u["correo"].lower() == correo_session.lower():
+                    u["password_changed"] = True
+                    break
+            save_users(data)
+            session["must_change_password"] = False
+            log_historial(correo_session, nombre_session, "cambio_contrasena", "Cambió su contraseña por primera vez")
             return jsonify({"ok": True, "mensaje": "Contraseña actualizada correctamente."})
         else:
             return jsonify({"error": "Acceso denegado."}), 403
     else:
         return jsonify({"error": "Tipo de contraseña no válido."}), 400
+
+
+@app.route("/admin/historial")
+@admin_required
+def admin_historial():
+    return jsonify(load_historial())
+
+@app.route("/admin/historial/eliminar", methods=["POST"])
+@admin_required
+def admin_historial_eliminar():
+    rid  = (request.json or {}).get("id", "")
+    data = load_historial()
+    orig = len(data["registros"])
+    data["registros"] = [r for r in data["registros"] if r["id"] != rid]
+    if len(data["registros"]) == orig:
+        return jsonify({"error": "Registro no encontrado"}), 404
+    save_historial(data)
+    return jsonify({"ok": True})
+
+@app.route("/admin/historial/limpiar", methods=["POST"])
+@admin_required
+def admin_historial_limpiar():
+    save_historial({"registros": []})
+    return jsonify({"ok": True})
 
 
 GUIA_FILE = str((_BASE / "app/guia_instalacion.txt") if _IS_CLOUD else Path(r"C:\Users\Usuario\Desktop\Biblioteca Notebooklm DGA\servidor-movil\guia_instalacion.txt"))

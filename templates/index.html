@@ -544,6 +544,20 @@
           <div class="no-users">Cargando usuarios...</div>
         </div>
       </div>
+
+      <!-- Historial de Invitados (solo admin) -->
+      <div class="info-section">
+        <h3 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+          <span>📋 Historial de Invitados</span>
+          <div style="display:flex;gap:6px;">
+            <button onclick="cargarHistorial()" style="background:none;border:1px solid #334155;color:#94a3b8;border-radius:8px;padding:4px 10px;font-size:0.7rem;cursor:pointer;">↻</button>
+            <button onclick="limpiarHistorial()" style="background:#7f1d1d;border:none;color:#fca5a5;border-radius:8px;padding:4px 10px;font-size:0.7rem;cursor:pointer;">🗑 Limpiar</button>
+          </div>
+        </h3>
+        <div id="historialPanel" style="max-height:320px;overflow-y:auto;">
+          <div style="text-align:center;color:#64748b;font-size:0.78rem;padding:12px 0;">Cargando historial...</div>
+        </div>
+      </div>
       {% else %}
       <div class="info-section">
         <h3>Acciones restringidas</h3>
@@ -706,7 +720,10 @@
 <!-- Modal Cambiar Contraseña -->
 <div class="modal-usuarios" id="modalCambiarPass">
   <div class="modal-u-box">
-    <h3>🔑 Cambiar Contraseña</h3>
+    <h3 id="tituloModalPass">🔑 Cambiar Contraseña</h3>
+    <div id="avisoFirstPass" style="display:none;background:#1e3a5f;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem;color:#93c5fd;line-height:1.5;">
+      ⚠️ <strong>Bienvenido.</strong> Por seguridad debes cambiar tu contraseña antes de continuar. Esta acción es obligatoria.
+    </div>
     {% if role == 'admin' %}
     <div style="margin-bottom:12px;">
       <label style="font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:6px;">¿Qué contraseña deseas cambiar?</label>
@@ -734,7 +751,7 @@
     <div id="passOk" style="color:#4ade80;font-size:0.75rem;margin-bottom:10px;display:none;"></div>
     <div class="u-btns">
       <button class="u-btn-save" onclick="guardarContrasena()">🔒 Guardar</button>
-      <button class="u-btn-cancel" onclick="cerrarModalPass()">Cancelar</button>
+      <button class="u-btn-cancel" id="btnCancelarPass" onclick="cerrarModalPass()">Cancelar</button>
     </div>
   </div>
 </div>
@@ -1194,16 +1211,31 @@
     document.getElementById('modalUsuario').classList.add('show');
   }
 
-  function abrirModalPass() {
+  const MUST_CHANGE_PASSWORD = {{ 'true' if must_change_password else 'false' }};
+
+  function abrirModalPass(forzado) {
     document.getElementById('passActual').value = '';
     document.getElementById('passNueva').value = '';
     document.getElementById('passConfirmar').value = '';
     document.getElementById('passError').style.display = 'none';
     document.getElementById('passOk').style.display = 'none';
+    const aviso  = document.getElementById('avisoFirstPass');
+    const btnCan = document.getElementById('btnCancelarPass');
+    const titulo = document.getElementById('tituloModalPass');
+    if (forzado || MUST_CHANGE_PASSWORD) {
+      aviso.style.display  = 'block';
+      btnCan.style.display = 'none';
+      titulo.textContent   = '🔐 Cambio de contraseña obligatorio';
+    } else {
+      aviso.style.display  = 'none';
+      btnCan.style.display = 'inline-block';
+      titulo.textContent   = '🔑 Cambiar Contraseña';
+    }
     document.getElementById('modalCambiarPass').classList.add('show');
   }
 
   function cerrarModalPass() {
+    if (MUST_CHANGE_PASSWORD) return; // No se puede cerrar hasta cambiar
     document.getElementById('modalCambiarPass').classList.remove('show');
   }
 
@@ -1227,11 +1259,69 @@
     if (data.ok) {
       okEl.textContent = data.mensaje;
       okEl.style.display = 'block';
-      setTimeout(() => cerrarModalPass(), 2000);
+      setTimeout(() => {
+        document.getElementById('modalCambiarPass').classList.remove('show');
+      }, 2000);
     } else {
       errEl.textContent = data.error || 'Error al cambiar la contraseña.';
       errEl.style.display = 'block';
     }
+  }
+
+  // Auto-abrir si es primer acceso
+  if (MUST_CHANGE_PASSWORD) {
+    window.addEventListener('DOMContentLoaded', () => abrirModalPass(true));
+  }
+
+  // ── Historial de invitados (solo admin) ──────────────────────────────
+  const EVENTOS = {
+    'registro':         '🆕 Registro',
+    'primer_acceso':    '🔑 Primer acceso',
+    'inicio_sesion':    '▶️ Inicio sesión',
+    'cambio_contrasena':'🔒 Cambio de contraseña'
+  };
+
+  async function cargarHistorial() {
+    if (!IS_ADMIN) return;
+    const panel = document.getElementById('historialPanel');
+    if (!panel) return;
+    try {
+      const r    = await fetch('/admin/historial');
+      const data = await r.json();
+      const regs = (data.registros || []).slice().reverse();
+      if (!regs.length) {
+        panel.innerHTML = '<div style="text-align:center;color:#64748b;font-size:0.78rem;padding:12px 0;">Sin registros aún.</div>';
+        return;
+      }
+      panel.innerHTML = regs.map(reg => `
+        <div style="border-bottom:1px solid #1e293b;padding:8px 4px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:0.78rem;color:#e2e8f0;font-weight:600;">${EVENTOS[reg.evento] || reg.evento}</div>
+            <div style="font-size:0.7rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${reg.nombre} — ${reg.correo}</div>
+            <div style="font-size:0.67rem;color:#475569;">${reg.detalle || ''}</div>
+            <div style="font-size:0.65rem;color:#334155;">${reg.fecha}</div>
+          </div>
+          <button onclick="eliminarHistorial('${reg.id}')" style="background:none;border:none;color:#f87171;font-size:0.85rem;cursor:pointer;flex-shrink:0;">🗑</button>
+        </div>`).join('');
+    } catch(e) {
+      panel.innerHTML = '<div style="color:#f87171;font-size:0.75rem;padding:8px;">Error al cargar historial.</div>';
+    }
+  }
+
+  async function eliminarHistorial(id) {
+    if (!confirm('¿Eliminar este registro del historial?')) return;
+    await fetch('/admin/historial/eliminar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id})
+    });
+    cargarHistorial();
+  }
+
+  async function limpiarHistorial() {
+    if (!confirm('¿Limpiar TODO el historial? Esta acción no se puede deshacer.')) return;
+    await fetch('/admin/historial/limpiar', {method: 'POST'});
+    cargarHistorial();
   }
 
   function cerrarModalUsuario() {
@@ -1297,11 +1387,11 @@
     const origShowTab = window.showTab;
     window.showTab = function(name, el) {
       if (typeof origShowTab === 'function') origShowTab(name, el);
-      if (name === 'info' && IS_ADMIN) { cargarUsuarios(); cargarSolicitudes(); }
+      if (name === 'info' && IS_ADMIN) { cargarUsuarios(); cargarSolicitudes(); cargarHistorial(); }
     };
     // También cargar si ya estamos en Info
     setTimeout(() => {
-      if (document.getElementById('tab-info')?.classList.contains('active')) cargarUsuarios();
+      if (document.getElementById('tab-info')?.classList.contains('active')) { cargarUsuarios(); cargarHistorial(); }
     }, 500);
   }
 </script>
