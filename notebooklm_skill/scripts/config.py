@@ -29,16 +29,25 @@ RESPONSE_SELECTORS = [
     "[data-message-author='assistant']",
 ]
 
-# Browser Configuration
+# Browser Configuration — optimizado para Railway/nube
 BROWSER_ARGS = [
-    '--disable-blink-features=AutomationControlled',  # Patches navigator.webdriver
-    '--disable-dev-shm-usage',
-    '--no-sandbox',
+    '--disable-blink-features=AutomationControlled',
+    '--disable-dev-shm-usage',       # Crítico en nube: evita crash por falta de /dev/shm
+    '--no-sandbox',                  # Crítico en nube: Railway no permite sandboxing
     '--no-first-run',
-    '--no-default-browser-check'
+    '--no-default-browser-check',
+    '--disable-gpu',                 # Sin GPU en servidor de nube
+    '--disable-setuid-sandbox',      # Seguridad adicional en contenedor
+    '--disable-extensions',
+    '--disable-background-networking',
+    '--disable-sync',
+    '--metrics-recording-only',
+    '--mute-audio',
+    '--no-zygote',                   # Evita crash en entornos Docker
+    '--single-process',              # Más estable en Railway con 1 worker
 ]
 
-USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 # Timeouts
 LOGIN_TIMEOUT_MINUTES = 10

@@ -1,38 +1,41 @@
 FROM python:3.11-slim
 
-# Instalar Chrome y dependencias para Playwright/Patchright
+# ── Dependencias del sistema para Chromium headless en Railway ────────────
 RUN apt-get update && apt-get install -y \
     wget curl gnupg ca-certificates \
     libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
     libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
     libxfixes3 libxrandr2 libgbm1 libasound2 \
-    libpango-1.0-0 libcairo2 libatspi2.0-0 \
-    fonts-liberation libappindicator3-1 xdg-utils \
+    libpango-1.0-0 libcairo2 libatspi2.0-0 libx11-6 \
+    libx11-xcb1 libxcb1 libxext6 libxfixes3 libxi6 \
+    fonts-liberation xdg-utils \
     --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
-# Directorio de trabajo
+# ── Directorio de trabajo ─────────────────────────────────────────────────
 WORKDIR /app
 
-# Copiar e instalar dependencias Python
+# ── Instalar dependencias Python ──────────────────────────────────────────
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Instalar navegador Chromium para patchright
+# ── Instalar Chromium vía patchright (NO Google Chrome) ───────────────────
 RUN python -m patchright install chromium --with-deps
 
-# Copiar código del servidor
+# ── Copiar código ─────────────────────────────────────────────────────────
 COPY . .
 
-# Copiar skills de notebooklm
-COPY notebooklm_skill/ /app/notebooklm_skill/
-
-# Variables de entorno
+# ── Variables de entorno de Railway ──────────────────────────────────────
 ENV PYTHONIOENCODING=utf-8
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
+ENV DISPLAY=""
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Exponer puerto
+# ── Crear directorio de datos persistentes ────────────────────────────────
+RUN mkdir -p /app/data
+
+# ── Exponer puerto ────────────────────────────────────────────────────────
 EXPOSE 8080
 
-# Arranque con gunicorn
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --timeout 1800 --workers 1 --threads 2 server:app"]
+# ── Arranque: 1 worker (browser es single-threaded), timeout 30 min ───────
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --timeout 1800 --workers 1 --threads 1 --preload server:app"]

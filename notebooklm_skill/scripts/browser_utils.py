@@ -4,12 +4,16 @@ Handles browser launching, stealth features, and common interactions
 """
 
 import json
+import os
 import time
 import random
 from typing import Optional, List
 
 from patchright.sync_api import Playwright, BrowserContext, Page
 from config import BROWSER_PROFILE_DIR, STATE_FILE, BROWSER_ARGS, USER_AGENT
+
+# Detectar si estamos en nube (Railway/Render/Linux) o local (Windows)
+_IS_CLOUD = os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RENDER") or (os.name != "nt")
 
 
 class BrowserFactory:
@@ -24,17 +28,21 @@ class BrowserFactory:
         """
         Launch a persistent browser context with anti-detection features
         and cookie workaround.
+        En nube usa Chromium instalado por patchright.
+        En local usa Google Chrome real si está disponible.
         """
-        # Launch persistent context
-        context = playwright.chromium.launch_persistent_context(
+        # En la nube NO usar channel="chrome" — solo existe chromium
+        # En local usar chromium también para consistencia y evitar errores
+        launch_kwargs = dict(
             user_data_dir=user_data_dir,
-            channel="chrome",  # Use real Chrome
             headless=headless,
             no_viewport=True,
             ignore_default_args=["--enable-automation"],
             user_agent=USER_AGENT,
             args=BROWSER_ARGS
         )
+
+        context = playwright.chromium.launch_persistent_context(**launch_kwargs)
 
         # Cookie Workaround for Playwright bug #36139
         # Session cookies (expires=-1) don't persist in user_data_dir automatically

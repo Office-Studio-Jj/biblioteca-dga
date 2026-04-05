@@ -11,10 +11,12 @@ import json
 import uuid
 from datetime import datetime
 from functools import wraps
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for, Response, make_response
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, Response, make_response, send_from_directory
 
 app = Flask(__name__, static_folder='static')
-app.secret_key = secrets.token_hex(32)   # clave de sesion aleatoria por arranque
+# SECRET_KEY fija via variable de entorno para que las sesiones sobrevivan reinicios de Railway
+# Si no está definida en Railway, usa una clave derivada estable (no aleatoria)
+app.secret_key = os.environ.get("SECRET_KEY", hashlib.sha256(b"DGA-Biblioteca-Puertos-Aduanas-RD-2024").hexdigest())
 
 # ── Contraseñas por defecto (hash SHA-256) ───────────────────────────────
 _DEFAULT_ADMIN_HASH = hashlib.sha256(b"DGA2024*").hexdigest()
@@ -835,7 +837,15 @@ def guia_guardar():
 # ── Instalador / Descarga App ────────────────────────────────────────────
 # URL pública ngrok (se detecta automáticamente si está activo)
 def _get_public_url():
-    """Devuelve la URL pública de ngrok si está activo, o la IP local."""
+    """Devuelve la URL pública correcta según el entorno."""
+    # En Railway: usar la URL del dominio configurado
+    railway_url = os.environ.get("RAILWAY_PUBLIC_DOMAIN")
+    if railway_url:
+        return f"https://{railway_url}"
+    # URL hardcoded del despliegue actual en Railway
+    if _IS_CLOUD:
+        return "https://biblioteca-dga-production.up.railway.app"
+    # Local: intentar ngrok, si no IP local
     try:
         import urllib.request, json as _json
         with urllib.request.urlopen("http://localhost:4040/api/tunnels", timeout=1) as r:
@@ -881,6 +891,23 @@ def manual_admin():
 def manual_invitado():
     return render_template("manual_invitado.html")
 
+@app.route("/manual/pdf/<rol>")
+@login_required
+def manual_pdf(rol):
+    """Descarga el manual PDF del rol correspondiente."""
+    if rol == "admin":
+        if session.get("role") != "admin":
+            return redirect(url_for("index"))
+        filename = "Manual_Administrador_Aduanas_RD.pdf"
+    else:
+        filename = "Manual_Invitado_Aduanas_RD.pdf"
+    return send_from_directory(
+        os.path.join(app.static_folder),
+        filename,
+        as_attachment=True,
+        download_name=filename,
+    )
+
 @app.route("/instalar")
 def instalar():
     server_url = _get_public_url()
@@ -903,25 +930,63 @@ def ask_notebooklm(question, notebook_id):
     cmd = [PYTHON, "scripts/ask_question.py", "--question", question, "--notebook-id", notebook_id]
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
-    result = subprocess.run(cmd, cwd=SKILL_DIR, capture_output=True, text=True, encoding="utf-8", env=env, timeout=1800)
-    output = result.stdout
-    sep = "=" * 20
-    parts = [p for p in output.split(sep) if p.strip()]
+    env["DISPLAY"] = ""          # Evita errores de display en Linux/Railway
+    env["PYTHONPATH"] = SKILL_DIR  # Asegura que los imports del skill funcionen
+
+    try:
+        result = subprocess.run(
+            cmd, cwd=SKILL_DIR,
+            capture_output=True, text=True, encoding="utf-8",
+            env=env, timeout=1800
+        )
+    except subprocess.TimeoutExpired:
+        return "La consulta tardó demasiado (30 min). Intenta de nuevo con una pregunta más corta."
+    except Exception as e:
+        return f"Error al ejecutar la consulta: {str(e)[:300]}"
+
+    output = result.stdout or ""
+    stderr = result.stderr or ""
+
+    # Log completo para diagnóstico (visible en Railway logs)
+    if stderr and result.returncode != 0:
+        print(f"[ASK_ERROR] rc={result.returncode} stderr={stderr[:500]}")
+
+    # Parsear respuesta del formato: ====\nQuestion\n====\n\nAnswer\n\n====
+    sep60 = "=" * 60
+    sep20 = "=" * 20
     answer = ""
-    if len(parts) >= 3:
-        raw = parts[2]
-        cut = raw.find("EXTREMELY IMPORTANT")
-        if cut != -1:
-            raw = raw[:cut]
-        answer = raw.strip()
-    if not answer and result.returncode == 0:
+
+    # Intentar con separador de 60 (formato main())
+    if sep60 in output:
+        parts = output.split(sep60)
+        if len(parts) >= 3:
+            raw = parts[2]
+            cut = raw.find("EXTREMELY IMPORTANT")
+            answer = (raw[:cut] if cut != -1 else raw).strip()
+
+    # Fallback: separador de 20
+    if not answer and sep20 in output:
+        parts = [p for p in output.split(sep20) if p.strip()]
+        if len(parts) >= 2:
+            raw = parts[-1]
+            cut = raw.find("EXTREMELY IMPORTANT")
+            answer = (raw[:cut] if cut != -1 else raw).strip()
+
+    # Fallback final: última línea no vacía después del último separador
+    if not answer and ("=" * 10) in output:
         lines = output.splitlines()
-        idx = max((i for i, l in enumerate(lines) if "=" * 20 in l), default=-1)
-        if idx >= 0:
-            answer = "\n".join(lines[idx+1:]).split("EXTREMELY")[0].strip()
+        last_sep = max((i for i, l in enumerate(lines) if "=" * 10 in l), default=-1)
+        if last_sep >= 0:
+            candidate = "\n".join(lines[last_sep + 1:]).split("EXTREMELY")[0].strip()
+            if len(candidate) > 20:
+                answer = candidate
+
     if not answer:
-        err = result.stderr.strip()
-        answer = f"No se obtuvo respuesta.{' Error: ' + err[:200] if err else ' Verifica que el cuaderno tenga fuentes cargadas.'}"
+        # Diagnóstico claro para Railway logs
+        diag = stderr[:400] if stderr else "Sin stderr. Verifica cookies y library.json."
+        print(f"[ASK_NOANS] stdout={output[:200]} | stderr={diag}")
+        return f"No se obtuvo respuesta del cuaderno '{notebook_id}'. El sistema está procesando — intenta de nuevo en 30 segundos."
+
     return answer
 
 # ── Arranque ─────────────────────────────────────────────────────────────
