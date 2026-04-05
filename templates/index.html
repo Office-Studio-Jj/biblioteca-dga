@@ -372,6 +372,152 @@
       margin-top: 4px;
     }
 
+    /* ── Conformidad y ficha técnica ── */
+    .conformity-section {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .conformity-question {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+    .conformity-btns {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn-conf {
+      flex: 1;
+      min-width: 130px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .btn-conf:active { transform: scale(0.97); }
+    .btn-si  { background: #064e3b; color: #6ee7b7; border-color: #065f46; }
+    .btn-si:hover { background: #065f46; }
+    .btn-no  { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
+    .btn-no:hover { background: #991b1b; }
+    .btn-same { background: #1e3a5f; color: #93c5fd; border-color: #1e40af; }
+    .btn-same:hover { background: #1e40af; }
+    .btn-other { background: #3b1f60; color: #c4b5fd; border-color: #5b21b6; }
+    .btn-other:hover { background: #5b21b6; }
+
+    .conf-thanks {
+      font-size: 0.82rem;
+      color: #6ee7b7;
+      padding: 10px 0;
+      text-align: center;
+    }
+
+    .ficha-section {
+      margin-top: 14px;
+      padding: 14px;
+      background: #0c1929;
+      border: 1px solid #1e3a5f;
+      border-radius: 12px;
+    }
+    .ficha-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #fbbf24;
+      margin-bottom: 8px;
+    }
+    .ficha-text {
+      font-size: 0.76rem;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+    .ficha-reqs {
+      margin: 0 0 12px 16px;
+      padding: 0;
+      font-size: 0.74rem;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+    .ficha-reqs li { margin-bottom: 2px; }
+
+    .ficha-attach {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--navy2);
+      border: 1px dashed #334155;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .ficha-attach:hover { border-color: var(--gold); }
+    .ficha-attach.has-file { border-color: #6ee7b7; border-style: solid; }
+    .ficha-attach-label { font-size: 0.76rem; color: #64748b; }
+    .ficha-attach.has-file .ficha-attach-label { color: #6ee7b7; }
+    .ficha-attach-name { font-size: 0.7rem; color: #94a3b8; margin-top: 2px; }
+    .ficha-attach-remove {
+      display: none;
+      font-size: 0.7rem;
+      color: #f87171;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    .ficha-attach.has-file .ficha-attach-remove { display: block; }
+
+    .nb-choice {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #1e3a5f;
+    }
+    .retry-query-box {
+      margin-top: 10px;
+    }
+    .retry-query-box textarea {
+      width: 100%;
+      background: var(--navy2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.82rem;
+      resize: vertical;
+      outline: none;
+      font-family: inherit;
+    }
+    .retry-label {
+      font-size: 0.72rem;
+      color: #64748b;
+      margin-bottom: 6px;
+    }
+    .btn-retry {
+      width: 100%;
+      margin-top: 12px;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: #fff;
+      border: none;
+      padding: 13px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-retry:active { opacity: 0.8; }
+    .btn-retry:disabled { opacity: 0.45; cursor: default; }
+
+    .other-nb-grid {
+      display: none;
+      margin-top: 10px;
+    }
+    .other-nb-grid.show { display: grid; }
+
     /* ── Footer safe area ── */
     .footer-pad { height: calc(var(--safe-bot) + 8px); }
 
@@ -444,6 +590,70 @@
         <div class="resp-header">Respuesta</div>
         <div class="resp-body" id="respBody"></div>
         <div class="resp-nb" id="respNb"></div>
+
+        <!-- ── Conformidad ── -->
+        <div id="conformitySection" class="conformity-section" style="display:none;">
+          <div class="conformity-question">¿Está conforme con esta consulta?</div>
+          <div class="conformity-btns">
+            <button class="btn-conf btn-si" onclick="onConforme(true)">✅ Sí, conforme</button>
+            <button class="btn-conf btn-no" onclick="onConforme(false)">❌ No, necesito más precisión</button>
+          </div>
+        </div>
+
+        <!-- ── Mensaje de confirmación ── -->
+        <div id="confThanks" class="conf-thanks" style="display:none;">
+          ✅ ¡Gracias por confirmar! Puede realizar otra consulta cuando lo desee.
+        </div>
+
+        <!-- ── Ficha técnica verificada ── -->
+        <div id="fichaSection" class="ficha-section" style="display:none;">
+          <div class="ficha-title">📋 Para una respuesta más precisa</div>
+          <div class="ficha-text">
+            Adjunte una ficha técnica oficial elaborada por un profesional del área.
+            La ficha debe incluir documentos de verificación tales como:
+          </div>
+          <ul class="ficha-reqs">
+            <li>Link de comprobación del profesional o empresa</li>
+            <li>Documentos firmados por el profesional o técnico responsable</li>
+          </ul>
+
+          <div class="ficha-attach" id="fichaZone" onclick="document.getElementById('fichaInput').click()">
+            <input type="file" id="fichaInput" accept=".pdf" style="display:none;" onchange="onFichaSelected(this)">
+            <span>📎</span>
+            <div>
+              <div class="ficha-attach-label" id="fichaLabel">Adjuntar ficha técnica verificada (solo PDF)</div>
+              <div class="ficha-attach-name" id="fichaName"></div>
+            </div>
+            <div class="ficha-attach-remove" id="fichaRemove" onclick="removeFicha(event)">✕ Quitar</div>
+          </div>
+
+          <!-- ── Elección de cuaderno ── -->
+          <div id="nbChoiceSection" class="nb-choice" style="display:none;">
+            <div class="conformity-question">¿En qué cuaderno desea repetir la búsqueda?</div>
+            <div class="conformity-btns">
+              <button class="btn-conf btn-same" onclick="retryChooseNb('same')">🔄 Mismo cuaderno (<span id="sameNbLabel"></span>)</button>
+              <button class="btn-conf btn-other" onclick="retryChooseNb('other')">📚 Otro cuaderno</button>
+            </div>
+
+            <!-- Grid para otro cuaderno -->
+            <div id="otherNbGrid" class="other-nb-grid grid">
+              {% for nb in notebooks %}
+              <button class="nb-btn" data-id="{{ nb.id }}" data-name="{{ nb.nombre }}" onclick="selectRetryNb(this)">
+                <span class="ico">{{ nb.emoji }}</span>
+                <span class="txt">{{ nb.nombre }}</span>
+              </button>
+              {% endfor %}
+            </div>
+
+            <!-- Editar consulta (opcional) -->
+            <div id="retryQueryBox" class="retry-query-box" style="display:none;">
+              <div class="retry-label">Puede modificar su consulta si lo desea:</div>
+              <textarea id="qInputRetry" rows="3" placeholder="Escriba su nueva consulta..."></textarea>
+            </div>
+
+            <button class="btn-retry" id="btnRetry" onclick="retrySearch()" style="display:none;">🔄 Repetir consulta con ficha técnica →</button>
+          </div>
+        </div>
       </div>
 
       <div class="footer-pad"></div>
@@ -1055,6 +1265,28 @@
     document.getElementById('attachRemove').style.display = 'none';
   }
 
+  /* ── Estado de conformidad / ficha técnica ── */
+  let _fichaFile = null;
+  let _retryNbId = null, _retryNbName = '';
+  let _lastQuery = '', _lastNbId = '', _lastNbName = '';
+
+  function resetConformity() {
+    document.getElementById('conformitySection').style.display = 'none';
+    document.getElementById('confThanks').style.display = 'none';
+    document.getElementById('fichaSection').style.display = 'none';
+    document.getElementById('nbChoiceSection').style.display = 'none';
+    document.getElementById('otherNbGrid').classList.remove('show');
+    document.getElementById('retryQueryBox').style.display = 'none';
+    document.getElementById('btnRetry').style.display = 'none';
+    _fichaFile = null;
+    _retryNbId = null;
+    _retryNbName = '';
+    const fichaZone = document.getElementById('fichaZone');
+    fichaZone.classList.remove('has-file');
+    document.getElementById('fichaInput').value = '';
+    document.getElementById('fichaName').textContent = '';
+  }
+
   async function send() {
     const q = document.getElementById('qInput').value.trim();
     if (!q || !selId) return;
@@ -1063,16 +1295,20 @@
     const body = document.getElementById('respBody');
     const nb   = document.getElementById('respNb');
 
+    resetConformity();
     btn.disabled = true;
     btn.textContent = 'Consultando...';
     card.classList.add('show');
-    body.innerHTML = '<div class="loading-row"><div class="spin"></div>Abriendo NotebookLM... (puede tardar 1-2 min)</div>';
+    body.innerHTML = '<div class="loading-row"><div class="spin"></div>Consultando... (puede tardar unos segundos)</div>';
     nb.textContent = '';
+
+    _lastQuery = q;
+    _lastNbId = selId;
+    _lastNbName = selName;
 
     try {
       let res;
       if (_attachedFile) {
-        // Enviar con archivo adjunto (multipart)
         const fd = new FormData();
         fd.append('question', q);
         fd.append('notebook_id', selId);
@@ -1092,14 +1328,149 @@
         body.textContent = data.answer;
         nb.textContent = '📖 ' + selName;
         saveHistory(q, selName, data.answer);
+        /* Mostrar botones de conformidad */
+        document.getElementById('conformitySection').style.display = 'block';
       }
     } catch(e) {
-      body.innerHTML = '<span class="error">No se pudo conectar con el servidor.<br>Verifica que el PC esté encendido y el servidor activo.</span>';
+      body.innerHTML = '<span class="error">No se pudo conectar con el servidor.<br>Verifica tu conexión a internet.</span>';
     }
 
     btn.disabled = false;
     btn.textContent = 'Consultar →';
     card.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }
+
+  /* ── Conformidad: SI / NO ── */
+  function onConforme(isYes) {
+    document.getElementById('conformitySection').style.display = 'none';
+    if (isYes) {
+      document.getElementById('confThanks').style.display = 'block';
+    } else {
+      document.getElementById('fichaSection').style.display = 'block';
+      document.getElementById('fichaSection').scrollIntoView({behavior: 'smooth', block: 'start'});
+    }
+  }
+
+  /* ── Ficha técnica verificada ── */
+  function onFichaSelected(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Solo se aceptan archivos PDF para la ficha técnica verificada.');
+      input.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('El archivo no debe superar 10 MB.');
+      input.value = '';
+      return;
+    }
+    _fichaFile = file;
+    const fichaZone = document.getElementById('fichaZone');
+    fichaZone.classList.add('has-file');
+    document.getElementById('fichaLabel').textContent = '✅ Ficha técnica adjuntada';
+    document.getElementById('fichaName').textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
+
+    /* Mostrar opciones de cuaderno */
+    document.getElementById('nbChoiceSection').style.display = 'block';
+    document.getElementById('sameNbLabel').textContent = _lastNbName;
+    document.getElementById('nbChoiceSection').scrollIntoView({behavior: 'smooth', block: 'start'});
+  }
+
+  function removeFicha(e) {
+    e.stopPropagation();
+    _fichaFile = null;
+    document.getElementById('fichaInput').value = '';
+    document.getElementById('fichaZone').classList.remove('has-file');
+    document.getElementById('fichaLabel').textContent = 'Adjuntar ficha técnica verificada (solo PDF)';
+    document.getElementById('fichaName').textContent = '';
+    document.getElementById('nbChoiceSection').style.display = 'none';
+    document.getElementById('otherNbGrid').classList.remove('show');
+    document.getElementById('retryQueryBox').style.display = 'none';
+    document.getElementById('btnRetry').style.display = 'none';
+  }
+
+  /* ── Elección de cuaderno para repetir búsqueda ── */
+  function retryChooseNb(choice) {
+    if (choice === 'same') {
+      _retryNbId = _lastNbId;
+      _retryNbName = _lastNbName;
+      document.getElementById('otherNbGrid').classList.remove('show');
+      document.getElementById('retryQueryBox').style.display = 'block';
+      document.getElementById('qInputRetry').value = _lastQuery;
+      document.getElementById('btnRetry').style.display = 'block';
+      document.getElementById('btnRetry').scrollIntoView({behavior: 'smooth', block: 'start'});
+    } else {
+      _retryNbId = null;
+      _retryNbName = '';
+      document.getElementById('otherNbGrid').classList.add('show');
+      document.getElementById('retryQueryBox').style.display = 'none';
+      document.getElementById('btnRetry').style.display = 'none';
+    }
+  }
+
+  function selectRetryNb(btn) {
+    /* Deseleccionar todos */
+    document.querySelectorAll('#otherNbGrid .nb-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _retryNbId = btn.dataset.id;
+    _retryNbName = btn.dataset.name;
+    /* Mostrar campo de consulta editable */
+    document.getElementById('retryQueryBox').style.display = 'block';
+    document.getElementById('qInputRetry').value = (_retryNbId !== _lastNbId) ? '' : _lastQuery;
+    document.getElementById('qInputRetry').placeholder = 'Escriba su consulta para ' + _retryNbName + '...';
+    document.getElementById('btnRetry').style.display = 'block';
+    document.getElementById('btnRetry').scrollIntoView({behavior: 'smooth', block: 'start'});
+  }
+
+  /* ── Repetir búsqueda con ficha técnica ── */
+  async function retrySearch() {
+    const q = document.getElementById('qInputRetry').value.trim();
+    if (!q || !_retryNbId || !_fichaFile) {
+      alert('Complete la consulta, seleccione un cuaderno y adjunte la ficha técnica.');
+      return;
+    }
+    const btn  = document.getElementById('btnRetry');
+    const body = document.getElementById('respBody');
+    const nb   = document.getElementById('respNb');
+
+    btn.disabled = true;
+    btn.textContent = '🔄 Consultando con ficha técnica...';
+    body.innerHTML = '<div class="loading-row"><div class="spin"></div>Procesando consulta con ficha técnica adjunta...</div>';
+    nb.textContent = '';
+
+    /* Ocultar secciones de conformidad */
+    document.getElementById('conformitySection').style.display = 'none';
+    document.getElementById('confThanks').style.display = 'none';
+
+    _lastQuery = q;
+    _lastNbId = _retryNbId;
+    _lastNbName = _retryNbName;
+
+    try {
+      const fd = new FormData();
+      fd.append('question', q);
+      fd.append('notebook_id', _retryNbId);
+      fd.append('archivo', _fichaFile);
+      const res = await fetch('/consultar', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.error) {
+        body.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
+      } else {
+        body.textContent = data.answer;
+        nb.textContent = '📖 ' + _retryNbName;
+        saveHistory(q, _retryNbName, data.answer);
+        /* Ocultar ficha y mostrar nueva conformidad */
+        document.getElementById('fichaSection').style.display = 'none';
+        document.getElementById('conformitySection').style.display = 'block';
+      }
+    } catch(e) {
+      body.innerHTML = '<span class="error">No se pudo conectar con el servidor.</span>';
+    }
+
+    btn.disabled = false;
+    btn.textContent = '🔄 Repetir consulta con ficha técnica →';
+    document.getElementById('respCard').scrollIntoView({behavior: 'smooth', block: 'start'});
   }
 
   function saveHistory(q, nb, ans) {
