@@ -632,20 +632,25 @@ def admin_eliminar_usuario():
 @login_required
 def cambiar_contrasena():
     d                = request.json or {}
-    tipoPassCambiar  = d.get("tipo", "")          # "admin", "master", "operativo", "invitado"
+    tipoPassCambiar  = d.get("tipo", "")
     actual           = d.get("actual", "")
     nueva            = d.get("nueva", "")
     confirmacion     = d.get("confirmacion", "")
+    primer_acceso    = d.get("primer_acceso", False)   # True cuando es el primer cambio obligatorio
     role             = session.get("role", "")
+    es_primer_acceso = primer_acceso or session.get("must_change_password", False)
 
-    if not actual or not nueva or not confirmacion:
-        return jsonify({"error": "Todos los campos son obligatorios."}), 400
+    # En primer acceso NO se requiere "actual" (el usuario ya se autenticó al hacer login)
+    if not es_primer_acceso and not actual:
+        return jsonify({"error": "Ingresa tu contraseña actual."}), 400
+    if not nueva or not confirmacion:
+        return jsonify({"error": "Ingresa y confirma la nueva contraseña."}), 400
     if nueva != confirmacion:
-        return jsonify({"error": "La nueva contraseña y la confirmación no coinciden."}), 400
+        return jsonify({"error": "Las contraseñas no coinciden. Verifica e intenta de nuevo."}), 400
     if len(nueva) < 6:
         return jsonify({"error": "La contraseña debe tener al menos 6 caracteres."}), 400
 
-    actual_hash = hashlib.sha256(actual.encode()).hexdigest()
+    actual_hash = hashlib.sha256(actual.encode()).hexdigest() if actual else ""
     nueva_hash  = hashlib.sha256(nueva.encode()).hexdigest()
     passwords   = load_passwords()
 
@@ -670,8 +675,10 @@ def cambiar_contrasena():
         usuario = find_user_by_email(correo_session)
         if not usuario:
             return jsonify({"error": "Usuario no encontrado."}), 404
-        if actual_hash != usuario.get("password_hash", ""):
-            return jsonify({"error": "La contraseña actual es incorrecta."}), 400
+        # Solo verificar contraseña actual si NO es primer acceso
+        if not es_primer_acceso:
+            if actual_hash != usuario.get("password_hash", ""):
+                return jsonify({"error": "La contraseña actual es incorrecta."}), 400
         # Actualizar password_hash y marcar que ya cambio la contrasena
         data = load_users()
         for u in data["usuarios"]:
@@ -696,20 +703,24 @@ def cambiar_contrasena():
             log_historial(correo_session, nombre_session, "cambio_contrasena", f"{role} cambió la contraseña de invitados")
             return jsonify({"ok": True, "mensaje": "Contraseña de invitado actualizada correctamente."})
         elif role == "invitado":
-            if actual_hash != passwords.get("invitado", _DEFAULT_GUEST_HASH):
-                return jsonify({"error": "La contraseña actual es incorrecta."}), 400
+            # Solo verificar contraseña actual si NO es primer acceso
+            if not es_primer_acceso:
+                if actual_hash != passwords.get("invitado", _DEFAULT_GUEST_HASH):
+                    return jsonify({"error": "La contraseña actual es incorrecta."}), 400
             passwords["invitado"] = nueva_hash
             save_passwords(passwords)
-            # Marcar que ya cambió la contraseña
+            # Marcar que ya cambio la contrasena
             data = load_users()
             for u in data["usuarios"]:
                 if u["correo"].lower() == correo_session.lower():
-                    u["password_changed"] = True
+                    u["password_changed"]     = True
+                    u["must_change_password"] = False
                     break
             save_users(data)
             session["must_change_password"] = False
-            log_historial(correo_session, nombre_session, "cambio_contrasena", "Cambió su contraseña por primera vez")
-            return jsonify({"ok": True, "mensaje": "Contraseña actualizada correctamente."})
+            detalle_inv = "Creó su contraseña personal (primer acceso)" if es_primer_acceso else "Cambió su contraseña"
+            log_historial(correo_session, nombre_session, "cambio_contrasena", detalle_inv)
+            return jsonify({"ok": True, "mensaje": "¡Contraseña creada! Bienvenido/a al sistema."})
         else:
             return jsonify({"error": "Acceso denegado."}), 403
     else:

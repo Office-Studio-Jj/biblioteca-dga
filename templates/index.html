@@ -1216,9 +1216,11 @@
     {% else %}
     <input type="hidden" id="tipoPassCambiar" value="invitado">
     {% endif %}
-    <div style="margin-bottom:10px;">
+    <!-- Campo contraseña actual: solo visible cuando NO es primer acceso -->
+    <div id="passActualWrap" style="margin-bottom:10px;">
       <label style="font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:4px;">Contraseña actual</label>
-      <input type="password" id="passActual" placeholder="Contraseña actual" style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;box-sizing:border-box;">
+      <input type="password" id="passActual" placeholder="Contraseña actual" autocomplete="current-password"
+        style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;box-sizing:border-box;">
     </div>
     <div style="margin-bottom:10px;">
       <label style="font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:4px;">Nueva contraseña</label>
@@ -2020,24 +2022,34 @@
   const MUST_CHANGE_PASSWORD = {{ 'true' if must_change_password else 'false' }};
 
   function abrirModalPass(forzado) {
-    document.getElementById('passActual').value = '';
-    document.getElementById('passNueva').value = '';
+    document.getElementById('passActual').value    = '';
+    document.getElementById('passNueva').value     = '';
     document.getElementById('passConfirmar').value = '';
     document.getElementById('passError').style.display = 'none';
-    document.getElementById('passOk').style.display = 'none';
-    const aviso  = document.getElementById('avisoFirstPass');
-    const btnCan = document.getElementById('btnCancelarPass');
-    const titulo = document.getElementById('tituloModalPass');
-    if (forzado || MUST_CHANGE_PASSWORD) {
+    document.getElementById('passOk').style.display   = 'none';
+
+    const aviso        = document.getElementById('avisoFirstPass');
+    const btnCan       = document.getElementById('btnCancelarPass');
+    const titulo       = document.getElementById('tituloModalPass');
+    const actualWrap   = document.getElementById('passActualWrap');
+    const esPrimerAcceso = forzado || MUST_CHANGE_PASSWORD;
+
+    if (esPrimerAcceso) {
+      // Primer acceso: ocultar campo "contraseña actual" — ya se autenticó al ingresar
+      if (actualWrap) actualWrap.style.display = 'none';
       aviso.style.display  = 'block';
       btnCan.style.display = 'none';
-      titulo.textContent   = '🔐 Cambio de contraseña obligatorio';
+      titulo.textContent   = '🔐 Crea tu contraseña personal';
     } else {
+      // Cambio normal: mostrar campo contraseña actual
+      if (actualWrap) actualWrap.style.display = 'block';
       aviso.style.display  = 'none';
       btnCan.style.display = 'inline-block';
       titulo.textContent   = '🔑 Cambiar Contraseña';
     }
     document.getElementById('modalCambiarPass').classList.add('show');
+    // Enfocar directamente en "Nueva contraseña" si es primer acceso
+    if (esPrimerAcceso) setTimeout(() => document.getElementById('passNueva').focus(), 300);
   }
 
   function cerrarModalPass() {
@@ -2046,30 +2058,60 @@
   }
 
   async function guardarContrasena() {
-    const tipoEl = document.getElementById('tipoPassCambiar');
-    const tipo   = tipoEl.tagName === 'SELECT' ? tipoEl.value : tipoEl.value;
-    const actual = document.getElementById('passActual').value;
-    const nueva  = document.getElementById('passNueva').value;
-    const conf   = document.getElementById('passConfirmar').value;
-    const errEl  = document.getElementById('passError');
-    const okEl   = document.getElementById('passOk');
+    const tipoEl  = document.getElementById('tipoPassCambiar');
+    const tipo    = tipoEl.tagName === 'SELECT' ? tipoEl.value : tipoEl.value;
+    const nueva   = document.getElementById('passNueva').value.trim();
+    const conf    = document.getElementById('passConfirmar').value.trim();
+    const errEl   = document.getElementById('passError');
+    const okEl    = document.getElementById('passOk');
     errEl.style.display = 'none';
     okEl.style.display  = 'none';
+
+    // Validaciones en el cliente
+    if (!nueva || !conf) {
+      errEl.textContent = 'Ingresa y confirma tu nueva contraseña.';
+      errEl.style.display = 'block'; return;
+    }
+    if (nueva.length < 6) {
+      errEl.textContent = 'La contraseña debe tener al menos 6 caracteres.';
+      errEl.style.display = 'block'; return;
+    }
+    if (nueva !== conf) {
+      errEl.textContent = 'Las contraseñas no coinciden. Verifica e intenta de nuevo.';
+      errEl.style.display = 'block'; return;
+    }
+
+    // Si es primer acceso, no se envía "actual" (el backend lo omite también)
+    const esPrimerAcceso = MUST_CHANGE_PASSWORD;
+    const actualValue    = esPrimerAcceso ? '' : document.getElementById('passActual').value.trim();
+
+    if (!esPrimerAcceso && !actualValue) {
+      errEl.textContent = 'Ingresa tu contraseña actual.';
+      errEl.style.display = 'block'; return;
+    }
 
     const res = await fetch('/cambiar-contrasena', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({tipo, actual, nueva, confirmacion: conf})
+      body: JSON.stringify({
+        tipo,
+        actual:       actualValue,
+        nueva,
+        confirmacion: conf,
+        primer_acceso: esPrimerAcceso
+      })
     });
     const data = await res.json();
     if (data.ok) {
-      okEl.textContent = data.mensaje;
+      okEl.textContent   = data.mensaje;
       okEl.style.display = 'block';
       setTimeout(() => {
         document.getElementById('modalCambiarPass').classList.remove('show');
+        // Recargar para reflejar sesion actualizada
+        if (esPrimerAcceso) location.reload();
       }, 2000);
     } else {
-      errEl.textContent = data.error || 'Error al cambiar la contraseña.';
+      errEl.textContent   = data.error || 'Error al cambiar la contraseña.';
       errEl.style.display = 'block';
     }
   }
