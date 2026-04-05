@@ -985,6 +985,19 @@ def descargar_app():
     resp.headers["Content-Disposition"] = "attachment; filename=Logistica-Puertos-Aduanas-RD.html"
     return resp
 
+# ── Aviso profesional al final de cada respuesta ─────────────────────────
+_DISCLAIMER = (
+    "\n\n---\n"
+    "**Nota importante:** Esta respuesta fue generada por inteligencia artificial "
+    "a partir de las fuentes cargadas en el sistema. La IA puede cometer errores, "
+    "especialmente si los datos de origen no fueron cargados correctamente o están "
+    "incompletos. Le recomendamos validar esta información con un especialista en "
+    "la materia del producto que desea importar o exportar. Para obtener respuestas "
+    "más precisas, solicite a un experto la elaboración de una ficha técnica oficial "
+    "de su producto y súbala al sistema utilizando la opción "
+    "\"Adjuntar ficha técnica (PDF o JPG)\"."
+)
+
 # ── Lógica de consulta: Gemini API (primario) → NotebookLM navegador (fallback) ──
 def _parse_subprocess_answer(output, stderr, notebook_id):
     """Extrae la respuesta de texto del stdout de ask_question.py o ask_gemini.py."""
@@ -1037,7 +1050,7 @@ def ask_notebooklm(question, notebook_id):
             print(f"[GEMINI_LOG] rc={result.returncode} stdout={output[:200]} stderr={stderr[:200]}")
             answer = _parse_subprocess_answer(output, stderr, notebook_id)
             if answer:
-                return answer
+                return answer + _DISCLAIMER
             print(f"[GEMINI_NOANS] Sin respuesta de Gemini. stderr={stderr[:300]}")
         except subprocess.TimeoutExpired:
             print("[GEMINI_LOG] Timeout en Gemini (2 min)")
@@ -1078,7 +1091,7 @@ def ask_notebooklm(question, notebook_id):
         print(f"[ASK_NOANS] stdout={output[:200]} | stderr={diag}")
         return f"No se obtuvo respuesta del cuaderno '{notebook_id}'. El sistema está procesando — intenta de nuevo en 30 segundos."
 
-    return answer
+    return answer + _DISCLAIMER
 
 # ── Arranque ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
