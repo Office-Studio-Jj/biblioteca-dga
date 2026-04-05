@@ -37,5 +37,8 @@ RUN mkdir -p /app/data
 # ── Exponer puerto ────────────────────────────────────────────────────────
 EXPOSE 8080
 
-# ── Arranque: 1 worker (browser es single-threaded), timeout 30 min ───────
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --timeout 1800 --workers 1 --threads 1 --preload server:app"]
+# ── Arranque: 1 worker + 4 threads (permite admin y usuarios simultáneos) ──
+# gthread worker: cada hilo atiende una petición independiente.
+# subprocess.run() libera el GIL → consultas NotebookLM no bloquean a otros usuarios.
+# 1 solo proceso → sin race conditions en los archivos JSON compartidos.
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --timeout 1800 --workers 1 --worker-class gthread --threads 4 --preload server:app"]
