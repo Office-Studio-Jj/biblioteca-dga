@@ -31,8 +31,10 @@ ENV PORT=8080
 ENV DISPLAY=""
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# ── Crear directorio de datos persistentes ────────────────────────────────
-RUN mkdir -p /app/data
+# ── Crear directorios de datos y perfil del navegador ────────────────────
+RUN mkdir -p /app/data \
+ && mkdir -p /app/notebooklm_skill/data/browser_state/browser_profile \
+ && chmod -R 777 /app/notebooklm_skill/data
 
 # ── Exponer puerto ────────────────────────────────────────────────────────
 EXPOSE 8080

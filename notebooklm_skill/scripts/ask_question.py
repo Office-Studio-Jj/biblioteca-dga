@@ -13,6 +13,7 @@ import argparse
 import sys
 import time
 import re
+import traceback
 from pathlib import Path
 
 from patchright.sync_api import sync_playwright
@@ -26,8 +27,6 @@ from config import QUERY_INPUT_SELECTORS, RESPONSE_SELECTORS
 from browser_utils import BrowserFactory, StealthUtils
 
 
-# Follow-up reminder (adapted from MCP server for stateless operation)
-# Since we don't have persistent sessions, we encourage comprehensive questions
 FOLLOW_UP_REMINDER = (
     "\n\nEXTREMELY IMPORTANT: Is that ALL you need to know? "
     "You can always ask another question! Think about it carefully: "
@@ -52,105 +51,122 @@ def ask_notebooklm(question: str, notebook_url: str, headless: bool = True) -> s
     auth = AuthManager()
 
     if not auth.is_authenticated():
-        print("⚠️ Not authenticated. Run: python auth_manager.py setup")
+        print("[DIAG] state.json not found — re-authentication needed")
         return None
 
-    print(f"💬 Asking: {question}")
-    print(f"📚 Notebook: {notebook_url}")
+    print(f"[DIAG] question={question[:60]}")
+    print(f"[DIAG] notebook_url={notebook_url}")
 
     playwright = None
     context = None
 
     try:
         # Start playwright
+        print("[DIAG] starting playwright...")
         playwright = sync_playwright().start()
+        print("[DIAG] playwright started OK")
 
         # Launch persistent browser context using factory
+        print("[DIAG] launching browser context...")
         context = BrowserFactory.launch_persistent_context(
             playwright,
             headless=headless
         )
+        print("[DIAG] browser context launched OK")
 
         # Navigate to notebook
         page = context.new_page()
-        print("  🌐 Opening notebook...")
-        page.goto(notebook_url, wait_until="domcontentloaded")
+        print("[DIAG] navigating to notebook (wait_until=load)...")
+        try:
+            page.goto(notebook_url, wait_until="load", timeout=60000)
+        except Exception as e_goto:
+            # If "load" times out (JS heavy page), continue anyway — DOM is ready
+            print(f"[DIAG] goto warning (non-fatal): {e_goto}")
 
-        # Wait for NotebookLM (increased timeout for slow/remote connections)
-        page.wait_for_url(re.compile(r"^https://notebooklm\.google\.com/"), timeout=45000)
+        current_url = page.url
+        try:
+            page_title = page.title()
+        except Exception:
+            page_title = "unknown"
+        print(f"[DIAG] current_url={current_url}")
+        print(f"[DIAG] page_title={page_title}")
 
-        # Wait for query input (MCP approach)
-        print("  ⏳ Waiting for query input...")
+        # Verify we are on NotebookLM (not redirected to Google login)
+        if "accounts.google.com" in current_url or "notebooklm.google.com" not in current_url:
+            print(f"[DIAG] REDIRECT DETECTED — not on NotebookLM. URL={current_url}")
+            print("[DIAG] Cookies may be invalid or Google blocked this IP. Re-auth required.")
+            return None
+
+        # Wait for query input — increased timeout for slow cloud connections
+        print("[DIAG] waiting for query input selector...")
         query_element = None
 
         for selector in QUERY_INPUT_SELECTORS:
             try:
                 query_element = page.wait_for_selector(
                     selector,
-                    timeout=30000,
-                    state="visible"  # Only check visibility, not disabled!
+                    timeout=60000,   # 60s — cloud is slower than local
+                    state="visible"
                 )
                 if query_element:
-                    print(f"  ✓ Found input: {selector}")
+                    print(f"[DIAG] found input selector: {selector}")
                     break
-            except:
+            except Exception:
+                print(f"[DIAG] selector not found: {selector}")
                 continue
 
         if not query_element:
-            print("  ❌ Could not find query input")
+            # Last resort: dump page snapshot for diagnosis
+            try:
+                html_snippet = page.content()[:1500]
+                print(f"[DIAG] page HTML snippet: {html_snippet}")
+            except Exception:
+                pass
+            print("[DIAG] FATAL: could not find query input — NotebookLM UI may have changed or page did not load")
             return None
 
-        # Type question (human-like, fast)
-        print("  ⏳ Typing question...")
-        
-        # Use primary selector for typing
+        # Type question
+        print("[DIAG] typing question...")
         input_selector = QUERY_INPUT_SELECTORS[0]
         StealthUtils.human_type(page, input_selector, question)
 
         # Submit
-        print("  📤 Submitting...")
+        print("[DIAG] submitting question...")
         page.keyboard.press("Enter")
-
-        # Small pause
         StealthUtils.random_delay(500, 1500)
 
-        # Wait for response (MCP approach: poll for stable text)
-        print("  ⏳ Waiting for answer...")
-
+        # Wait for response (poll for stable text)
+        print("[DIAG] waiting for answer...")
         answer = None
         stable_count = 0
         last_text = None
-        deadline = time.time() + 1800  # 30 minutes timeout
+        deadline = time.time() + 1800  # 30 minutes
 
         while time.time() < deadline:
-            # Check if NotebookLM is still thinking (most reliable indicator)
             try:
                 thinking_element = page.query_selector('div.thinking-message')
                 if thinking_element and thinking_element.is_visible():
                     time.sleep(1)
                     continue
-            except:
+            except Exception:
                 pass
 
-            # Try to find response with MCP selectors
             for selector in RESPONSE_SELECTORS:
                 try:
                     elements = page.query_selector_all(selector)
                     if elements:
-                        # Get last (newest) response
                         latest = elements[-1]
                         text = latest.inner_text().strip()
-
                         if text:
                             if text == last_text:
                                 stable_count += 1
-                                if stable_count >= 3:  # Stable for 3 polls
+                                if stable_count >= 3:
                                     answer = text
                                     break
                             else:
                                 stable_count = 0
                                 last_text = text
-                except:
+                except Exception:
                     continue
 
             if answer:
@@ -159,45 +175,38 @@ def ask_notebooklm(question: str, notebook_url: str, headless: bool = True) -> s
             time.sleep(1)
 
         if not answer:
-            print("  ❌ Timeout waiting for answer")
+            print("[DIAG] TIMEOUT: no answer received within deadline")
             return None
 
-        print("  ✅ Got answer!")
-        # Add follow-up reminder to encourage Claude to ask more questions
+        print("[DIAG] answer received OK")
         return answer + FOLLOW_UP_REMINDER
 
     except Exception as e:
-        print(f"  ❌ Error: {e}")
-        import traceback
+        print(f"[DIAG] EXCEPTION: {e}")
         traceback.print_exc()
         return None
 
     finally:
-        # Always clean up
         if context:
             try:
                 context.close()
-            except:
+            except Exception:
                 pass
-
         if playwright:
             try:
                 playwright.stop()
-            except:
+            except Exception:
                 pass
 
 
 def main():
     parser = argparse.ArgumentParser(description='Ask NotebookLM a question')
-
     parser.add_argument('--question', required=True, help='Question to ask')
     parser.add_argument('--notebook-url', help='NotebookLM notebook URL')
     parser.add_argument('--notebook-id', help='Notebook ID from library')
     parser.add_argument('--show-browser', action='store_true', help='Show browser')
-
     args = parser.parse_args()
 
-    # Resolve notebook URL
     notebook_url = args.notebook_url
 
     if not notebook_url and args.notebook_id:
@@ -206,32 +215,19 @@ def main():
         if notebook:
             notebook_url = notebook['url']
         else:
-            print(f"❌ Notebook '{args.notebook_id}' not found")
+            print(f"[DIAG] notebook '{args.notebook_id}' not found in library")
             return 1
 
     if not notebook_url:
-        # Check for active notebook first
         library = NotebookLibrary()
         active = library.get_active_notebook()
         if active:
             notebook_url = active['url']
-            print(f"📚 Using active notebook: {active['name']}")
+            print(f"[DIAG] using active notebook: {active['name']}")
         else:
-            # Show available notebooks
-            notebooks = library.list_notebooks()
-            if notebooks:
-                print("\n📚 Available notebooks:")
-                for nb in notebooks:
-                    mark = " [ACTIVE]" if nb.get('id') == library.active_notebook_id else ""
-                    print(f"  {nb['id']}: {nb['name']}{mark}")
-                print("\nSpecify with --notebook-id or set active:")
-                print("python scripts/run.py notebook_manager.py activate --id ID")
-            else:
-                print("❌ No notebooks in library. Add one first:")
-                print("python scripts/run.py notebook_manager.py add --url URL --name NAME --description DESC --topics TOPICS")
+            print("[DIAG] no notebook URL specified and no active notebook")
             return 1
 
-    # Ask the question
     answer = ask_notebooklm(
         question=args.question,
         notebook_url=notebook_url,
@@ -248,7 +244,7 @@ def main():
         print("=" * 60)
         return 0
     else:
-        print("\n❌ Failed to get answer")
+        print("\n[DIAG] failed to get answer — check [DIAG] lines above")
         return 1
 
 

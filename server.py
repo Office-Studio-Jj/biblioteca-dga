@@ -805,6 +805,35 @@ def admin_historial_limpiar():
     return jsonify({"ok": True})
 
 
+# ── Diagnóstico NotebookLM (solo admin, solo en nube) ────────────────────
+@app.route("/admin/diagnostico-notebooklm")
+@admin_required
+def admin_diagnostico_notebooklm():
+    """Corre ask_question.py con una pregunta corta y devuelve el output completo."""
+    cmd = [PYTHON, "scripts/ask_question.py",
+           "--question", "Di 'OK' en una sola palabra.",
+           "--notebook-id", "biblioteca-de-nomenclaturas"]
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONPATH"] = SKILL_DIR
+    env.pop("DISPLAY", None)
+    if not env.get("PLAYWRIGHT_BROWSERS_PATH"):
+        env["PLAYWRIGHT_BROWSERS_PATH"] = "/ms-playwright"
+    try:
+        result = subprocess.run(cmd, cwd=SKILL_DIR,
+                                capture_output=True, text=True, encoding="utf-8",
+                                env=env, timeout=120)
+        return jsonify({
+            "rc": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr[:2000],
+            "python": PYTHON,
+            "skill_dir": SKILL_DIR,
+            "is_cloud": _IS_CLOUD,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 GUIA_FILE = str((_BASE / "app/guia_instalacion.txt") if _IS_CLOUD else Path(r"C:\Users\Usuario\Desktop\Biblioteca Notebooklm DGA\servidor-movil\guia_instalacion.txt"))
 
 # ── Guía de instalación ──────────────────────────────────────────────────
@@ -930,8 +959,13 @@ def ask_notebooklm(question, notebook_id):
     cmd = [PYTHON, "scripts/ask_question.py", "--question", question, "--notebook-id", notebook_id]
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
-    env["DISPLAY"] = ""          # Evita errores de display en Linux/Railway
     env["PYTHONPATH"] = SKILL_DIR  # Asegura que los imports del skill funcionen
+    # DISPLAY: en Linux headless NO debe ser "" (causa crash en Chromium).
+    # Eliminarlo del entorno para que Patchright use --headless sin display.
+    env.pop("DISPLAY", None)
+    # Asegurar que patchright encuentre Chromium instalado en la imagen Docker
+    if not env.get("PLAYWRIGHT_BROWSERS_PATH"):
+        env["PLAYWRIGHT_BROWSERS_PATH"] = "/ms-playwright"
 
     try:
         result = subprocess.run(
@@ -948,8 +982,9 @@ def ask_notebooklm(question, notebook_id):
     stderr = result.stderr or ""
 
     # Log completo para diagnóstico (visible en Railway logs)
+    print(f"[ASK_LOG] rc={result.returncode} stdout={output[:300]} stderr={stderr[:300]}")
     if stderr and result.returncode != 0:
-        print(f"[ASK_ERROR] rc={result.returncode} stderr={stderr[:500]}")
+        print(f"[ASK_ERROR] rc={result.returncode} stderr={stderr[:800]}")
 
     # Parsear respuesta del formato: ====\nQuestion\n====\n\nAnswer\n\n====
     sep60 = "=" * 60
