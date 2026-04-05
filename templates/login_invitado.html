@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Puertos y Aduanas RD — Acceso Usuario</title>
+  <meta name="theme-color" content="#0e7490">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="manifest" href="/static/manifest.json">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      height: 100%; background: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #e2e8f0; display: flex; align-items: center; justify-content: center;
+    }
+    .box { width: 100%; max-width: 380px; padding: 0 24px; text-align: center; }
+
+    .logo { font-size: 3.2rem; margin-bottom: 8px; }
+    h1 { font-size: 1.1rem; font-weight: 700; color: #22d3ee; line-height: 1.3; margin-bottom: 4px; }
+    .sub { font-size: 0.72rem; color: #64748b; margin-bottom: 6px; }
+
+    /* Badge online */
+    .online-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #064e3b; border: 1px solid #065f46;
+      color: #6ee7b7; font-size: 0.68rem; font-weight: 600;
+      padding: 4px 12px; border-radius: 20px; margin-bottom: 22px;
+    }
+    .online-dot {
+      width: 7px; height: 7px; background: #4ade80;
+      border-radius: 50%; animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+    /* Role badge */
+    .role-badge {
+      display: inline-block;
+      background: #164e63; border: 1px solid #0e7490;
+      color: #22d3ee; font-size: 0.72rem; font-weight: 600;
+      padding: 5px 14px; border-radius: 10px; margin-bottom: 22px;
+    }
+
+    .field-label {
+      font-size: 0.65rem; font-weight: 700; color: #64748b;
+      text-transform: uppercase; letter-spacing: 1px; text-align: left; margin-bottom: 6px;
+    }
+    .input-wrap { position: relative; margin-bottom: 16px; }
+    input[type="password"], input[type="text"], input[type="email"] {
+      width: 100%; background: #1e293b; border: 2px solid #334155;
+      border-radius: 14px; color: #e2e8f0; font-size: 1rem;
+      padding: 13px 16px; outline: none; transition: border-color 0.2s;
+    }
+    input[type="password"] { padding-right: 46px; }
+    input:focus { border-color: #22d3ee; }
+    .eye { position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+           background: none; border: none; font-size: 1.1rem; cursor: pointer; color: #64748b; }
+
+    .btn-login {
+      width: 100%; background: linear-gradient(135deg, #0891b2, #0e7490);
+      color: #fff; border: none; border-radius: 14px;
+      padding: 14px; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-login:active { opacity: 0.8; }
+
+    .error {
+      background: #7f1d1d; border: 1px solid #ef4444; color: #fca5a5;
+      border-radius: 10px; padding: 9px 14px; font-size: 0.78rem; margin-top: 14px;
+    }
+
+    .divider {
+      display: flex; align-items: center; gap: 10px;
+      margin: 20px 0; font-size: 0.68rem; color: #334155;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px; background: #1e293b;
+    }
+
+    .register-link {
+      font-size: 0.78rem; color: #94a3b8;
+    }
+    .register-link a {
+      color: #22d3ee; text-decoration: none; font-weight: 600;
+    }
+
+    .cuadernos-info {
+      margin-top: 22px; padding: 14px;
+      background: #1e293b; border-radius: 14px; border: 1px solid #334155;
+      text-align: left;
+    }
+    .cuadernos-title {
+      font-size: 0.7rem; font-weight: 700; color: #22d3ee;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;
+      text-align: center;
+    }
+    .cuaderno-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 0; font-size: 0.72rem; color: #94a3b8;
+    }
+    .cuaderno-ico { font-size: 0.9rem; width: 22px; text-align: center; flex-shrink: 0; }
+
+    .recover-link {
+      margin-top: 14px; text-align: center;
+    }
+    .recover-link a {
+      font-size: 0.72rem; color: #64748b; text-decoration: none;
+    }
+    .recover-link a span { color: #22d3ee; font-weight: 600; }
+
+    .footer { margin-top: 20px; font-size: 0.62rem; color: #1e293b; }
+  </style>
+</head>
+<body>
+<div class="box">
+  <div class="logo">🚢</div>
+  <h1>Logistica de Puertos<br>y Aduanas RD</h1>
+  <div class="sub">Sistema de consulta aduanera</div>
+  <div class="online-badge"><div class="online-dot"></div>Disponible 24/7</div>
+  <br>
+  <div class="role-badge">👤 Acceso de Usuario</div>
+
+  <form method="POST" action="/login">
+    <input type="hidden" name="role" value="invitado">
+
+    <div class="field-label">Correo registrado</div>
+    <div class="input-wrap">
+      <input type="email" name="correo" placeholder="tu@correo.com" autocomplete="email" required autofocus>
+    </div>
+
+    <div class="field-label">Contraseña</div>
+    <div class="input-wrap">
+      <input type="password" id="pwd" name="password" placeholder="••••••••" autocomplete="current-password">
+      <button type="button" class="eye" onclick="togglePwd()">👁</button>
+    </div>
+
+    <button type="submit" class="btn-login">Ingresar →</button>
+
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  </form>
+
+  <div class="recover-link">
+    <a href="/recuperar">¿Olvidaste tu contraseña? <span>Recupérala aquí</span></a>
+  </div>
+
+  <div class="divider">o si es tu primera vez</div>
+
+  <div class="register-link">
+    ¿No tienes cuenta? <a href="/registro">Regístrate aquí →</a>
+  </div>
+
+  <div class="cuadernos-info">
+    <div class="cuadernos-title">7 cuadernos disponibles</div>
+    <div class="cuaderno-row"><span class="cuaderno-ico">📖</span> Nomenclaturas y clasificación arancelaria</div>
+    <div class="cuaderno-row"><span class="cuaderno-ico">⚖️</span> Legal y procedimientos DGA</div>
+    <div class="cuaderno-row"><span class="cuaderno-ico">💰</span> Valoración aduanera</div>
+    <div class="cuaderno-row"><span class="cuaderno-ico">📋</span> Regímenes y subastas</div>
+    <div class="cuaderno-row"><span class="cuaderno-ico">🔍</span> Aforo DGA</div>
+    <div class="cuaderno-row"><span class="cuaderno-ico">🖥️</span> Procedimiento VUCERD</div>
+    <div class="cuaderno-row"><span class="cuaderno-ico">🌐</span> Normas y origen</div>
+  </div>
+
+  <div class="footer">🔒 Acceso protegido · Logistica de Puertos y Aduanas RD</div>
+</div>
+
+<script>
+  function togglePwd() {
+    const f = document.getElementById('pwd');
+    f.type = f.type === 'password' ? 'text' : 'password';
+  }
+</script>
+</body>
+</html>

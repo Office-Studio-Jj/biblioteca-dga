@@ -212,14 +212,17 @@ def registro():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     error = None
+    # Detectar si el formulario viene desde /invitado para redirigir errores allí
+    from_invitado = False
     if request.method == "POST":
         pwd      = request.form.get("password", "")
         role_req = request.form.get("role", "admin")
         correo   = request.form.get("correo", "").strip().lower()
         pwd_hash = hashlib.sha256(pwd.encode()).hexdigest()
+        referer  = request.headers.get("Referer", "")
+        from_invitado = role_req == "invitado" and "/invitado" in referer
 
         if role_req == "admin" and pwd_hash == get_admin_hash():
-            # Admins creados en el panel usan su correo + contraseña admin
             if correo:
                 usuario = find_user_by_email(correo)
                 if usuario and usuario.get("tipo") == "admin" and not usuario.get("bloqueado"):
@@ -235,7 +238,6 @@ def login():
                 else:
                     error = "Correo no encontrado. Ingresa sin correo para acceso maestro."
             else:
-                # Admin maestro original (sin correo)
                 session["logged_in"] = True
                 session["role"]      = "admin"
                 session["correo"]    = "admin"
@@ -265,7 +267,17 @@ def login():
         else:
             error = "Contraseña incorrecta. Intenta de nuevo."
 
+    # Si el formulario vino de /invitado, devolver errores allí
+    if from_invitado and error:
+        return render_template("login_invitado.html", error=error)
     return render_template("login.html", error=error)
+
+@app.route("/invitado", methods=["GET"])
+def login_invitado():
+    """Interfaz de login exclusiva para usuarios/invitados (sin opción admin)."""
+    if session.get("logged_in"):
+        return redirect(url_for("index"))
+    return render_template("login_invitado.html", error=None)
 
 @app.route("/logout")
 def logout():
