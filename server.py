@@ -954,16 +954,72 @@ def descargar_app():
     resp.headers["Content-Disposition"] = "attachment; filename=Logistica-Puertos-Aduanas-RD.html"
     return resp
 
-# ── Lógica NotebookLM ────────────────────────────────────────────────────
+# ── Lógica de consulta: Gemini API (primario) → NotebookLM navegador (fallback) ──
+def _parse_subprocess_answer(output, stderr, notebook_id):
+    """Extrae la respuesta de texto del stdout de ask_question.py o ask_gemini.py."""
+    sep60 = "=" * 60
+    sep20 = "=" * 20
+    answer = ""
+
+    if sep60 in output:
+        parts = output.split(sep60)
+        if len(parts) >= 3:
+            raw = parts[2]
+            cut = raw.find("EXTREMELY IMPORTANT")
+            answer = (raw[:cut] if cut != -1 else raw).strip()
+
+    if not answer and sep20 in output:
+        parts = [p for p in output.split(sep20) if p.strip()]
+        if len(parts) >= 2:
+            raw = parts[-1]
+            cut = raw.find("EXTREMELY IMPORTANT")
+            answer = (raw[:cut] if cut != -1 else raw).strip()
+
+    if not answer and ("=" * 10) in output:
+        lines = output.splitlines()
+        last_sep = max((i for i, l in enumerate(lines) if "=" * 10 in l), default=-1)
+        if last_sep >= 0:
+            candidate = "\n".join(lines[last_sep + 1:]).split("EXTREMELY")[0].strip()
+            if len(candidate) > 20:
+                answer = candidate
+
+    return answer
+
+
 def ask_notebooklm(question, notebook_id):
+    # ── Ruta 1: Gemini API (sin restricción de IP, sin navegador) ────────
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if gemini_key:
+        print(f"[ASK] Usando Gemini API para notebook_id={notebook_id}")
+        cmd = [PYTHON, "scripts/ask_gemini.py", "--question", question, "--notebook-id", notebook_id]
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+        env["PYTHONPATH"] = SKILL_DIR
+        try:
+            result = subprocess.run(
+                cmd, cwd=SKILL_DIR,
+                capture_output=True, text=True, encoding="utf-8",
+                env=env, timeout=120
+            )
+            output = result.stdout or ""
+            stderr = result.stderr or ""
+            print(f"[GEMINI_LOG] rc={result.returncode} stdout={output[:200]} stderr={stderr[:200]}")
+            answer = _parse_subprocess_answer(output, stderr, notebook_id)
+            if answer:
+                return answer
+            print(f"[GEMINI_NOANS] Sin respuesta de Gemini. stderr={stderr[:300]}")
+        except subprocess.TimeoutExpired:
+            print("[GEMINI_LOG] Timeout en Gemini (2 min)")
+        except Exception as e:
+            print(f"[GEMINI_LOG] Excepción: {e}")
+
+    # ── Ruta 2: NotebookLM con navegador (solo funciona en local/Windows) ─
+    print(f"[ASK] Usando NotebookLM (navegador) para notebook_id={notebook_id}")
     cmd = [PYTHON, "scripts/ask_question.py", "--question", question, "--notebook-id", notebook_id]
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
-    env["PYTHONPATH"] = SKILL_DIR  # Asegura que los imports del skill funcionen
-    # DISPLAY: en Linux headless NO debe ser "" (causa crash en Chromium).
-    # Eliminarlo del entorno para que Patchright use --headless sin display.
+    env["PYTHONPATH"] = SKILL_DIR
     env.pop("DISPLAY", None)
-    # Asegurar que patchright encuentre Chromium instalado en la imagen Docker
     if not env.get("PLAYWRIGHT_BROWSERS_PATH"):
         env["PLAYWRIGHT_BROWSERS_PATH"] = "/ms-playwright"
 
@@ -980,44 +1036,13 @@ def ask_notebooklm(question, notebook_id):
 
     output = result.stdout or ""
     stderr = result.stderr or ""
-
-    # Log completo para diagnóstico (visible en Railway logs)
     print(f"[ASK_LOG] rc={result.returncode} stdout={output[:300]} stderr={stderr[:300]}")
     if stderr and result.returncode != 0:
         print(f"[ASK_ERROR] rc={result.returncode} stderr={stderr[:800]}")
 
-    # Parsear respuesta del formato: ====\nQuestion\n====\n\nAnswer\n\n====
-    sep60 = "=" * 60
-    sep20 = "=" * 20
-    answer = ""
-
-    # Intentar con separador de 60 (formato main())
-    if sep60 in output:
-        parts = output.split(sep60)
-        if len(parts) >= 3:
-            raw = parts[2]
-            cut = raw.find("EXTREMELY IMPORTANT")
-            answer = (raw[:cut] if cut != -1 else raw).strip()
-
-    # Fallback: separador de 20
-    if not answer and sep20 in output:
-        parts = [p for p in output.split(sep20) if p.strip()]
-        if len(parts) >= 2:
-            raw = parts[-1]
-            cut = raw.find("EXTREMELY IMPORTANT")
-            answer = (raw[:cut] if cut != -1 else raw).strip()
-
-    # Fallback final: última línea no vacía después del último separador
-    if not answer and ("=" * 10) in output:
-        lines = output.splitlines()
-        last_sep = max((i for i, l in enumerate(lines) if "=" * 10 in l), default=-1)
-        if last_sep >= 0:
-            candidate = "\n".join(lines[last_sep + 1:]).split("EXTREMELY")[0].strip()
-            if len(candidate) > 20:
-                answer = candidate
+    answer = _parse_subprocess_answer(output, stderr, notebook_id)
 
     if not answer:
-        # Diagnóstico claro para Railway logs
         diag = stderr[:400] if stderr else "Sin stderr. Verifica cookies y library.json."
         print(f"[ASK_NOANS] stdout={output[:200]} | stderr={diag}")
         return f"No se obtuvo respuesta del cuaderno '{notebook_id}'. El sistema está procesando — intenta de nuevo en 30 segundos."
