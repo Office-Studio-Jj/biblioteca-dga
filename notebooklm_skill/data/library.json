@@ -1,0 +1,145 @@
+{
+  "notebooks": {
+    "biblioteca-de-nomenclaturas": {
+      "id": "biblioteca-de-nomenclaturas",
+      "url": "https://notebooklm.google.com/notebook/20930f1e-b007-4c57-80a0-d1717556d2d7",
+      "name": "Biblioteca de nomenclaturas",
+      "description": "Clasificaci\u00f3n arancelaria de mercanc\u00edas basada en el Sistema Armonizado y el Arancel de Aduanas de la Rep\u00fablica Dominicana",
+      "topics": [
+        "nomenclaturas",
+        "clasificacion-arancelaria",
+        "sistema-armonizado",
+        "aduanas",
+        "DGA"
+      ],
+      "content_types": [],
+      "use_cases": [],
+      "tags": [],
+      "created_at": "2026-04-03T14:09:52.270487",
+      "updated_at": "2026-04-03T14:09:52.270508",
+      "use_count": 0,
+      "last_used": null
+    },
+    "biblioteca-legal-y-procedimiento-dga": {
+      "id": "biblioteca-legal-y-procedimiento-dga",
+      "url": "https://notebooklm.google.com/notebook/443ea98c-94ff-4137-98ba-e61ad5fd59de",
+      "name": "Biblioteca Legal y procedimiento DGA",
+      "description": "Marco legal aduanero: Ley 168-21, C\u00f3digo Tributario, DR-CAFTA, fiscalizaci\u00f3n y procedimientos de control",
+      "topics": [
+        "legislacion",
+        "ley-168-21",
+        "codigo-tributario",
+        "fiscalizacion",
+        "DGA"
+      ],
+      "content_types": [],
+      "use_cases": [],
+      "tags": [],
+      "created_at": "2026-04-03T14:09:52.610839",
+      "updated_at": "2026-04-03T14:09:52.610864",
+      "use_count": 0,
+      "last_used": null
+    },
+    "biblioteca-para-valoracion-dga": {
+      "id": "biblioteca-para-valoracion-dga",
+      "url": "https://notebooklm.google.com/notebook/d2996a52-2569-47d8-89e4-5cb672b82e46",
+      "name": "Biblioteca para valoracion DGA",
+      "description": "M\u00e9todos de valoraci\u00f3n aduanera de la OMC e Incoterms para comercio internacional",
+      "topics": [
+        "valoracion-aduanera",
+        "OMC",
+        "incoterms",
+        "DGA"
+      ],
+      "content_types": [],
+      "use_cases": [],
+      "tags": [],
+      "created_at": "2026-04-03T14:09:52.897723",
+      "updated_at": "2026-04-03T14:09:52.897746",
+      "use_count": 0,
+      "last_used": null
+    },
+    "biblioteca-guia-integral-de-regimenes-y-subastas": {
+      "id": "biblioteca-guia-integral-de-regimenes-y-subastas",
+      "url": "https://notebooklm.google.com/notebook/748af17c-ad0c-4035-8e22-654501c4ce2f",
+      "name": "Biblioteca guia Integral de regimenes y subastas",
+      "description": "Reg\u00edmenes aduaneros, aforo, levante y subastas p\u00fablicas de mercanc\u00edas en la DGA",
+      "topics": [
+        "regimenes-aduaneros",
+        "subastas",
+        "zonas-francas",
+        "admision-temporal",
+        "DGA"
+      ],
+      "content_types": [],
+      "use_cases": [],
+      "tags": [],
+      "created_at": "2026-04-03T14:09:53.193784",
+      "updated_at": "2026-04-03T14:09:53.193802",
+      "use_count": 0,
+      "last_used": null
+    },
+    "biblioteca-para-aforo-dga": {
+      "id": "biblioteca-para-aforo-dga",
+      "url": "https://notebooklm.google.com/notebook/70d3ecd4-627b-422b-af3e-baca37f30578",
+      "name": "Biblioteca para Aforo DGA",
+      "description": "Procedimientos de aforo aduanero y levante de mercanc\u00edas en la Rep\u00fablica Dominicana",
+      "topics": [
+        "aforo",
+        "levante",
+        "aduanas",
+        "procedimientos-aduaneros",
+        "DGA"
+      ],
+      "content_types": [],
+      "use_cases": [],
+      "tags": [],
+      "created_at": "2026-04-03T14:09:53.456303",
+      "updated_at": "2026-04-03T14:09:53.456327",
+      "use_count": 0,
+      "last_used": null
+    },
+    "biblioteca-procedimiento-vucerd": {
+      "id": "biblioteca-procedimiento-vucerd",
+      "url": "https://notebooklm.google.com/notebook/d9c93520-270c-4ee9-87e2-252e33598821",
+      "name": "Biblioteca Procedimiento VUCERD",
+      "description": "Ventanilla \u00danica de Comercio Exterior RD: agencias reguladoras DIGEMAPS, INDOCAL, Agricultura, controles sanitarios",
+      "topics": [
+        "VUCERD",
+        "ventanilla-unica",
+        "comercio-exterior",
+        "DIGEMAPS",
+        "INDOCAL",
+        "DGA"
+      ],
+      "content_types": [],
+      "use_cases": [],
+      "tags": [],
+      "created_at": "2026-04-03T14:09:53.735691",
+      "updated_at": "2026-04-03T14:09:53.735716",
+      "use_count": 0,
+      "last_used": null
+    },
+    "biblioteca-de-normas-y-origen-dga": {
+      "id": "biblioteca-de-normas-y-origen-dga",
+      "url": "https://notebooklm.google.com/notebook/d201d696-0c55-475e-8fe7-41543b42d7b9",
+      "name": "Biblioteca de Normas y Origen DGA",
+      "description": "Integraci\u00f3n econ\u00f3mica, tratados comerciales y criterios de normas de origen para preferencias arancelarias",
+      "topics": [
+        "normas-origen",
+        "integracion-economica",
+        "tratados-comerciales",
+        "DGA"
+      ],
+      "content_types": [],
+      "use_cases": [],
+      "tags": [],
+      "created_at": "2026-04-03T14:09:54.084203",
+      "updated_at": "2026-04-03T14:09:54.084224",
+      "use_count": 0,
+      "last_used": null
+    }
+  },
+  "active_notebook_id": "biblioteca-de-nomenclaturas",
+  "updated_at": "2026-04-03T14:09:54.084229"
+}
