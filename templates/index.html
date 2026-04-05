@@ -518,6 +518,65 @@
     }
     .other-nb-grid.show { display: grid; }
 
+    .product-name-input {
+      width: 100%;
+      background: var(--navy2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.85rem;
+      outline: none;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+    .product-name-input:focus { border-color: var(--gold); }
+
+    /* ── Lista de productos guardados ── */
+    .saved-list { max-height: 200px; overflow-y: auto; }
+    .saved-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+      background: var(--navy2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .saved-item:hover { border-color: var(--gold); }
+    .saved-item.active { border-color: #6ee7b7; background: #0c2218; }
+    .saved-item-icon { font-size: 1rem; flex-shrink: 0; }
+    .saved-item-info { flex: 1; min-width: 0; }
+    .saved-item-name {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .saved-item-meta {
+      font-size: 0.65rem;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    .saved-item-del {
+      font-size: 0.7rem;
+      color: #f87171;
+      cursor: pointer;
+      padding: 4px;
+      flex-shrink: 0;
+    }
+    .saved-empty {
+      font-size: 0.76rem;
+      color: #475569;
+      text-align: center;
+      padding: 12px 0;
+    }
+
     /* ── Footer safe area ── */
     .footer-pad { height: calc(var(--safe-bot) + 8px); }
 
@@ -600,17 +659,34 @@
           </div>
         </div>
 
-        <!-- ── Mensaje de confirmación ── -->
-        <div id="confThanks" class="conf-thanks" style="display:none;">
-          ✅ ¡Gracias por confirmar! Puede realizar otra consulta cuando lo desee.
+        <!-- ── SÍ conforme: guardar + nueva consulta ── -->
+        <div id="confSaveSection" class="ficha-section" style="display:none;">
+          <div class="ficha-title">✅ ¡Consulta confirmada!</div>
+          <div class="retry-label" style="margin-bottom:6px;">Nombre del producto o ítem para guardar:</div>
+          <input type="text" id="productNameInput" class="product-name-input" placeholder="Ej: Ventanas de aluminio">
+          <div class="conformity-btns" style="margin-top:12px;">
+            <button class="btn-conf btn-si" onclick="saveProduct()">💾 Guardar consulta</button>
+            <button class="btn-conf btn-same" onclick="nuevaConsulta()">🔍 Nueva consulta</button>
+          </div>
+          <div id="saveOkMsg" class="conf-thanks" style="display:none;">
+            ✅ Consulta guardada correctamente.
+          </div>
         </div>
 
-        <!-- ── Ficha técnica verificada ── -->
+        <!-- ── NO conforme: continuar búsqueda ── -->
         <div id="fichaSection" class="ficha-section" style="display:none;">
-          <div class="ficha-title">📋 Para una respuesta más precisa</div>
+          <div class="ficha-title">🔄 Continuar búsqueda</div>
+
+          <!-- Lista de búsquedas guardadas -->
+          <div id="savedListSection" style="display:none; margin-bottom:14px;">
+            <div class="retry-label" style="margin-bottom:8px; font-weight:600; color:#94a3b8;">Búsquedas guardadas:</div>
+            <div id="savedProductsList" class="saved-list"></div>
+          </div>
+
+          <!-- Ficha técnica -->
           <div class="ficha-text">
-            Adjunte una ficha técnica oficial elaborada por un profesional del área.
-            La ficha debe incluir documentos de verificación tales como:
+            Para mejorar la precisión, adjunte una ficha técnica oficial elaborada
+            por un profesional. Debe incluir documentos de verificación:
           </div>
           <ul class="ficha-reqs">
             <li>Link de comprobación del profesional o empresa</li>
@@ -627,7 +703,7 @@
             <div class="ficha-attach-remove" id="fichaRemove" onclick="removeFicha(event)">✕ Quitar</div>
           </div>
 
-          <!-- ── Elección de cuaderno ── -->
+          <!-- Elección de cuaderno -->
           <div id="nbChoiceSection" class="nb-choice" style="display:none;">
             <div class="conformity-question">¿En qué cuaderno desea repetir la búsqueda?</div>
             <div class="conformity-btns">
@@ -635,7 +711,6 @@
               <button class="btn-conf btn-other" onclick="retryChooseNb('other')">📚 Otro cuaderno</button>
             </div>
 
-            <!-- Grid para otro cuaderno -->
             <div id="otherNbGrid" class="other-nb-grid grid">
               {% for nb in notebooks %}
               <button class="nb-btn" data-id="{{ nb.id }}" data-name="{{ nb.nombre }}" onclick="selectRetryNb(this)">
@@ -645,13 +720,17 @@
               {% endfor %}
             </div>
 
-            <!-- Editar consulta (opcional) -->
             <div id="retryQueryBox" class="retry-query-box" style="display:none;">
               <div class="retry-label">Puede modificar su consulta si lo desea:</div>
               <textarea id="qInputRetry" rows="3" placeholder="Escriba su nueva consulta..."></textarea>
             </div>
 
             <button class="btn-retry" id="btnRetry" onclick="retrySearch()" style="display:none;">🔄 Repetir consulta con ficha técnica →</button>
+          </div>
+
+          <!-- Botón continuar sin ficha (usa búsqueda guardada) -->
+          <div style="margin-top:12px; text-align:center;">
+            <button class="btn-conf btn-other" onclick="continuarSinFicha()" style="width:100%;">📝 Continuar sin ficha — modificar consulta</button>
           </div>
         </div>
       </div>
@@ -1265,19 +1344,20 @@
     document.getElementById('attachRemove').style.display = 'none';
   }
 
-  /* ── Estado de conformidad / ficha técnica ── */
+  /* ── Estado de conformidad / ficha técnica / productos guardados ── */
   let _fichaFile = null;
   let _retryNbId = null, _retryNbName = '';
-  let _lastQuery = '', _lastNbId = '', _lastNbName = '';
+  let _lastQuery = '', _lastNbId = '', _lastNbName = '', _lastAnswer = '';
+  const savedProducts = JSON.parse(localStorage.getItem('dga_saved_products') || '[]');
 
   function resetConformity() {
-    document.getElementById('conformitySection').style.display = 'none';
-    document.getElementById('confThanks').style.display = 'none';
-    document.getElementById('fichaSection').style.display = 'none';
-    document.getElementById('nbChoiceSection').style.display = 'none';
+    ['conformitySection','confSaveSection','fichaSection','nbChoiceSection','retryQueryBox','savedListSection'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
     document.getElementById('otherNbGrid').classList.remove('show');
-    document.getElementById('retryQueryBox').style.display = 'none';
     document.getElementById('btnRetry').style.display = 'none';
+    document.getElementById('saveOkMsg').style.display = 'none';
     _fichaFile = null;
     _retryNbId = null;
     _retryNbName = '';
@@ -1285,6 +1365,11 @@
     fichaZone.classList.remove('has-file');
     document.getElementById('fichaInput').value = '';
     document.getElementById('fichaName').textContent = '';
+    document.getElementById('fichaLabel').textContent = 'Adjuntar ficha técnica verificada (solo PDF)';
+  }
+
+  function persistProducts() {
+    localStorage.setItem('dga_saved_products', JSON.stringify(savedProducts));
   }
 
   async function send() {
@@ -1327,8 +1412,8 @@
       } else {
         body.textContent = data.answer;
         nb.textContent = '📖 ' + selName;
+        _lastAnswer = data.answer;
         saveHistory(q, selName, data.answer);
-        /* Mostrar botones de conformidad */
         document.getElementById('conformitySection').style.display = 'block';
       }
     } catch(e) {
@@ -1344,11 +1429,101 @@
   function onConforme(isYes) {
     document.getElementById('conformitySection').style.display = 'none';
     if (isYes) {
-      document.getElementById('confThanks').style.display = 'block';
+      /* Mostrar sección de guardar con nombre del producto */
+      document.getElementById('confSaveSection').style.display = 'block';
+      document.getElementById('productNameInput').value = _lastQuery;
+      document.getElementById('saveOkMsg').style.display = 'none';
+      document.getElementById('confSaveSection').scrollIntoView({behavior: 'smooth', block: 'start'});
     } else {
+      /* Mostrar continuar búsqueda con lista guardada + ficha */
       document.getElementById('fichaSection').style.display = 'block';
+      renderSavedProducts();
+      /* Mostrar opciones de cuaderno directamente */
+      document.getElementById('nbChoiceSection').style.display = 'block';
+      document.getElementById('sameNbLabel').textContent = _lastNbName;
       document.getElementById('fichaSection').scrollIntoView({behavior: 'smooth', block: 'start'});
     }
+  }
+
+  /* ── Guardar producto ── */
+  function saveProduct() {
+    const name = document.getElementById('productNameInput').value.trim();
+    if (!name) { alert('Ingrese el nombre del producto o ítem.'); return; }
+    savedProducts.unshift({
+      product: name,
+      query: _lastQuery,
+      nbId: _lastNbId,
+      nbName: _lastNbName,
+      answer: _lastAnswer.substring(0, 500),
+      ts: new Date().toLocaleString('es-DO')
+    });
+    if (savedProducts.length > 50) savedProducts.pop();
+    persistProducts();
+    document.getElementById('saveOkMsg').style.display = 'block';
+    document.getElementById('saveOkMsg').scrollIntoView({behavior: 'smooth', block: 'center'});
+  }
+
+  function nuevaConsulta() {
+    resetConformity();
+    document.getElementById('respCard').classList.remove('show');
+    document.getElementById('qInput').value = '';
+    document.querySelectorAll('#nbGrid .nb-btn').forEach(b => b.classList.remove('sel'));
+    selId = null; selName = '';
+    document.getElementById('selTag').textContent = '';
+    document.getElementById('selTag').classList.remove('show');
+    document.getElementById('btnSend').disabled = true;
+    removeFile({stopPropagation:()=>{}});
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+
+  /* ── Renderizar lista de productos guardados ── */
+  function renderSavedProducts() {
+    const section = document.getElementById('savedListSection');
+    const list = document.getElementById('savedProductsList');
+    if (!savedProducts.length) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = 'block';
+    list.innerHTML = savedProducts.map((p, i) => `
+      <div class="saved-item" onclick="loadSavedProduct(${i})">
+        <div class="saved-item-icon">📦</div>
+        <div class="saved-item-info">
+          <div class="saved-item-name">${p.product}</div>
+          <div class="saved-item-meta">📖 ${p.nbName} · ${p.ts}</div>
+        </div>
+        <div class="saved-item-del" onclick="event.stopPropagation();deleteSavedProduct(${i})">🗑️</div>
+      </div>`).join('');
+  }
+
+  function loadSavedProduct(index) {
+    const p = savedProducts[index];
+    if (!p) return;
+    document.querySelectorAll('.saved-item').forEach((el, i) => {
+      el.classList.toggle('active', i === index);
+    });
+    _lastQuery = p.query;
+    _lastNbId = p.nbId;
+    _lastNbName = p.nbName;
+    /* Actualizar campo de consulta retry si está visible */
+    document.getElementById('sameNbLabel').textContent = p.nbName;
+    if (document.getElementById('retryQueryBox').style.display !== 'none') {
+      document.getElementById('qInputRetry').value = p.query;
+    }
+  }
+
+  function deleteSavedProduct(index) {
+    savedProducts.splice(index, 1);
+    persistProducts();
+    renderSavedProducts();
+  }
+
+  /* ── Continuar sin ficha: ir directo a repetir consulta ── */
+  function continuarSinFicha() {
+    document.getElementById('nbChoiceSection').style.display = 'block';
+    document.getElementById('sameNbLabel').textContent = _lastNbName;
+    retryChooseNb('same');
+    document.getElementById('retryQueryBox').scrollIntoView({behavior: 'smooth', block: 'start'});
   }
 
   /* ── Ficha técnica verificada ── */
@@ -1366,12 +1541,9 @@
       return;
     }
     _fichaFile = file;
-    const fichaZone = document.getElementById('fichaZone');
-    fichaZone.classList.add('has-file');
+    document.getElementById('fichaZone').classList.add('has-file');
     document.getElementById('fichaLabel').textContent = '✅ Ficha técnica adjuntada';
     document.getElementById('fichaName').textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
-
-    /* Mostrar opciones de cuaderno */
     document.getElementById('nbChoiceSection').style.display = 'block';
     document.getElementById('sameNbLabel').textContent = _lastNbName;
     document.getElementById('nbChoiceSection').scrollIntoView({behavior: 'smooth', block: 'start'});
@@ -1384,10 +1556,6 @@
     document.getElementById('fichaZone').classList.remove('has-file');
     document.getElementById('fichaLabel').textContent = 'Adjuntar ficha técnica verificada (solo PDF)';
     document.getElementById('fichaName').textContent = '';
-    document.getElementById('nbChoiceSection').style.display = 'none';
-    document.getElementById('otherNbGrid').classList.remove('show');
-    document.getElementById('retryQueryBox').style.display = 'none';
-    document.getElementById('btnRetry').style.display = 'none';
   }
 
   /* ── Elección de cuaderno para repetir búsqueda ── */
@@ -1399,6 +1567,9 @@
       document.getElementById('retryQueryBox').style.display = 'block';
       document.getElementById('qInputRetry').value = _lastQuery;
       document.getElementById('btnRetry').style.display = 'block';
+      document.getElementById('btnRetry').textContent = _fichaFile
+        ? '🔄 Repetir consulta con ficha técnica →'
+        : '🔄 Repetir consulta →';
       document.getElementById('btnRetry').scrollIntoView({behavior: 'smooth', block: 'start'});
     } else {
       _retryNbId = null;
@@ -1410,24 +1581,25 @@
   }
 
   function selectRetryNb(btn) {
-    /* Deseleccionar todos */
     document.querySelectorAll('#otherNbGrid .nb-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     _retryNbId = btn.dataset.id;
     _retryNbName = btn.dataset.name;
-    /* Mostrar campo de consulta editable */
     document.getElementById('retryQueryBox').style.display = 'block';
     document.getElementById('qInputRetry').value = (_retryNbId !== _lastNbId) ? '' : _lastQuery;
     document.getElementById('qInputRetry').placeholder = 'Escriba su consulta para ' + _retryNbName + '...';
     document.getElementById('btnRetry').style.display = 'block';
+    document.getElementById('btnRetry').textContent = _fichaFile
+      ? '🔄 Repetir consulta con ficha técnica →'
+      : '🔄 Repetir consulta →';
     document.getElementById('btnRetry').scrollIntoView({behavior: 'smooth', block: 'start'});
   }
 
-  /* ── Repetir búsqueda con ficha técnica ── */
+  /* ── Repetir búsqueda ── */
   async function retrySearch() {
     const q = document.getElementById('qInputRetry').value.trim();
-    if (!q || !_retryNbId || !_fichaFile) {
-      alert('Complete la consulta, seleccione un cuaderno y adjunte la ficha técnica.');
+    if (!q || !_retryNbId) {
+      alert('Complete la consulta y seleccione un cuaderno.');
       return;
     }
     const btn  = document.getElementById('btnRetry');
@@ -1435,32 +1607,39 @@
     const nb   = document.getElementById('respNb');
 
     btn.disabled = true;
-    btn.textContent = '🔄 Consultando con ficha técnica...';
-    body.innerHTML = '<div class="loading-row"><div class="spin"></div>Procesando consulta con ficha técnica adjunta...</div>';
+    btn.textContent = '🔄 Consultando...';
+    body.innerHTML = '<div class="loading-row"><div class="spin"></div>Procesando consulta...</div>';
     nb.textContent = '';
-
-    /* Ocultar secciones de conformidad */
     document.getElementById('conformitySection').style.display = 'none';
-    document.getElementById('confThanks').style.display = 'none';
+    document.getElementById('confSaveSection').style.display = 'none';
 
     _lastQuery = q;
     _lastNbId = _retryNbId;
     _lastNbName = _retryNbName;
 
     try {
-      const fd = new FormData();
-      fd.append('question', q);
-      fd.append('notebook_id', _retryNbId);
-      fd.append('archivo', _fichaFile);
-      const res = await fetch('/consultar', { method: 'POST', body: fd });
+      let res;
+      if (_fichaFile) {
+        const fd = new FormData();
+        fd.append('question', q);
+        fd.append('notebook_id', _retryNbId);
+        fd.append('archivo', _fichaFile);
+        res = await fetch('/consultar', { method: 'POST', body: fd });
+      } else {
+        res = await fetch('/consultar', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({question: q, notebook_id: _retryNbId})
+        });
+      }
       const data = await res.json();
       if (data.error) {
         body.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
       } else {
         body.textContent = data.answer;
         nb.textContent = '📖 ' + _retryNbName;
+        _lastAnswer = data.answer;
         saveHistory(q, _retryNbName, data.answer);
-        /* Ocultar ficha y mostrar nueva conformidad */
         document.getElementById('fichaSection').style.display = 'none';
         document.getElementById('conformitySection').style.display = 'block';
       }
@@ -1469,7 +1648,7 @@
     }
 
     btn.disabled = false;
-    btn.textContent = '🔄 Repetir consulta con ficha técnica →';
+    btn.textContent = _fichaFile ? '🔄 Repetir consulta con ficha técnica →' : '🔄 Repetir consulta →';
     document.getElementById('respCard').scrollIntoView({behavior: 'smooth', block: 'start'});
   }
 
