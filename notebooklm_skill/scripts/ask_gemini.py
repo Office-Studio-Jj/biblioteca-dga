@@ -349,8 +349,9 @@ def ask_gemini(question: str, notebook_id: str) -> str:
     print(f"[GEMINI] notebook_id={notebook_id}")
     print(f"[GEMINI] question={question[:80]}")
 
+    # gemini-1.5-flash: modelo estable, gratuito, compatible con google-generativeai v0.7+
     model = genai.GenerativeModel(
-        model_name="gemini-2.0-flash",
+        model_name="gemini-1.5-flash",
         system_instruction=system_prompt
     )
 
@@ -366,7 +367,9 @@ def ask_gemini(question: str, notebook_id: str) -> str:
         print(f"[GEMINI] respuesta recibida ({len(answer)} chars)")
         return answer
     except Exception as e:
+        import traceback
         print(f"[GEMINI] ERROR generando respuesta: {e}")
+        print(f"[GEMINI] TRACEBACK: {traceback.format_exc()}")
         return None
 
 
