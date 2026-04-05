@@ -805,34 +805,65 @@ def admin_historial_limpiar():
     return jsonify({"ok": True})
 
 
-# ── Diagnóstico NotebookLM (solo admin, solo en nube) ────────────────────
+# ── Diagnóstico del sistema de consultas (Gemini + NotebookLM) ───────────
 @app.route("/admin/diagnostico-notebooklm")
 @admin_required
 def admin_diagnostico_notebooklm():
-    """Corre ask_question.py con una pregunta corta y devuelve el output completo."""
-    cmd = [PYTHON, "scripts/ask_question.py",
-           "--question", "Di 'OK' en una sola palabra.",
-           "--notebook-id", "biblioteca-de-nomenclaturas"]
-    env = os.environ.copy()
-    env["PYTHONIOENCODING"] = "utf-8"
-    env["PYTHONPATH"] = SKILL_DIR
-    env.pop("DISPLAY", None)
-    if not env.get("PLAYWRIGHT_BROWSERS_PATH"):
-        env["PLAYWRIGHT_BROWSERS_PATH"] = "/ms-playwright"
-    try:
-        result = subprocess.run(cmd, cwd=SKILL_DIR,
+    """Prueba el backend activo de consultas: primero Gemini, luego NotebookLM navegador."""
+    TEST_Q  = "Di exactamente la palabra OK y nada más."
+    TEST_NB = "biblioteca-de-nomenclaturas"
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    report = {
+        "python":    PYTHON,
+        "skill_dir": SKILL_DIR,
+        "is_cloud":  _IS_CLOUD,
+        "gemini_key_set": bool(gemini_key),
+        "gemini_key_hint": (gemini_key[:6] + "…") if gemini_key else "NO CONFIGURADA",
+    }
+
+    # ── Test Gemini ────────────────────────────────────────────────────
+    if gemini_key:
+        cmd_g = [PYTHON, "scripts/ask_gemini.py",
+                 "--question", TEST_Q,
+                 "--notebook-id", TEST_NB]
+        env_g = os.environ.copy()
+        env_g["PYTHONIOENCODING"] = "utf-8"
+        env_g["PYTHONPATH"] = SKILL_DIR
+        try:
+            rg = subprocess.run(cmd_g, cwd=SKILL_DIR,
                                 capture_output=True, text=True, encoding="utf-8",
-                                env=env, timeout=120)
-        return jsonify({
-            "rc": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr[:2000],
-            "python": PYTHON,
-            "skill_dir": SKILL_DIR,
-            "is_cloud": _IS_CLOUD,
-        })
+                                env=env_g, timeout=60)
+            report["gemini_rc"]     = rg.returncode
+            report["gemini_stdout"] = rg.stdout[:1500]
+            report["gemini_stderr"] = rg.stderr[:500]
+            report["gemini_status"] = "OK" if rg.returncode == 0 and rg.stdout.strip() else "FALLO"
+        except Exception as e:
+            report["gemini_status"] = f"EXCEPCION: {e}"
+    else:
+        report["gemini_status"] = "OMITIDO — agrega GEMINI_API_KEY en Railway > Variables"
+
+    # ── Test NotebookLM navegador (informativo) ────────────────────────
+    cmd_n = [PYTHON, "scripts/ask_question.py",
+             "--question", TEST_Q,
+             "--notebook-id", TEST_NB]
+    env_n = os.environ.copy()
+    env_n["PYTHONIOENCODING"] = "utf-8"
+    env_n["PYTHONPATH"] = SKILL_DIR
+    env_n.pop("DISPLAY", None)
+    if not env_n.get("PLAYWRIGHT_BROWSERS_PATH"):
+        env_n["PLAYWRIGHT_BROWSERS_PATH"] = "/ms-playwright"
+    try:
+        rn = subprocess.run(cmd_n, cwd=SKILL_DIR,
+                            capture_output=True, text=True, encoding="utf-8",
+                            env=env_n, timeout=60)
+        report["notebooklm_rc"]     = rn.returncode
+        report["notebooklm_stdout"] = rn.stdout[:1500]
+        report["notebooklm_stderr"] = rn.stderr[:500]
+        report["notebooklm_status"] = "OK" if rn.returncode == 0 else "FALLO (normal en nube)"
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        report["notebooklm_status"] = f"EXCEPCION: {e}"
+
+    return jsonify(report)
 
 GUIA_FILE = str((_BASE / "app/guia_instalacion.txt") if _IS_CLOUD else Path(r"C:\Users\Usuario\Desktop\Biblioteca Notebooklm DGA\servidor-movil\guia_instalacion.txt"))
 
