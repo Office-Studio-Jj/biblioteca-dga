@@ -14,22 +14,26 @@ RUN apt-get update && apt-get install -y \
 # ── Directorio de trabajo ─────────────────────────────────────────────────
 WORKDIR /app
 
+# ── Variables de entorno ANTES de instalar Chromium ──────────────────────
+# CRÍTICO: PLAYWRIGHT_BROWSERS_PATH debe estar definido ANTES de
+# "patchright install chromium" para que el binario quede en /ms-playwright.
+# Si se define DESPUÉS, patchright instala en ~/.cache/ms-playwright y
+# luego no lo encuentra al ejecutar consultas → "Executable doesn't exist".
+ENV PYTHONIOENCODING=utf-8
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8080
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# NO establecer DISPLAY — causa crash de Chromium en modo headless en Linux
+
 # ── Instalar dependencias Python ──────────────────────────────────────────
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ── Instalar Chromium vía patchright (NO Google Chrome) ───────────────────
+# ── Instalar Chromium en /ms-playwright (PLAYWRIGHT_BROWSERS_PATH ya está) ──
 RUN python -m patchright install chromium --with-deps
 
 # ── Copiar código ─────────────────────────────────────────────────────────
 COPY . .
-
-# ── Variables de entorno de Railway ──────────────────────────────────────
-ENV PYTHONIOENCODING=utf-8
-ENV PYTHONUNBUFFERED=1
-ENV PORT=8080
-ENV DISPLAY=""
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # ── Crear directorios de datos y perfil del navegador ────────────────────
 RUN mkdir -p /app/data \
