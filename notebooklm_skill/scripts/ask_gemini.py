@@ -349,9 +349,9 @@ def ask_gemini(question: str, notebook_id: str) -> str:
     print(f"[GEMINI] notebook_id={notebook_id}")
     print(f"[GEMINI] question={question[:80]}")
 
-    # gemini-1.5-flash: modelo estable, gratuito, compatible con google-generativeai v0.7+
+    # gemini-2.5-flash: modelo más reciente gratuito de Google (2025+)
     model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
+        model_name="gemini-2.5-flash",
         system_instruction=system_prompt
     )
 
