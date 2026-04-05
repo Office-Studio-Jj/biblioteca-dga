@@ -64,8 +64,12 @@
       margin-top: 6px; padding: 3px 12px; border-radius: 20px;
       font-size: 0.68rem; font-weight: 600;
     }
-    .role-badge.admin   { background: #1a2a1a; color: #4ade80; border: 1px solid #166534; }
-    .role-badge.invitado{ background: #1e2a3a; color: #93c5fd; border: 1px solid #1d4ed8; }
+    .role-badge.master    { background: #1f1a0a; color: #d4af37; border: 1px solid #92400e; }
+    .role-badge.operativo { background: #0a2218; color: #22c55e; border: 1px solid #166534; }
+    .role-badge.invitado  { background: #1e2a3a; color: #93c5fd; border: 1px solid #1d4ed8; }
+
+    /* Anti-copy protection (operativo e invitado) */
+    .nocopy { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
 
     /* Users panel */
     .users-panel { margin-top: 12px; }
@@ -103,8 +107,8 @@
       font-size: 0.62rem; font-weight: 700; padding: 2px 8px;
       border-radius: 20px; margin-left: 6px; vertical-align: middle;
     }
-    .badge-tipo-admin {
-      display: inline-block; background: #1a2a1a; color: #4ade80;
+    .badge-tipo-operativo {
+      display: inline-block; background: #0a2218; color: #22c55e;
       font-size: 0.62rem; font-weight: 700; padding: 2px 8px;
       border-radius: 20px; margin-left: 6px; vertical-align: middle;
     }
@@ -595,8 +599,10 @@
       <span>💬</span> WhatsApp (809) 354-7636
     </a>
     <div>
-      {% if role == 'admin' %}
-      <span class="role-badge admin">👑 Administrador</span>
+      {% if role == 'master' %}
+      <span class="role-badge master">👑 Administrador Master</span>
+      {% elif role == 'operativo' %}
+      <span class="role-badge operativo">🛡️ Administrador Operativo</span>
       {% else %}
       <span class="role-badge invitado">👤 Invitado — Solo consultas</span>
       {% endif %}
@@ -608,8 +614,8 @@
     <div class="tab active" onclick="showTab('consulta', this)">🔍 Consulta</div>
     <div class="tab" onclick="showTab('historial', this)">🕑 Historial</div>
     <div class="tab" onclick="showTab('info', this)">ℹ️ Info</div>
-    {% if role == 'admin' %}
-    <div class="tab" onclick="showTab('adminpanel', this)">👑 Admin</div>
+    {% if role in ('master', 'operativo') %}
+    <div class="tab" onclick="showTab('adminpanel', this)">{% if role == 'master' %}👑{% else %}🛡️{% endif %} Admin</div>
     {% endif %}
   </div>
 
@@ -782,11 +788,13 @@
       <div class="info-section">
         <h3>Sesión</h3>
         <div class="info-row">
-          <div class="info-ico">{% if role == 'admin' %}👑{% else %}👤{% endif %}</div>
+          <div class="info-ico">{% if role == 'master' %}👑{% elif role == 'operativo' %}🛡️{% else %}👤{% endif %}</div>
           <div class="info-text">
-            <strong>{% if role == 'admin' %}Administrador{% else %}Invitado{% endif %}</strong>
+            <strong>{% if role == 'master' %}Administrador Master{% elif role == 'operativo' %}Administrador Operativo{% else %}Invitado{% endif %}</strong>
             {% if role == 'invitado' %}
             <span style="display:block;font-size:0.72rem;color:#93c5fd;margin-top:3px;">Acceso solo a consultas</span>
+            {% elif role == 'operativo' %}
+            <span style="display:block;font-size:0.72rem;color:#22c55e;margin-top:3px;">Gestion de usuarios e invitados</span>
             {% endif %}
             <a href="/manual/{{ role }}" style="display:inline-block;margin-top:8px;margin-right:6px;padding:6px 16px;background:#134e4a;color:#5eead4;border-radius:20px;font-size:0.72rem;font-weight:600;text-decoration:none;">📖 Manual de uso</a>
             <a href="/manual/pdf/{{ role }}" style="display:inline-block;margin-top:8px;margin-right:6px;padding:6px 16px;background:#1e3a5f;color:#93c5fd;border-radius:20px;font-size:0.72rem;font-weight:600;text-decoration:none;">📥 Descargar PDF</a>
@@ -800,24 +808,33 @@
         </div>
       </div>
 
-      {% if role == 'admin' %}
+      {% if role in ('master', 'operativo') %}
       <div class="info-section">
-        <h3>Panel Administrador</h3>
+        <h3>Panel {% if role == 'master' %}Master{% else %}Operativo{% endif %}</h3>
+        {% if role == 'master' %}
         <div class="info-row">
           <div class="info-ico">➕</div>
           <div class="info-text">
             <strong>Agregar cuaderno</strong>
-            <button onclick="accionRestringida('agregar')" style="display:none"></button>
-            <span style="font-size:0.72rem;color:#4ade80;">Disponible — eres administrador</span>
+            <span style="font-size:0.72rem;color:#4ade80;">Disponible — eres Master</span>
           </div>
         </div>
         <div class="info-row">
           <div class="info-ico">🗑️</div>
           <div class="info-text">
             <strong>Eliminar cuaderno</strong>
-            <span style="font-size:0.72rem;color:#4ade80;">Disponible — eres administrador</span>
+            <span style="font-size:0.72rem;color:#4ade80;">Disponible — eres Master</span>
           </div>
         </div>
+        {% else %}
+        <div class="info-row">
+          <div class="info-ico">👥</div>
+          <div class="info-text">
+            <strong>Gestion de usuarios invitados</strong>
+            <span style="font-size:0.72rem;color:#22c55e;">Disponible — eres Operativo</span>
+          </div>
+        </div>
+        {% endif %}
       </div>
 
       <!-- Solicitudes de instalador -->
@@ -832,7 +849,7 @@
       <!-- Usuarios registrados -->
       <div class="info-section">
         <h3 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
-          <span>👥 Usuarios y Administradores</span>
+          <span>👥 Usuarios {% if role == 'master' %}y Operativos{% endif %}</span>
           <div style="display:flex;gap:6px;">
             <button onclick="abrirCrearUsuario()" style="background:#d4af37;border:none;color:#0f172a;border-radius:8px;padding:5px 10px;font-size:0.7rem;font-weight:700;cursor:pointer;">➕ Crear</button>
             <button onclick="cargarUsuarios()" style="background:none;border:1px solid #334155;color:#94a3b8;border-radius:8px;padding:4px 10px;font-size:0.7rem;cursor:pointer;">↻</button>
@@ -843,7 +860,7 @@
         </div>
       </div>
 
-      <!-- Recuperaciones de contraseña (solo admin) -->
+      <!-- Recuperaciones de contraseña -->
       <div class="info-section">
         <h3 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
           <span>🔑 Recuperaciones de Contraseña</span>
@@ -854,13 +871,15 @@
         </div>
       </div>
 
-      <!-- Historial de Invitados (solo admin) -->
+      <!-- Historial de Invitados -->
       <div class="info-section">
         <h3 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
           <span>📋 Historial de Invitados</span>
           <div style="display:flex;gap:6px;">
             <button onclick="cargarHistorial()" style="background:none;border:1px solid #334155;color:#94a3b8;border-radius:8px;padding:4px 10px;font-size:0.7rem;cursor:pointer;">↻</button>
+            {% if role == 'master' %}
             <button onclick="limpiarHistorial()" style="background:#7f1d1d;border:none;color:#fca5a5;border-radius:8px;padding:4px 10px;font-size:0.7rem;cursor:pointer;">🗑 Limpiar</button>
+            {% endif %}
           </div>
         </h3>
         <div id="historialPanel" style="max-height:320px;overflow-y:auto;">
@@ -903,7 +922,7 @@
       <div class="info-section">
         <h3>📲 Guía de Instalación</h3>
         <a href="/guia" style="display:block;background:linear-gradient(135deg,#1e3a5f,#0f2744);border:2px solid #d4af37;color:#d4af37;border-radius:12px;padding:13px;font-size:0.88rem;font-weight:700;text-align:center;text-decoration:none;">
-          {% if role == 'admin' %}✏️ Ver y Editar guía{% else %}📖 Ver guía de instalación{% endif %}
+          {% if role in ('master', 'operativo') %}✏️ Ver y Editar guia{% else %}📖 Ver guia de instalacion{% endif %}
         </a>
       </div>
 
@@ -963,15 +982,15 @@
 
   </div><!-- /body -->
 
-  {% if role == 'admin' %}
-  <!-- ── Panel Admin (solo administrador) ── -->
+  {% if role in ('master', 'operativo') %}
+  <!-- ── Panel Admin (master + operativo) ── -->
   <div id="tab-adminpanel" class="screen" style="padding:14px 12px 80px;">
 
     <!-- Encabezado -->
     <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #334155;display:flex;align-items:center;justify-content:space-between;">
       <div>
-        <div style="font-size:1rem;font-weight:800;color:#d4af37;">👑 Panel de Administración</div>
-        <div style="font-size:0.7rem;color:#64748b;margin-top:2px;">Gestión individual de usuarios</div>
+        <div style="font-size:1rem;font-weight:800;color:#d4af37;">{% if role == 'master' %}👑 Panel Master{% else %}🛡️ Panel Operativo{% endif %}</div>
+        <div style="font-size:0.7rem;color:#64748b;margin-top:2px;">Gestion {% if role == 'master' %}completa{% else %}de usuarios invitados{% endif %}</div>
       </div>
       <button onclick="abrirCrearUsuario()" style="background:#d4af37;border:none;color:#0f172a;border-radius:10px;padding:8px 14px;font-size:0.75rem;font-weight:800;cursor:pointer;">➕ Nuevo</button>
     </div>
@@ -987,7 +1006,8 @@
       <div style="text-align:center;color:#64748b;font-size:0.78rem;padding:24px 0;">Cargando usuarios...</div>
     </div>
 
-    <!-- ── Gestión de Cuadernos ── -->
+    {% if role == 'master' %}
+    <!-- ── Gestión de Cuadernos (solo Master) ── -->
     <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px;padding:16px;margin-top:20px;margin-bottom:14px;border:1px solid #334155;display:flex;align-items:center;justify-content:space-between;">
       <div>
         <div style="font-size:1rem;font-weight:800;color:#d4af37;">📚 Mis Cuadernos NotebookLM</div>
@@ -998,6 +1018,7 @@
     <div id="adminCuadernosPanel">
       <div style="text-align:center;color:#64748b;font-size:0.78rem;padding:16px 0;">Cargando cuadernos...</div>
     </div>
+    {% endif %}
 
   </div>
   {% endif %}
@@ -1045,9 +1066,17 @@
       <label>Tipo de acceso</label>
       <select id="uTipo">
         <option value="invitado">👤 Invitado</option>
-        <option value="admin">👑 Administrador</option>
+        {% if role == 'master' %}
+        <option value="operativo">🛡️ Operativo</option>
+        {% endif %}
       </select>
     </div>
+    {% if role == 'master' %}
+    <div class="u-field" id="uPassWrap" style="display:none;">
+      <label>Contraseña para Operativo *</label>
+      <input type="password" id="uPassword" placeholder="Min. 6 caracteres">
+    </div>
+    {% endif %}
     <div class="u-field">
       <label>Nombre completo *</label>
       <input type="text" id="uNombre" placeholder="Nombre completo">
@@ -1142,13 +1171,18 @@
     <div id="avisoFirstPass" style="display:none;background:#1e3a5f;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem;color:#93c5fd;line-height:1.5;">
       ⚠️ <strong>Bienvenido.</strong> Por seguridad debes cambiar tu contraseña antes de continuar. Esta acción es obligatoria.
     </div>
-    {% if role == 'admin' %}
+    {% if role == 'master' %}
     <div style="margin-bottom:12px;">
-      <label style="font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:6px;">¿Qué contraseña deseas cambiar?</label>
+      <label style="font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:6px;">¿Que contraseña deseas cambiar?</label>
       <select id="tipoPassCambiar" style="width:100%;padding:8px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;">
-        <option value="admin">Contraseña de Administrador</option>
+        <option value="master">Contraseña Master</option>
         <option value="invitado">Contraseña de Invitado</option>
       </select>
+    </div>
+    {% elif role == 'operativo' %}
+    <input type="hidden" id="tipoPassCambiar" value="operativo">
+    <div style="margin-bottom:12px;background:#0a2218;border-radius:10px;padding:10px 12px;font-size:0.78rem;color:#22c55e;">
+      🛡️ Cambiarás tu contraseña de Operativo
     </div>
     {% else %}
     <input type="hidden" id="tipoPassCambiar" value="invitado">
@@ -1230,8 +1264,18 @@
 </div>
 
 <script>
-  const USER_ROLE = document.querySelector('meta[name="user-role"]').content;
-  const IS_ADMIN  = USER_ROLE === 'admin';
+  const USER_ROLE   = document.querySelector('meta[name="user-role"]').content;
+  const IS_MASTER   = USER_ROLE === 'master';
+  const IS_OPERATIVO= USER_ROLE === 'operativo';
+  const IS_ADMIN    = IS_MASTER || IS_OPERATIVO;  // ambos pueden administrar
+
+  // Anti-copy para no-master
+  if (!IS_MASTER) {
+    document.addEventListener('contextmenu', e => { if(e.target.closest('.resp-body')) e.preventDefault(); });
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.resp-body').forEach(el => el.classList.add('nocopy'));
+    });
+  }
 
   // Intercepta cualquier acción restringida para invitados
   function accionRestringida(accion) {
@@ -1803,7 +1847,7 @@
         <div class="user-card ${u.bloqueado ? 'bloqueado' : ''}" id="uc-${u.id}">
           <div class="user-name">
             ${u.nombre}
-            ${u.tipo === 'admin' ? '<span class="badge-tipo-admin">👑 Admin</span>' : ''}
+            ${u.tipo === 'operativo' ? '<span class="badge-tipo-operativo">🛡️ Operativo</span>' : ''}
             ${u.bloqueado ? '<span class="badge-bloqueado">🚫 BLOQUEADO</span>' : ''}
           </div>
           <div class="user-meta">
@@ -1868,16 +1912,28 @@
     document.getElementById('uTipo').value  = 'invitado';
     document.getElementById('uCorreo').readOnly = false;
     document.getElementById('uError').style.display = 'none';
+    const passWrap = document.getElementById('uPassWrap');
+    if (passWrap) { passWrap.style.display = 'none'; document.getElementById('uPassword').value = ''; }
     document.getElementById('modalUsuario').classList.add('show');
+    // Mostrar/ocultar campo password segun tipo
+    const tipoSel = document.getElementById('uTipo');
+    tipoSel.onchange = function() {
+      if (passWrap) passWrap.style.display = this.value === 'operativo' ? 'block' : 'none';
+    };
   }
 
   function abrirEditarUsuario(u) {
+    // Can be called with uid string (from admin panel) or user object (from info tab)
+    if (typeof u === 'string') {
+      const found = _adminUsuarios.find(x => x.id === u);
+      if (found) u = found; else return;
+    }
     _editUserId = u.id;
-    document.getElementById('modalUsuarioTitulo').textContent = '✏️ Editar usuario';
+    document.getElementById('modalUsuarioTitulo').textContent = 'Editar usuario';
     document.getElementById('uTipo').value       = u.tipo || 'invitado';
     document.getElementById('uNombre').value     = u.nombre || '';
     document.getElementById('uCorreo').value     = u.correo || '';
-    document.getElementById('uCorreo').readOnly  = true;  // no cambiar correo (clave)
+    document.getElementById('uCorreo').readOnly  = true;
     document.getElementById('uWhatsapp').value   = u.whatsapp || '';
     document.getElementById('uProfesion').value  = u.profesion || '';
     document.getElementById('uDedicacion').value = u.dedicacion || '';
@@ -1887,6 +1943,14 @@
     document.getElementById('uCalle').value      = u.calle || '';
     document.getElementById('uNumero').value     = u.numero || '';
     document.getElementById('uError').style.display = 'none';
+    const passWrap = document.getElementById('uPassWrap');
+    if (passWrap) passWrap.style.display = 'none';
+    // Operativo no puede editar tipo de otro operativo
+    if (IS_OPERATIVO && u.tipo === 'operativo') {
+      document.getElementById('uTipo').disabled = true;
+    } else {
+      document.getElementById('uTipo').disabled = false;
+    }
     document.getElementById('modalUsuario').classList.add('show');
   }
 
@@ -2004,7 +2068,7 @@
 
   // ── Gestión de Cuadernos ─────────────────────────────────────────────
   async function cargarCuadernosAdmin() {
-    if (!IS_ADMIN) return;
+    if (!IS_MASTER) return;
     const panel = document.getElementById('adminCuadernosPanel');
     if (!panel) return;
     const r    = await fetch('/admin/cuadernos');
@@ -2132,8 +2196,8 @@
     panel.innerHTML = lista.map(u => {
       const bloqueado  = u.bloqueado;
       const tipo       = u.tipo || 'invitado';
-      const tipoColor  = tipo === 'admin' ? '#fbbf24' : '#93c5fd';
-      const tipoBg     = tipo === 'admin' ? '#78350f' : '#1e3a5f';
+      const tipoColor  = tipo === 'operativo' ? '#22c55e' : '#93c5fd';
+      const tipoBg     = tipo === 'operativo' ? '#0a2218' : '#1e3a5f';
       const estadoBg   = bloqueado ? '#7f1d1d' : '#14532d';
       const estadoColor= bloqueado ? '#fca5a5' : '#4ade80';
       const estadoTxt  = bloqueado ? '🔒 Bloqueado' : '✅ Activo';
@@ -2165,13 +2229,14 @@
         <!-- Botones de acción -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <button onclick="abrirEditarUsuario('${u.id}')"
-            style="background:#1e3a5f;color:#93c5fd;border:none;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
+            style="background:#1e3a5f;color:#93c5fd;border:none;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">Editar</button>
           <button onclick="toggleBloqueoAdmin('${u.id}', ${bloqueado})"
-            style="background:${bloqueado?'#14532d':'#78350f'};color:${bloqueado?'#4ade80':'#fbbf24'};border:none;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">${bloqueado?'🔓 Desbloquear':'🔒 Bloquear'}</button>
-          <button onclick="cambiarTipoAdmin('${u.id}', '${tipo}')"
-            style="background:#1e293b;color:#d4af37;border:1px solid #334155;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">🔄 Cambiar tipo</button>
-          <button onclick="eliminarUsuarioAdmin('${u.id}', '${u.nombre.replace(/'/g,"\\'")}' )"
-            style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">🗑 Eliminar</button>
+            style="background:${bloqueado?'#14532d':'#78350f'};color:${bloqueado?'#4ade80':'#fbbf24'};border:none;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">${bloqueado?'Desbloquear':'Bloquear'}</button>
+          ${IS_MASTER && tipo !== 'operativo' ? `<button onclick="cambiarTipoAdmin('${u.id}', '${tipo}')"
+            style="background:#1e293b;color:#d4af37;border:1px solid #334155;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">🔄 Cambiar tipo</button>` : IS_MASTER && tipo === 'operativo' ? `<button onclick="cambiarTipoAdmin('${u.id}', '${tipo}')"
+            style="background:#1e293b;color:#d4af37;border:1px solid #334155;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">🔄 Pasar a Invitado</button>` : ''}
+          ${IS_MASTER || tipo !== 'operativo' ? `<button onclick="eliminarUsuarioAdmin('${u.id}', '${u.nombre.replace(/'/g,"\\'")}' )"
+            style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">🗑 Eliminar</button>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -2188,12 +2253,19 @@
   }
 
   async function cambiarTipoAdmin(uid, tipoActual) {
-    const nuevoTipo = tipoActual === 'admin' ? 'invitado' : 'admin';
+    if (!IS_MASTER) { alert('Solo el Master puede cambiar el tipo de usuario.'); return; }
+    const nuevoTipo = tipoActual === 'operativo' ? 'invitado' : 'operativo';
     if (!confirm(`¿Cambiar este usuario de "${tipoActual}" a "${nuevoTipo}"?`)) return;
+    const payload = {id: uid, tipo: nuevoTipo};
+    if (nuevoTipo === 'operativo') {
+      const pass = prompt('Ingrese contraseña para el nuevo Operativo (min. 6 caracteres):');
+      if (!pass || pass.length < 6) { alert('Contraseña requerida (min. 6 caracteres).'); return; }
+      payload.password = pass;
+    }
     await fetch('/admin/usuarios/editar', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({id: uid, tipo: nuevoTipo})
+      body: JSON.stringify(payload)
     });
     cargarAdminPanel();
   }
@@ -2328,9 +2400,9 @@
     }
     errEl.style.display = 'none';
 
+    const tipo = document.getElementById('uTipo').value;
     const payload = {
-      tipo:       document.getElementById('uTipo').value,
-      nombre, correo,
+      tipo, nombre, correo,
       whatsapp:   document.getElementById('uWhatsapp').value.trim(),
       profesion:  document.getElementById('uProfesion').value.trim(),
       dedicacion: document.getElementById('uDedicacion').value.trim(),
@@ -2340,6 +2412,17 @@
       calle:      document.getElementById('uCalle').value.trim(),
       numero:     document.getElementById('uNumero').value.trim(),
     };
+    // Include password when creating operativo
+    const passEl = document.getElementById('uPassword');
+    if (tipo === 'operativo' && passEl && !_editUserId) {
+      const pass = passEl.value.trim();
+      if (!pass || pass.length < 6) {
+        errEl.textContent = 'La contraseña del Operativo debe tener min. 6 caracteres.';
+        errEl.style.display = 'block';
+        return;
+      }
+      payload.password = pass;
+    }
 
     const url    = _editUserId ? '/admin/usuarios/editar' : '/admin/usuarios/crear';
     if (_editUserId) payload.id = _editUserId;
@@ -2376,7 +2459,7 @@
     window.showTab = function(name, el) {
       if (typeof origShowTab === 'function') origShowTab(name, el);
       if (name === 'info' && IS_ADMIN) { cargarUsuarios(); cargarSolicitudes(); cargarRecuperaciones(); cargarHistorial(); }
-      if (name === 'adminpanel' && IS_ADMIN) { cargarAdminPanel(); cargarCuadernosAdmin(); }
+      if (name === 'adminpanel' && IS_ADMIN) { cargarAdminPanel(); if(IS_MASTER) cargarCuadernosAdmin(); }
     };
     // También cargar si ya estamos en Info
     setTimeout(() => {

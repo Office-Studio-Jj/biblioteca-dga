@@ -19,7 +19,7 @@ app = Flask(__name__, static_folder='static')
 app.secret_key = os.environ.get("SECRET_KEY", hashlib.sha256(b"DGA-Biblioteca-Puertos-Aduanas-RD-2024").hexdigest())
 
 # ── Contraseñas por defecto (hash SHA-256) ───────────────────────────────
-_DEFAULT_ADMIN_HASH = hashlib.sha256(b"DGA2024*").hexdigest()
+_DEFAULT_MASTER_HASH = hashlib.sha256(b"DGA2024*").hexdigest()
 _DEFAULT_GUEST_HASH = hashlib.sha256(b"Puertos2024").hexdigest()
 
 import sys
@@ -86,16 +86,21 @@ def log_historial(correo, nombre, evento, detalle=""):
 def load_passwords():
     try:
         with open(PASSWORDS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
     except Exception:
-        return {"admin": _DEFAULT_ADMIN_HASH, "invitado": _DEFAULT_GUEST_HASH}
+        return {"master": _DEFAULT_MASTER_HASH, "invitado": _DEFAULT_GUEST_HASH}
+    # ── Migración: renombrar "admin" → "master" ──
+    if "admin" in data and "master" not in data:
+        data["master"] = data.pop("admin")
+        save_passwords(data)
+    return data
 
 def save_passwords(data):
     with open(PASSWORDS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-def get_admin_hash():
-    return load_passwords().get("admin", _DEFAULT_ADMIN_HASH)
+def get_master_hash():
+    return load_passwords().get("master", _DEFAULT_MASTER_HASH)
 
 def get_guest_hash():
     return load_passwords().get("invitado", _DEFAULT_GUEST_HASH)
@@ -150,6 +155,12 @@ def find_user_by_email(email):
             return u
     return None
 
+def find_user_by_id(uid):
+    for u in load_users().get("usuarios", []):
+        if u["id"] == uid:
+            return u
+    return None
+
 # ── Decorador de protección ─────────────────────────────────────────────
 def login_required(f):
     @wraps(f)
@@ -160,10 +171,27 @@ def login_required(f):
     return decorated
 
 def admin_required(f):
+    """Legado — redirige a admin_or_master_required."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not session.get("logged_in") or session.get("role") != "admin":
+        if not session.get("logged_in") or session.get("role") not in ("master", "operativo"):
             return jsonify({"error": "Acceso denegado"}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+def master_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("logged_in") or session.get("role") != "master":
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
+def admin_or_master_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("logged_in") or session.get("role") not in ("master", "operativo"):
+            return redirect(url_for("login"))
         return f(*args, **kwargs)
     return decorated
 
@@ -222,15 +250,17 @@ def login():
         referer  = request.headers.get("Referer", "")
         from_invitado = role_req == "invitado" and "/invitado" in referer
 
-        if role_req == "admin" and pwd_hash == get_admin_hash():
+        # Backward compat: old forms send "admin" → treat as "master"
+        if role_req == "admin":
+            role_req = "master"
+
+        if role_req == "master" and pwd_hash == get_master_hash():
             if correo:
+                # Master con correo → verificar si quiere entrar como operativo
                 usuario = find_user_by_email(correo)
-                if usuario and usuario.get("tipo") == "admin" and not usuario.get("bloqueado"):
-                    session["logged_in"] = True
-                    session["role"]      = "admin"
-                    session["correo"]    = correo
-                    session["nombre"]    = usuario["nombre"]
-                    return redirect(url_for("index"))
+                if usuario and usuario.get("tipo") == "operativo" and not usuario.get("bloqueado"):
+                    # Pero la contraseña master no sirve para operativo
+                    error = "Para acceso operativo usa tu contraseña personal, no la maestra."
                 elif usuario and usuario.get("bloqueado"):
                     error = "Tu acceso ha sido bloqueado por el administrador."
                 elif usuario:
@@ -239,10 +269,35 @@ def login():
                     error = "Correo no encontrado. Ingresa sin correo para acceso maestro."
             else:
                 session["logged_in"] = True
-                session["role"]      = "admin"
-                session["correo"]    = "admin"
+                session["role"]      = "master"
+                session["correo"]    = "master"
                 session["nombre"]    = "Administrador"
                 return redirect(url_for("index"))
+
+        elif role_req == "operativo":
+            if not correo:
+                error = "Ingresa tu correo para acceder como operativo."
+            else:
+                usuario = find_user_by_email(correo)
+                if not usuario:
+                    error = "Correo no encontrado."
+                elif usuario.get("tipo") != "operativo":
+                    error = "Este correo no tiene permisos de operativo."
+                elif usuario.get("bloqueado"):
+                    error = "Tu acceso ha sido bloqueado por el administrador."
+                else:
+                    user_pw_hash = usuario.get("password_hash", "")
+                    if not user_pw_hash:
+                        error = "Tu cuenta operativa aún no tiene contraseña asignada. Contacta al administrador."
+                    elif pwd_hash != user_pw_hash:
+                        error = "Contraseña incorrecta. Intenta de nuevo."
+                    else:
+                        session["logged_in"] = True
+                        session["role"]      = "operativo"
+                        session["correo"]    = correo
+                        session["nombre"]    = usuario["nombre"]
+                        log_historial(correo, usuario["nombre"], "inicio_sesion", "Inicio de sesión operativo")
+                        return redirect(url_for("index"))
 
         elif role_req == "invitado" and pwd_hash == get_guest_hash():
             if not correo:
@@ -290,9 +345,10 @@ def logout():
 def index():
     role                = session.get("role", "invitado")
     nombre              = session.get("nombre", "")
+    correo              = session.get("correo", "")
     must_change_password = session.get("must_change_password", False)
     return render_template("index.html", notebooks=get_notebooks(), role=role, nombre=nombre,
-                           must_change_password=must_change_password)
+                           correo=correo, must_change_password=must_change_password)
 
 @app.route("/consultar", methods=["POST"])
 @login_required
@@ -396,7 +452,7 @@ def save_solicitudes(data):
 def solicitar_app():
     correo = session.get("correo", "")
     nombre = session.get("nombre", "")
-    if not correo or correo == "admin":
+    if not correo or correo in ("admin", "master"):
         return jsonify({"error": "Solo los invitados pueden solicitar el instalador."}), 400
 
     data = load_solicitudes()
@@ -416,12 +472,12 @@ def solicitar_app():
     return jsonify({"ok": True, "mensaje": f"¡Solicitud registrada! El administrador enviará el instalador a {correo}."})
 
 @app.route("/admin/solicitudes")
-@admin_required
+@admin_or_master_required
 def admin_solicitudes():
     return jsonify(load_solicitudes())
 
 @app.route("/admin/solicitudes/marcar", methods=["POST"])
-@admin_required
+@admin_or_master_required
 def admin_marcar_solicitud():
     sid    = request.json.get("id", "")
     estado = request.json.get("estado", "enviado")
@@ -435,17 +491,26 @@ def admin_marcar_solicitud():
 
 # ── Admin: gestión de usuarios ───────────────────────────────────────────
 @app.route("/admin/usuarios")
-@admin_required
+@admin_or_master_required
 def admin_usuarios():
     data = load_users()
+    # Operativo no ve a otros operativos
+    if session.get("role") == "operativo":
+        data = dict(data)
+        data["usuarios"] = [u for u in data["usuarios"] if u.get("tipo") != "operativo"]
     return jsonify(data)
 
 @app.route("/admin/bloquear", methods=["POST"])
-@admin_required
+@admin_or_master_required
 def admin_bloquear():
     uid    = request.json.get("id", "")
     estado = request.json.get("bloqueado", True)
-    data   = load_users()
+    # Operativo no puede bloquear a otro operativo
+    if session.get("role") == "operativo":
+        target = find_user_by_id(uid)
+        if target and target.get("tipo") == "operativo":
+            return jsonify({"error": "No tienes permiso para bloquear a un operativo."}), 403
+    data = load_users()
     for u in data["usuarios"]:
         if u["id"] == uid:
             u["bloqueado"] = estado
@@ -455,11 +520,21 @@ def admin_bloquear():
     return jsonify({"error": "Usuario no encontrado"}), 404
 
 @app.route("/admin/usuarios/crear", methods=["POST"])
-@admin_required
+@admin_or_master_required
 def admin_crear_usuario():
     d      = request.json or {}
     correo = d.get("correo", "").strip().lower()
-    tipo   = d.get("tipo", "invitado")   # "invitado" o "admin"
+    tipo   = d.get("tipo", "invitado")   # "invitado", "operativo" (o legacy "admin")
+    role   = session.get("role")
+
+    # Migración legacy: si llega "admin" como tipo, convertir a "operativo"
+    if tipo == "admin":
+        tipo = "operativo"
+
+    # Operativo solo puede crear invitados
+    if role == "operativo" and tipo != "invitado":
+        return jsonify({"error": "Solo el master puede crear usuarios operativos."}), 403
+
     if not correo:
         return jsonify({"error": "El correo es obligatorio."}), 400
     if find_user_by_email(correo):
@@ -480,16 +555,29 @@ def admin_crear_usuario():
         "fecha_registro": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "bloqueado":      False
     }
+    # Si es operativo y lo crea el master, guardar password_hash
+    if tipo == "operativo" and role == "master":
+        pw_raw = d.get("password", "").strip()
+        if pw_raw:
+            nuevo["password_hash"] = hashlib.sha256(pw_raw.encode()).hexdigest()
+        else:
+            nuevo["password_hash"] = ""
     data = load_users()
     data["usuarios"].append(nuevo)
     save_users(data)
     return jsonify({"ok": True, "mensaje": f"Usuario {nuevo['nombre']} creado como {tipo}."})
 
 @app.route("/admin/usuarios/editar", methods=["POST"])
-@admin_required
+@admin_or_master_required
 def admin_editar_usuario():
-    d   = request.json or {}
-    uid = d.get("id", "")
+    d    = request.json or {}
+    uid  = d.get("id", "")
+    role = session.get("role")
+    # Operativo no puede editar a otro operativo
+    if role == "operativo":
+        target = find_user_by_id(uid)
+        if target and target.get("tipo") == "operativo":
+            return jsonify({"error": "No tienes permiso para editar a un operativo."}), 403
     data = load_users()
     for u in data["usuarios"]:
         if u["id"] == uid:
@@ -497,15 +585,25 @@ def admin_editar_usuario():
                       "pais","provincia","municipio","calle","numero","tipo"]
             for c in campos:
                 if c in d:
-                    u[c] = d[c].strip() if isinstance(d[c], str) else d[c]
+                    val = d[c]
+                    u[c] = val.strip() if isinstance(val, str) else val
+            # Migración legacy: si alguien envía tipo "admin", convertir a "operativo"
+            if u.get("tipo") == "admin":
+                u["tipo"] = "operativo"
             save_users(data)
             return jsonify({"ok": True})
     return jsonify({"error": "Usuario no encontrado"}), 404
 
 @app.route("/admin/usuarios/eliminar", methods=["POST"])
-@admin_required
+@admin_or_master_required
 def admin_eliminar_usuario():
     uid  = (request.json or {}).get("id", "")
+    role = session.get("role")
+    # Operativo no puede eliminar a otro operativo
+    if role == "operativo":
+        target = find_user_by_id(uid)
+        if target and target.get("tipo") == "operativo":
+            return jsonify({"error": "No tienes permiso para eliminar a un operativo."}), 403
     data = load_users()
     orig = len(data["usuarios"])
     data["usuarios"] = [u for u in data["usuarios"] if u["id"] != uid]
@@ -517,12 +615,12 @@ def admin_eliminar_usuario():
 @app.route("/cambiar-contrasena", methods=["POST"])
 @login_required
 def cambiar_contrasena():
-    d            = request.json or {}
-    tipo         = d.get("tipo", "")          # "admin" o "invitado"
-    actual       = d.get("actual", "")
-    nueva        = d.get("nueva", "")
-    confirmacion = d.get("confirmacion", "")
-    role         = session.get("role", "")
+    d                = request.json or {}
+    tipoPassCambiar  = d.get("tipo", "")          # "admin", "master", "operativo", "invitado"
+    actual           = d.get("actual", "")
+    nueva            = d.get("nueva", "")
+    confirmacion     = d.get("confirmacion", "")
+    role             = session.get("role", "")
 
     if not actual or not nueva or not confirmacion:
         return jsonify({"error": "Todos los campos son obligatorios."}), 400
@@ -538,22 +636,43 @@ def cambiar_contrasena():
     correo_session = session.get("correo", "")
     nombre_session = session.get("nombre", "")
 
-    if tipo == "admin":
-        if role != "admin":
-            return jsonify({"error": "Solo el administrador puede cambiar esta contraseña."}), 403
-        if actual_hash != passwords.get("admin", _DEFAULT_ADMIN_HASH):
+    # ── Cambiar contraseña maestra (solo master) ──
+    if tipoPassCambiar in ("admin", "master"):
+        if role != "master":
+            return jsonify({"error": "Solo el master puede cambiar esta contraseña."}), 403
+        if actual_hash != passwords.get("master", _DEFAULT_MASTER_HASH):
             return jsonify({"error": "La contraseña actual es incorrecta."}), 400
-        passwords["admin"] = nueva_hash
+        passwords["master"] = nueva_hash
         save_passwords(passwords)
-        log_historial(correo_session, nombre_session, "cambio_contrasena", "Cambió la contraseña de administrador")
-        return jsonify({"ok": True, "mensaje": "Contraseña de administrador actualizada correctamente."})
+        log_historial(correo_session, nombre_session, "cambio_contrasena", "Cambió la contraseña maestra")
+        return jsonify({"ok": True, "mensaje": "Contraseña maestra actualizada correctamente."})
 
-    elif tipo == "invitado":
-        if role == "admin":
-            # Admin puede cambiar la clave de invitado sin verificar la actual
+    # ── Operativo cambia su propia contraseña per-user ──
+    elif tipoPassCambiar == "operativo":
+        if role != "operativo":
+            return jsonify({"error": "Solo un operativo puede cambiar su propia contraseña."}), 403
+        usuario = find_user_by_email(correo_session)
+        if not usuario:
+            return jsonify({"error": "Usuario no encontrado."}), 404
+        if actual_hash != usuario.get("password_hash", ""):
+            return jsonify({"error": "La contraseña actual es incorrecta."}), 400
+        # Actualizar password_hash en usuarios.json
+        data = load_users()
+        for u in data["usuarios"]:
+            if u["correo"].lower() == correo_session.lower():
+                u["password_hash"] = nueva_hash
+                break
+        save_users(data)
+        log_historial(correo_session, nombre_session, "cambio_contrasena", "Operativo cambió su contraseña personal")
+        return jsonify({"ok": True, "mensaje": "Contraseña operativa actualizada correctamente."})
+
+    # ── Cambiar contraseña compartida de invitados ──
+    elif tipoPassCambiar == "invitado":
+        if role in ("master", "operativo"):
+            # Master y operativo pueden cambiar la clave de invitado sin verificar la actual
             passwords["invitado"] = nueva_hash
             save_passwords(passwords)
-            log_historial(correo_session, nombre_session, "cambio_contrasena", "Admin cambió la contraseña de invitados")
+            log_historial(correo_session, nombre_session, "cambio_contrasena", f"{role} cambió la contraseña de invitados")
             return jsonify({"ok": True, "mensaje": "Contraseña de invitado actualizada correctamente."})
         elif role == "invitado":
             if actual_hash != passwords.get("invitado", _DEFAULT_GUEST_HASH):
@@ -645,8 +764,8 @@ def recuperar_verificar():
     # Cambiar contraseña
     passwords = load_passwords()
     nueva_hash = hashlib.sha256(nueva.encode()).hexdigest()
-    if sol["tipo"] == "admin":
-        passwords["admin"] = nueva_hash
+    if sol["tipo"] in ("admin", "master"):
+        passwords["master"] = nueva_hash
     else:
         passwords["invitado"] = nueva_hash
         # Marcar password_changed
@@ -667,12 +786,12 @@ def recuperar_verificar():
 
 
 @app.route("/admin/recuperaciones")
-@admin_required
+@admin_or_master_required
 def admin_recuperaciones():
     return jsonify(load_recovery())
 
 @app.route("/admin/recuperaciones/eliminar", methods=["POST"])
-@admin_required
+@admin_or_master_required
 def admin_recuperaciones_eliminar():
     rid  = (request.json or {}).get("id", "")
     data = load_recovery()
@@ -731,12 +850,12 @@ def solicitar_baja():
 
 
 @app.route("/admin/cuadernos")
-@admin_required
+@admin_or_master_required
 def admin_cuadernos():
     return jsonify({"cuadernos": get_notebooks()})
 
 @app.route("/admin/cuadernos/guardar", methods=["POST"])
-@admin_required
+@admin_or_master_required
 def admin_cuadernos_guardar():
     d      = request.json or {}
     nombre = d.get("nombre", "").strip()
@@ -768,7 +887,7 @@ def admin_cuadernos_guardar():
     return jsonify({"ok": True, "cuadernos": lista})
 
 @app.route("/admin/cuadernos/eliminar", methods=["POST"])
-@admin_required
+@admin_or_master_required
 def admin_cuadernos_eliminar():
     nid   = (request.json or {}).get("id", "")
     lista = load_cuadernos()
@@ -780,7 +899,7 @@ def admin_cuadernos_eliminar():
     return jsonify({"ok": True, "cuadernos": lista})
 
 @app.route("/admin/cuadernos/reordenar", methods=["POST"])
-@admin_required
+@admin_or_master_required
 def admin_cuadernos_reordenar():
     orden = (request.json or {}).get("orden", [])  # lista de IDs en nuevo orden
     lista = load_cuadernos()
@@ -794,12 +913,12 @@ def admin_cuadernos_reordenar():
 
 
 @app.route("/admin/historial")
-@admin_required
+@admin_or_master_required
 def admin_historial():
     return jsonify(load_historial())
 
 @app.route("/admin/historial/eliminar", methods=["POST"])
-@admin_required
+@master_required
 def admin_historial_eliminar():
     rid  = (request.json or {}).get("id", "")
     data = load_historial()
@@ -811,7 +930,7 @@ def admin_historial_eliminar():
     return jsonify({"ok": True})
 
 @app.route("/admin/historial/limpiar", methods=["POST"])
-@admin_required
+@master_required
 def admin_historial_limpiar():
     save_historial({"registros": []})
     return jsonify({"ok": True})
@@ -819,7 +938,7 @@ def admin_historial_limpiar():
 
 # ── Diagnóstico del sistema de consultas (Gemini + NotebookLM) ───────────
 @app.route("/admin/diagnostico-notebooklm")
-@admin_required
+@master_required
 def admin_diagnostico_notebooklm():
     """Prueba el backend activo de consultas: primero Gemini, luego NotebookLM navegador."""
     TEST_Q  = "Di exactamente la palabra OK y nada más."
@@ -896,8 +1015,8 @@ def guia():
 @app.route("/guia/guardar", methods=["POST"])
 @login_required
 def guia_guardar():
-    if session.get("role") != "admin":
-        return jsonify({"error": "Solo el administrador puede editar."}), 403
+    if session.get("role") != "master":
+        return jsonify({"error": "Solo el master puede editar."}), 403
     contenido = request.json.get("contenido", "")
     try:
         with open(GUIA_FILE, "w", encoding="utf-8") as f:
@@ -954,7 +1073,7 @@ def _gen_qr_base64(url):
 @app.route("/manual/admin")
 @login_required
 def manual_admin():
-    if session.get("role") != "admin":
+    if session.get("role") not in ("master", "operativo"):
         return redirect(url_for("manual_invitado"))
     return render_template("manual_admin.html")
 
@@ -968,7 +1087,7 @@ def manual_invitado():
 def manual_pdf(rol):
     """Descarga el manual PDF del rol correspondiente."""
     if rol == "admin":
-        if session.get("role") != "admin":
+        if session.get("role") not in ("master", "operativo"):
             return redirect(url_for("index"))
         filename = "Manual_Administrador_Aduanas_RD.pdf"
     else:
@@ -1104,6 +1223,25 @@ def ask_notebooklm(question, notebook_id):
         return f"No se obtuvo respuesta del cuaderno '{notebook_id}'. El sistema está procesando — intenta de nuevo en 30 segundos."
 
     return answer + _DISCLAIMER
+
+# ── Migración de datos al iniciar ────────────────────────────────────────
+def _migrate_users_admin_to_operativo():
+    """Convierte usuarios con tipo='admin' a tipo='operativo' y les asigna
+    un password_hash por defecto si no lo tienen."""
+    data = load_users()
+    changed = False
+    for u in data["usuarios"]:
+        if u.get("tipo") == "admin":
+            u["tipo"] = "operativo"
+            if not u.get("password_hash"):
+                u["password_hash"] = hashlib.sha256(b"Operativo2024").hexdigest()
+            changed = True
+    if changed:
+        save_users(data)
+
+# Ejecutar migraciones al importar el módulo
+_migrate_users_admin_to_operativo()
+load_passwords()  # Dispara migración admin→master en passwords.json
 
 # ── Arranque ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
