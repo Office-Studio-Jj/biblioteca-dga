@@ -65,6 +65,24 @@
     .register-link { margin-top: 18px; font-size: 0.75rem; color: #64748b; }
     .register-link a { color: #d4af37; text-decoration: none; font-weight: 600; }
     .footer { margin-top: 24px; font-size: 0.62rem; color: #1e293b; }
+
+    /* Recordarme */
+    .remember-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 14px; font-size: 0.72rem; color: #64748b;
+    }
+    .remember-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #d4af37; cursor: pointer; }
+    .remember-row label { cursor: pointer; }
+
+    /* Sesion guardada badge */
+    .saved-badge {
+      display: none; align-items: center; gap: 6px;
+      background: #0f2744; border: 1px solid #d4af37;
+      color: #d4af37; font-size: 0.68rem; font-weight: 600;
+      padding: 5px 12px; border-radius: 20px; margin-bottom: 14px;
+    }
+    .saved-badge.show { display: inline-flex; }
+    .saved-clear { margin-left: 6px; color: #64748b; cursor: pointer; font-size: 0.75rem; text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -72,6 +90,12 @@
   <div class="logo">🔐</div>
   <h1>Logistica de Puertos<br>y Aduanas RD</h1>
   <div class="sub">Selecciona tu tipo de acceso</div>
+
+  <!-- Badge sesión guardada -->
+  <div class="saved-badge" id="savedBadge">
+    ✅ <span id="savedNombre">Sesión guardada</span>
+    <span class="saved-clear" onclick="borrarSesionGuardada()">✕ Olvidar</span>
+  </div>
 
   <form method="POST" action="/login">
     <input type="hidden" name="role" id="roleInput" value="master">
@@ -102,6 +126,12 @@
       <button type="button" class="eye" onclick="togglePwd()">👁</button>
     </div>
 
+    <!-- Recordarme -->
+    <div class="remember-row">
+      <input type="checkbox" id="recordarme">
+      <label for="recordarme">Guardar usuario y datos en este dispositivo</label>
+    </div>
+
     <button type="submit" class="btn-login">Ingresar →</button>
 
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
@@ -119,6 +149,11 @@
 </div>
 
 <script>
+  // ── Constantes de almacenamiento ──
+  const LS_CORREO = 'dga_login_correo';
+  const LS_ROLE   = 'dga_login_role';
+  const LS_NOMBRE = 'dga_login_nombre';
+
   function setRole(r) {
     document.getElementById('roleInput').value = r;
     const bm = document.getElementById('btnMaster');
@@ -153,7 +188,54 @@
       document.getElementById('registerLink').style.display = 'block';
     }
   }
-  setRole('master');
+
+  // ── Al cargar: rellenar desde localStorage ──
+  (function() {
+    const savedRole   = localStorage.getItem(LS_ROLE);
+    const savedCorreo = localStorage.getItem(LS_CORREO);
+    const savedNombre = localStorage.getItem(LS_NOMBRE);
+
+    if (savedRole && savedCorreo) {
+      // Mostrar badge de sesion guardada
+      const badge = document.getElementById('savedBadge');
+      const labelEl = document.getElementById('savedNombre');
+      badge.classList.add('show');
+      labelEl.textContent = savedNombre ? ('👤 ' + savedNombre) : savedCorreo;
+      // Pre-seleccionar rol y correo
+      setRole(savedRole);
+      const correoField = document.getElementById('correoField');
+      if (correoField) correoField.value = savedCorreo;
+      document.getElementById('recordarme').checked = true;
+    } else {
+      setRole('master');
+    }
+  })();
+
+  // ── Al enviar el formulario: guardar si "Recordarme" esta marcado ──
+  document.querySelector('form').addEventListener('submit', function() {
+    const correo = (document.getElementById('correoField').value || '').trim();
+    const role   = document.getElementById('roleInput').value;
+    if (document.getElementById('recordarme').checked) {
+      if (correo) localStorage.setItem(LS_CORREO, correo);
+      localStorage.setItem(LS_ROLE, role);
+      // nombre se guarda desde index.html tras login exitoso
+    } else {
+      localStorage.removeItem(LS_CORREO);
+      localStorage.removeItem(LS_ROLE);
+      localStorage.removeItem(LS_NOMBRE);
+    }
+  });
+
+  function borrarSesionGuardada() {
+    localStorage.removeItem(LS_CORREO);
+    localStorage.removeItem(LS_ROLE);
+    localStorage.removeItem(LS_NOMBRE);
+    document.getElementById('savedBadge').classList.remove('show');
+    document.getElementById('recordarme').checked = false;
+    document.getElementById('correoField').value = '';
+    setRole('master');
+  }
+
   function togglePwd() {
     const f = document.getElementById('pwd');
     f.type = f.type === 'password' ? 'text' : 'password';

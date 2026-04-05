@@ -9,7 +9,7 @@ import hashlib
 import secrets
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, Response, make_response, send_from_directory
 
@@ -17,6 +17,8 @@ app = Flask(__name__, static_folder='static')
 # SECRET_KEY fija via variable de entorno para que las sesiones sobrevivan reinicios de Railway
 # Si no está definida en Railway, usa una clave derivada estable (no aleatoria)
 app.secret_key = os.environ.get("SECRET_KEY", hashlib.sha256(b"DGA-Biblioteca-Puertos-Aduanas-RD-2024").hexdigest())
+# Sesiones persistentes: 30 dias (el usuario no tiene que re-iniciar sesion)
+app.permanent_session_lifetime = timedelta(days=30)
 
 # ── Contraseñas por defecto (hash SHA-256) ───────────────────────────────
 _DEFAULT_MASTER_HASH = hashlib.sha256(b"DGA2024*").hexdigest()
@@ -227,6 +229,7 @@ def registro():
         save_users(data)
         log_historial(correo, nuevo["nombre"], "registro", "Nuevo usuario registrado")
 
+        session.permanent               = True
         session["logged_in"]            = True
         session["role"]                 = "invitado"
         session["correo"]               = correo
@@ -268,10 +271,12 @@ def login():
                 else:
                     error = "Correo no encontrado. Ingresa sin correo para acceso maestro."
             else:
+                session.permanent    = True
                 session["logged_in"] = True
                 session["role"]      = "master"
                 session["correo"]    = "master"
-                session["nombre"]    = "Administrador"
+                session["nombre"]    = "Administrador Master"
+                log_historial("master", "Administrador Master", "inicio_sesion", "Acceso master")
                 return redirect(url_for("index"))
 
         elif role_req == "operativo":
@@ -292,11 +297,16 @@ def login():
                     elif pwd_hash != user_pw_hash:
                         error = "Contraseña incorrecta. Intenta de nuevo."
                     else:
+                        primer_acceso_op = not usuario.get("password_changed", False)
+                        session.permanent    = True
                         session["logged_in"] = True
                         session["role"]      = "operativo"
                         session["correo"]    = correo
                         session["nombre"]    = usuario["nombre"]
-                        log_historial(correo, usuario["nombre"], "inicio_sesion", "Inicio de sesión operativo")
+                        session["must_change_password"] = primer_acceso_op
+                        evento_op = "primer_acceso" if primer_acceso_op else "inicio_sesion"
+                        detalle_op = "Primer acceso operativo — debe cambiar contraseña" if primer_acceso_op else "Inicio de sesión operativo"
+                        log_historial(correo, usuario["nombre"], evento_op, detalle_op)
                         return redirect(url_for("index"))
 
         elif role_req == "invitado" and pwd_hash == get_guest_hash():
@@ -310,6 +320,7 @@ def login():
                     error = "Tu acceso ha sido bloqueado por el administrador."
                 else:
                     primer_acceso = not usuario.get("password_changed", False)
+                    session.permanent             = True
                     session["logged_in"]          = True
                     session["role"]               = "invitado"
                     session["correo"]             = correo
@@ -555,13 +566,18 @@ def admin_crear_usuario():
         "fecha_registro": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "bloqueado":      False
     }
-    # Si es operativo y lo crea el master, guardar password_hash
+    # Si es operativo y lo crea el master, guardar password_hash y forzar cambio en primer acceso
     if tipo == "operativo" and role == "master":
         pw_raw = d.get("password", "").strip()
         if pw_raw:
-            nuevo["password_hash"] = hashlib.sha256(pw_raw.encode()).hexdigest()
+            nuevo["password_hash"]      = hashlib.sha256(pw_raw.encode()).hexdigest()
+            nuevo["password_changed"]   = False   # forzar cambio en primer login
+            nuevo["must_change_password"] = True
         else:
             nuevo["password_hash"] = ""
+    # Invitado creado por admin: forzar cambio de contrasena en primer acceso
+    if tipo == "invitado":
+        nuevo["password_changed"] = False
     data = load_users()
     data["usuarios"].append(nuevo)
     save_users(data)
@@ -656,15 +672,20 @@ def cambiar_contrasena():
             return jsonify({"error": "Usuario no encontrado."}), 404
         if actual_hash != usuario.get("password_hash", ""):
             return jsonify({"error": "La contraseña actual es incorrecta."}), 400
-        # Actualizar password_hash en usuarios.json
+        # Actualizar password_hash y marcar que ya cambio la contrasena
         data = load_users()
         for u in data["usuarios"]:
             if u["correo"].lower() == correo_session.lower():
-                u["password_hash"] = nueva_hash
+                u["password_hash"]      = nueva_hash
+                u["password_changed"]   = True
+                u["must_change_password"] = False
                 break
         save_users(data)
-        log_historial(correo_session, nombre_session, "cambio_contrasena", "Operativo cambió su contraseña personal")
-        return jsonify({"ok": True, "mensaje": "Contraseña operativa actualizada correctamente."})
+        session["must_change_password"] = False
+        es_primer_cambio = not usuario.get("password_changed", False)
+        detalle_op = "Cambio de contraseña obligatorio (primer acceso)" if es_primer_cambio else "Cambio de contraseña personal"
+        log_historial(correo_session, nombre_session, "cambio_contrasena", detalle_op)
+        return jsonify({"ok": True, "mensaje": "Contraseña actualizada correctamente. Bienvenido/a al sistema."})
 
     # ── Cambiar contraseña compartida de invitados ──
     elif tipoPassCambiar == "invitado":

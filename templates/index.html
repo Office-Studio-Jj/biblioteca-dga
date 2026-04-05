@@ -786,25 +786,52 @@
       </div>
 
       <div class="info-section">
-        <h3>Sesión</h3>
-        <div class="info-row">
-          <div class="info-ico">{% if role == 'master' %}👑{% elif role == 'operativo' %}🛡️{% else %}👤{% endif %}</div>
-          <div class="info-text">
-            <strong>{% if role == 'master' %}Administrador Master{% elif role == 'operativo' %}Administrador Operativo{% else %}Invitado{% endif %}</strong>
-            {% if role == 'invitado' %}
-            <span style="display:block;font-size:0.72rem;color:#93c5fd;margin-top:3px;">Acceso solo a consultas</span>
-            {% elif role == 'operativo' %}
-            <span style="display:block;font-size:0.72rem;color:#22c55e;margin-top:3px;">Gestion de usuarios e invitados</span>
-            {% endif %}
-            <a href="/manual/{{ role }}" style="display:inline-block;margin-top:8px;margin-right:6px;padding:6px 16px;background:#134e4a;color:#5eead4;border-radius:20px;font-size:0.72rem;font-weight:600;text-decoration:none;">📖 Manual de uso</a>
-            <a href="/manual/pdf/{{ role }}" style="display:inline-block;margin-top:8px;margin-right:6px;padding:6px 16px;background:#1e3a5f;color:#93c5fd;border-radius:20px;font-size:0.72rem;font-weight:600;text-decoration:none;">📥 Descargar PDF</a>
-            <button onclick="window.open('/manual/{{ role }}','_blank').print()" style="display:inline-block;margin-top:8px;margin-right:6px;padding:6px 16px;background:#334155;color:#e2e8f0;border-radius:20px;font-size:0.72rem;font-weight:600;border:none;cursor:pointer;">🖨️ Imprimir</button>
-            <button onclick="abrirModalPass()" style="display:inline-block;margin-top:8px;margin-right:6px;padding:6px 16px;background:#1e3a5f;color:#93c5fd;border-radius:20px;font-size:0.72rem;font-weight:600;border:none;cursor:pointer;">🔑 Cambiar clave</button>
-            <a href="/logout" style="display:inline-block;margin-top:8px;margin-right:6px;padding:6px 16px;background:#7f1d1d;color:#fca5a5;border-radius:20px;font-size:0.72rem;font-weight:600;text-decoration:none;">Cerrar sesión</a>
-            {% if role == 'invitado' %}
-            <button onclick="abrirModalBaja()" style="display:inline-block;margin-top:8px;padding:6px 16px;background:#1e293b;color:#64748b;border-radius:20px;font-size:0.72rem;font-weight:600;border:1px solid #334155;cursor:pointer;">Unsubscribe</button>
-            {% endif %}
+        <h3>Mi Sesión</h3>
+
+        <!-- Tarjeta de perfil del usuario -->
+        <div style="background:#0f172a;border-radius:14px;padding:14px 16px;margin-bottom:14px;border:1px solid #334155;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+            <div style="font-size:2rem;">{% if role == 'master' %}👑{% elif role == 'operativo' %}🛡️{% else %}👤{% endif %}</div>
+            <div>
+              <div style="font-size:0.95rem;font-weight:800;color:#e2e8f0;">{{ nombre }}</div>
+              <div style="font-size:0.72rem;color:{% if role == 'master' %}#d4af37{% elif role == 'operativo' %}#22c55e{% else %}#93c5fd{% endif %};font-weight:600;margin-top:2px;">
+                {% if role == 'master' %}Administrador Master{% elif role == 'operativo' %}Administrador Operativo{% else %}Usuario Invitado{% endif %}
+              </div>
+              {% if correo and correo != 'master' %}
+              <div style="font-size:0.68rem;color:#64748b;margin-top:2px;">📧 {{ correo }}</div>
+              {% endif %}
+            </div>
           </div>
+
+          <!-- Acciones principales -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+            <button onclick="abrirModalPass()"
+              style="padding:10px 8px;background:#1e3a5f;color:#93c5fd;border:1px solid #1e40af;border-radius:12px;font-size:0.75rem;font-weight:700;cursor:pointer;text-align:center;">
+              🔑 Modificar clave
+            </button>
+            <a href="/logout"
+              style="display:block;padding:10px 8px;background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b;border-radius:12px;font-size:0.75rem;font-weight:700;text-align:center;text-decoration:none;">
+              🚪 Cerrar sesión
+            </a>
+          </div>
+
+          <!-- Guardar datos en el dispositivo -->
+          <div id="guardadoEstado" style="margin-bottom:6px;"></div>
+          <button onclick="guardarDatosDispositivo()"
+            style="width:100%;padding:9px;background:#0f2744;color:#d4af37;border:1px solid #d4af37;border-radius:12px;font-size:0.73rem;font-weight:700;cursor:pointer;">
+            💾 Guardar usuario en este dispositivo
+          </button>
+          <div style="font-size:0.62rem;color:#334155;text-align:center;margin-top:5px;">Para no ingresar tus datos en cada acceso</div>
+        </div>
+
+        <!-- Manuales -->
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
+          <a href="/manual/{{ role }}" style="padding:6px 14px;background:#134e4a;color:#5eead4;border-radius:20px;font-size:0.7rem;font-weight:600;text-decoration:none;">📖 Manual</a>
+          <a href="/manual/pdf/{{ role }}" style="padding:6px 14px;background:#1e3a5f;color:#93c5fd;border-radius:20px;font-size:0.7rem;font-weight:600;text-decoration:none;">📥 PDF</a>
+          <button onclick="window.open('/manual/{{ role }}','_blank').print()" style="padding:6px 14px;background:#334155;color:#e2e8f0;border-radius:20px;font-size:0.7rem;font-weight:600;border:none;cursor:pointer;">🖨️ Imprimir</button>
+          {% if role == 'invitado' %}
+          <button onclick="abrirModalBaja()" style="padding:6px 14px;background:#1e293b;color:#64748b;border-radius:20px;font-size:0.7rem;font-weight:600;border:1px solid #334155;cursor:pointer;">Unsubscribe</button>
+          {% endif %}
         </div>
       </div>
 
@@ -1168,9 +1195,14 @@
 <div class="modal-usuarios" id="modalCambiarPass">
   <div class="modal-u-box">
     <h3 id="tituloModalPass">🔑 Cambiar Contraseña</h3>
-    <div id="avisoFirstPass" style="display:none;background:#1e3a5f;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem;color:#93c5fd;line-height:1.5;">
-      ⚠️ <strong>Bienvenido.</strong> Por seguridad debes cambiar tu contraseña antes de continuar. Esta acción es obligatoria.
+    <!-- Aviso primer acceso -->
+    <div id="avisoFirstPass" style="display:none;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem;line-height:1.5;
+      {% if role == 'operativo' %}background:#0a2218;color:#22c55e;border:1px solid #166534;{% else %}background:#1e3a5f;color:#93c5fd;border:1px solid #1e40af;{% endif %}">
+      ⚠️ <strong>Bienvenido/a, {{ nombre }}.</strong><br>
+      Por seguridad debes crear tu propia contraseña antes de continuar.<br>
+      <span style="font-size:0.72rem;opacity:0.85;">Ingresa la contraseña asignada por el administrador como "contraseña actual".</span>
     </div>
+
     {% if role == 'master' %}
     <div style="margin-bottom:12px;">
       <label style="font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:6px;">¿Que contraseña deseas cambiar?</label>
@@ -1181,9 +1213,6 @@
     </div>
     {% elif role == 'operativo' %}
     <input type="hidden" id="tipoPassCambiar" value="operativo">
-    <div style="margin-bottom:12px;background:#0a2218;border-radius:10px;padding:10px 12px;font-size:0.78rem;color:#22c55e;">
-      🛡️ Cambiarás tu contraseña de Operativo
-    </div>
     {% else %}
     <input type="hidden" id="tipoPassCambiar" value="invitado">
     {% endif %}
@@ -1267,7 +1296,7 @@
   const USER_ROLE   = document.querySelector('meta[name="user-role"]').content;
   const IS_MASTER   = USER_ROLE === 'master';
   const IS_OPERATIVO= USER_ROLE === 'operativo';
-  const IS_ADMIN    = IS_MASTER || IS_OPERATIVO;  // ambos pueden administrar
+  const IS_ADMIN    = IS_MASTER || IS_OPERATIVO;
 
   // Anti-copy para no-master
   if (!IS_MASTER) {
@@ -1275,6 +1304,40 @@
     document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.resp-body').forEach(el => el.classList.add('nocopy'));
     });
+  }
+
+  // ── Guardar nombre en localStorage para pre-llenar login ──
+  (function() {
+    const nombre = '{{ nombre }}';
+    const correo = '{{ correo }}';
+    const role   = USER_ROLE;
+    if (nombre && nombre !== 'None' && nombre !== '') {
+      localStorage.setItem('dga_login_nombre', nombre);
+    }
+    // Si hay datos guardados y coinciden con la sesion actual, actualizar
+    if (correo && correo !== 'master' && correo !== 'None') {
+      if (localStorage.getItem('dga_login_correo') === correo) {
+        localStorage.setItem('dga_login_nombre', nombre);
+        localStorage.setItem('dga_login_role', role);
+      }
+    }
+  })();
+
+  // ── Guardar datos del dispositivo (boton en Info) ──
+  function guardarDatosDispositivo() {
+    const nombre = '{{ nombre }}';
+    const correo = '{{ correo }}';
+    const role   = USER_ROLE;
+    localStorage.setItem('dga_login_nombre', nombre);
+    localStorage.setItem('dga_login_role',   role);
+    if (correo && correo !== 'master') {
+      localStorage.setItem('dga_login_correo', correo);
+    }
+    const el = document.getElementById('guardadoEstado');
+    if (el) {
+      el.innerHTML = '<div style="background:#064e3b;border:1px solid #065f46;color:#6ee7b7;border-radius:8px;padding:7px 10px;font-size:0.73rem;margin-bottom:6px;">✅ Datos guardados. El próximo acceso estará pre-rellenado.</div>';
+      setTimeout(() => { el.innerHTML = ''; }, 4000);
+    }
   }
 
   // Intercepta cualquier acción restringida para invitados
