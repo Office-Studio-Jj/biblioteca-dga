@@ -1,8 +1,8 @@
-const CACHE = 'biblioteca-dga-v1';
-const SHELL = ['/', '/static/manifest.json'];
+const CACHE = 'biblioteca-dga-v3';
+const STATIC_ASSETS = ['/static/manifest.json', '/static/icons/icon-192.png', '/static/icons/icon-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC_ASSETS.filter(Boolean))));
   self.skipWaiting();
 });
 
@@ -14,11 +14,27 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Only cache GET requests for app shell; pass through API calls
-  if (e.request.method !== 'GET' || e.request.url.includes('/consultar')) {
+  if (e.request.method !== 'GET') return;
+
+  const url = new URL(e.request.url);
+
+  // ── Páginas HTML (rutas Flask): siempre red primero, sin caché ──
+  if (!url.pathname.startsWith('/static/')) {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match(e.request))
+    );
     return;
   }
+
+  // ── Recursos estáticos: caché primero ──
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    caches.match(e.request).then(cached => {
+      if (cached) return cached;
+      return fetch(e.request).then(resp => {
+        const clone = resp.clone();
+        caches.open(CACHE).then(c => c.put(e.request, clone));
+        return resp;
+      });
+    })
   );
 });
