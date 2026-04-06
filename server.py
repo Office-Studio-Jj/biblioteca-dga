@@ -20,6 +20,9 @@ app = Flask(__name__, static_folder='static')
 import sys
 from pathlib import Path
 
+# ── URL pública centralizada (CAMBIAR AQUÍ si cambia el dominio Railway) ──
+_RAILWAY_PUBLIC_URL = "https://biblioteca-dga-production.up.railway.app"
+
 # ── Rutas adaptables: local (Windows) o nube (Linux/Railway) ─────────────
 _IS_CLOUD = os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RENDER") or (sys.platform != "win32")
 
@@ -446,7 +449,8 @@ def index():
     first_access_pwd     = session.get("_first_access_pwd", "") if must_change_password else ""
     return render_template("index.html", notebooks=get_notebooks(), role=role, nombre=nombre,
                            correo=correo, must_change_password=must_change_password,
-                           first_access_pwd=first_access_pwd)
+                           first_access_pwd=first_access_pwd,
+                           public_url=_get_public_url())
 
 @app.route("/consultar", methods=["POST"])
 @login_required
@@ -878,7 +882,7 @@ def recuperar():
     save_recovery(data)
     log_historial(correo, nombre, "recuperacion_solicitada", f"Solicitó recuperación de contraseña ({tipo})")
 
-    wa_msg = f"Hola%20{nombre},%20tu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20*{codigo}*%20%F0%9F%94%91%20%0AApp:%20https://biblioteca-dga-production.up.railway.app"
+    wa_msg = f"Hola%20{nombre},%20tu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20*{codigo}*%20%F0%9F%94%91%20%0AApp:%20{_RAILWAY_PUBLIC_URL}"
     wa_url = f"https://wa.me/{WHATSAPP_ADMIN}?text={wa_msg}"
 
     return render_template("recuperar.html", mensaje="Solicitud enviada. El administrador recibirá tu pedido y te enviará el código por WhatsApp.", error=None, wa_url=wa_url)
@@ -999,7 +1003,7 @@ def solicitar_baja():
         f"3. WHAT RECOMMENDATIONS WOULD YOU GIVE?\n{recomendacion}\n\n"
         f"{'='*50}\n"
         f"To APPROVE the unsubscription, reply to this email confirming the account deletion.\n"
-        f"App: https://biblioteca-dga-production.up.railway.app\n"
+        f"App: {_RAILWAY_PUBLIC_URL}\n"
     )
 
     # Construir enlace mailto para que el servidor abra el cliente de correo
@@ -1202,9 +1206,9 @@ def _get_public_url():
     railway_url = os.environ.get("RAILWAY_PUBLIC_DOMAIN")
     if railway_url:
         return f"https://{railway_url}"
-    # URL hardcoded del despliegue actual en Railway
+    # URL centralizada del despliegue en Railway
     if _IS_CLOUD:
-        return "https://biblioteca-dga-production.up.railway.app"
+        return _RAILWAY_PUBLIC_URL
     # Local: intentar ngrok, si no IP local
     try:
         import urllib.request, json as _json
@@ -1244,7 +1248,7 @@ def _gen_qr_base64(url):
 def manual_admin():
     if session.get("role") not in ("master", "operativo"):
         return redirect(url_for("manual_invitado"))
-    return render_template("manual_admin.html")
+    return render_template("manual_admin.html", public_url=_get_public_url())
 
 @app.route("/manual/invitado")
 @login_required

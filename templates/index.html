@@ -2932,9 +2932,9 @@
                 <span style="font-size:1rem;font-weight:700;color:#d4af37;letter-spacing:3px;">${_esc(s.codigo_temp)}</span>
               </div>
               <div style="display:flex;gap:6px;">
-                <a href="https://wa.me/?text=Hola%20${encodeURIComponent(s.nombre)},%20tu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20*${encodeURIComponent(s.codigo_temp)}*%20%F0%9F%94%91%0AIngresa%20en:%20https://biblioteca-dga-production.up.railway.app/recuperar"
+                <a href="https://wa.me/?text=Hola%20${encodeURIComponent(s.nombre)},%20tu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20*${encodeURIComponent(s.codigo_temp)}*%20%F0%9F%94%91%0AIngresa%20en:%20{{ public_url }}/recuperar"
                    target="_blank" style="font-size:0.7rem;background:#14532d;color:#4ade80;border-radius:8px;padding:5px 10px;text-decoration:none;font-weight:600;">💬 WhatsApp</a>
-                <a href="mailto:${encodeURIComponent(s.correo)}?subject=C%C3%B3digo%20de%20recuperaci%C3%B3n%20-%20Aduanas%20RD&body=Hola%20${encodeURIComponent(s.nombre)},%0A%0ATu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20${encodeURIComponent(s.codigo_temp)}%0A%0AIngresa%20en:%20https://biblioteca-dga-production.up.railway.app/recuperar%0A%0ASaludos,%0AAdministrador%20Aduanas%20RD"
+                <a href="mailto:${encodeURIComponent(s.correo)}?subject=C%C3%B3digo%20de%20recuperaci%C3%B3n%20-%20Aduanas%20RD&body=Hola%20${encodeURIComponent(s.nombre)},%0A%0ATu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20${encodeURIComponent(s.codigo_temp)}%0A%0AIngresa%20en:%20{{ public_url }}/recuperar%0A%0ASaludos,%0AAdministrador%20Aduanas%20RD"
                    style="font-size:0.7rem;background:#1e3a5f;color:#93c5fd;border-radius:8px;padding:5px 10px;text-decoration:none;font-weight:600;">✉️ Correo</a>
               </div>
             </div>` : ''}

@@ -8,7 +8,7 @@ from fpdf import FPDF
 # ── Configuración ──────────────────────────────────────────────────────
 TITULO_APP  = "Logistica de Puertos y Aduanas RD"
 SUBTITULO   = "Direccion General de Aduanas - Republica Dominicana"
-URL_APP     = "biblioteca-dga-production.up.railway.app"
+URL_APP     = "https://biblioteca-dga-production.up.railway.app"  # ← Actualizar aquí si cambia el dominio Railway
 
 COLOR_NAVY   = (15, 23, 42)
 COLOR_GOLD   = (212, 175, 55)
@@ -25,7 +25,7 @@ SECCIONES_ADMIN = [
         "titulo": "Iniciar sesion como administrador",
         "sub": "Acceso al sistema completo",
         "pasos": [
-            "Abre la app en tu dispositivo o en biblioteca-dga-production.up.railway.app",
+            "Abre la app en tu dispositivo o en " + URL_APP.replace("https://", ""),
             "Selecciona el rol Administrador (corona dorada)",
             "Si eres el administrador maestro: deja el correo vacio e ingresa la contrasena maestra",
             "Si eres un admin creado en el panel: ingresa tu correo y la contrasena de administrador",
@@ -170,7 +170,7 @@ SECCIONES_ADMIN = [
         "titulo": "Acceso desde la nube (Railway)",
         "sub": "Disponible 24/7 aunque el PC este apagado",
         "pasos": [
-            "La app esta alojada en Railway y disponible siempre en: biblioteca-dga-production.up.railway.app",
+            "La app esta alojada en Railway y disponible siempre en: " + URL_APP.replace("https://", ""),
             "Al encender tu PC, se sincroniza automaticamente con los ultimos cambios de la nube",
             "El backup local se actualiza automaticamente en el disco externo D:\\BIBLIOTECA-DGA-APP",
         ],
