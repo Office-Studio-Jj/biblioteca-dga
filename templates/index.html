@@ -14,6 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Puertos y Aduanas">
   <meta name="user-role" content="{{ role }}">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <style>
     :root {
@@ -357,6 +358,22 @@
     .hist-a    { font-size: 0.78rem; color: var(--muted); line-height: 1.5;
                  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .hist-empty { text-align: center; color: #475569; font-size: 0.85rem; padding: 40px 0; }
+    .hist-item  { position: relative; }
+    .btn-hist-download {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 8px; padding: 5px 10px;
+      background: linear-gradient(135deg,#1a3a5c,#0f2744);
+      color: #d4af37; border: 1px solid #d4af37; border-radius: 8px;
+      font-size: 0.68rem; font-weight: 700; cursor: pointer;
+    }
+    .btn-download-report {
+      width: 100%; padding: 13px; margin-top: 10px;
+      background: linear-gradient(135deg,#1a3a5c,#0f2744);
+      color: #d4af37; border: 2px solid #d4af37; border-radius: 12px;
+      font-size: 0.88rem; font-weight: 700; cursor: pointer;
+      letter-spacing: 0.02em;
+    }
+    .btn-download-report:active { opacity: 0.85; }
 
     /* ── Info screen ── */
     .info-section { margin-bottom: 20px; }
@@ -676,6 +693,12 @@
           </div>
           <div id="saveOkMsg" class="conf-thanks" style="display:none;">
             ✅ Consulta guardada correctamente.
+          </div>
+          <!-- ── Descargar Informe Técnico (habilitado solo tras "Sí, conforme") ── -->
+          <div style="margin-top:14px;">
+            <button class="btn-download-report" onclick="downloadTechnicalReport()">
+              📄 Descargar Informe Técnico (PDF)
+            </button>
           </div>
         </div>
 
@@ -1295,10 +1318,12 @@
 </div>
 
 <script>
-  const USER_ROLE   = document.querySelector('meta[name="user-role"]').content;
-  const IS_MASTER   = USER_ROLE === 'master';
-  const IS_OPERATIVO= USER_ROLE === 'operativo';
-  const IS_ADMIN    = IS_MASTER || IS_OPERATIVO;
+  const USER_ROLE    = document.querySelector('meta[name="user-role"]').content;
+  const IS_MASTER    = USER_ROLE === 'master';
+  const IS_OPERATIVO = USER_ROLE === 'operativo';
+  const IS_ADMIN     = IS_MASTER || IS_OPERATIVO;
+  const SESSION_NOMBRE = '{{ nombre }}';
+  const SESSION_CORREO = '{{ correo }}';
 
   // Anti-copy para no-master
   if (!IS_MASTER) {
@@ -1538,6 +1563,7 @@
   function onConforme(isYes) {
     document.getElementById('conformitySection').style.display = 'none';
     if (isYes) {
+      markLastHistoryConforme();
       /* Mostrar sección de guardar con nombre del producto */
       document.getElementById('confSaveSection').style.display = 'block';
       document.getElementById('productNameInput').value = _lastQuery;
@@ -1762,20 +1788,138 @@
   }
 
   function saveHistory(q, nb, ans) {
-    history.unshift({q, nb, ans, ts: new Date().toLocaleString('es-DO')});
+    history.unshift({q, nb, nbId: _lastNbId, ans, ts: new Date().toLocaleString('es-DO'), conforme: false});
     if (history.length > 30) history.pop();
     localStorage.setItem('dga_history', JSON.stringify(history));
+  }
+
+  function markLastHistoryConforme() {
+    if (history.length > 0) {
+      history[0].conforme = true;
+      localStorage.setItem('dga_history', JSON.stringify(history));
+    }
   }
 
   function renderHistory() {
     const el = document.getElementById('histList');
     if (!history.length) { el.innerHTML = '<div class="hist-empty">Aún no hay consultas.</div>'; return; }
-    el.innerHTML = history.map(h => `
+    el.innerHTML = history.map((h, i) => `
       <div class="hist-item">
         <div class="hist-q">${h.q}</div>
         <div class="hist-nb">📖 ${h.nb} · ${h.ts}</div>
         <div class="hist-a">${h.ans}</div>
+        ${h.conforme ? `<button class="btn-hist-download" onclick="downloadHistoryReport(${i})">📄 Descargar Informe Técnico</button>` : ''}
       </div>`).join('');
+  }
+
+  /* ── Generador de Informe Técnico PDF ── */
+  function _buildPDF(query, nbName, answer, ts, productName) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const contentW = pageW - margin * 2;
+    let y = margin;
+
+    const addText = (text, size, style, color, extraGap) => {
+      doc.setFontSize(size);
+      doc.setFont('helvetica', style || 'normal');
+      doc.setTextColor(...(color || [30, 30, 30]));
+      const lines = doc.splitTextToSize(text, contentW);
+      lines.forEach(line => {
+        if (y + size * 0.4 > pageH - margin) { doc.addPage(); y = margin; }
+        doc.text(line, margin, y);
+        y += size * 0.45;
+      });
+      y += (extraGap || 2);
+    };
+
+    const addLine = (color) => {
+      doc.setDrawColor(...(color || [180, 150, 50]));
+      doc.setLineWidth(0.5);
+      doc.line(margin, y, pageW - margin, y);
+      y += 4;
+    };
+
+    /* ── Encabezado ── */
+    doc.setFillColor(15, 39, 68);
+    doc.rect(0, 0, pageW, 32, 'F');
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(212, 175, 55);
+    doc.text('INFORME TECNICO DE CONSULTA ADUANERA', pageW / 2, 13, { align: 'center' });
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(180, 200, 220);
+    doc.text('Logistica de Puertos y Aduanas RD', pageW / 2, 21, { align: 'center' });
+    doc.setTextColor(120, 150, 180);
+    doc.text('auditoria.puertos.aduanas@gmail.com', pageW / 2, 27, { align: 'center' });
+    y = 38;
+
+    /* ── Datos del informe ── */
+    addLine();
+    addText('DATOS DEL INFORME', 9, 'bold', [100, 120, 150]);
+    addLine([60, 80, 110]);
+
+    const rolLabel = USER_ROLE === 'master' ? 'Administrador Master'
+                   : USER_ROLE === 'operativo' ? 'Administrador Operativo' : 'Invitado';
+    addText('Fecha de generacion:  ' + ts, 9, 'normal', [50, 50, 50]);
+    addText('Generado por:         ' + (SESSION_NOMBRE && SESSION_NOMBRE !== 'None' ? SESSION_NOMBRE : rolLabel), 9, 'normal', [50, 50, 50]);
+    if (SESSION_CORREO && SESSION_CORREO !== 'None' && SESSION_CORREO !== 'master') {
+      addText('Correo:               ' + SESSION_CORREO, 9, 'normal', [50, 50, 50]);
+    }
+    addText('Rol:                  ' + rolLabel, 9, 'normal', [50, 50, 50]);
+    addText('Cuaderno consultado:  ' + nbName, 9, 'normal', [50, 50, 50]);
+    if (productName) addText('Producto / Item:      ' + productName, 9, 'normal', [50, 50, 50]);
+    y += 2;
+
+    /* ── Consulta ── */
+    addLine();
+    addText('CONSULTA REALIZADA', 9, 'bold', [100, 120, 150]);
+    addLine([60, 80, 110]);
+    addText(query, 10, 'normal', [20, 20, 20], 4);
+
+    /* ── Respuesta ── */
+    addLine();
+    addText('RESULTADO DE LA CONSULTA', 9, 'bold', [100, 120, 150]);
+    addLine([60, 80, 110]);
+    addText(answer, 10, 'normal', [20, 20, 20], 6);
+
+    /* ── Disclaimer legal ── */
+    if (y + 40 > pageH - margin) { doc.addPage(); y = margin; }
+    addLine([180, 50, 50]);
+    addText('AVISO IMPORTANTE — LIMITACION DE RESPONSABILIDAD', 8, 'bold', [150, 40, 40]);
+    addLine([180, 50, 50]);
+    const disclaimer =
+      'El presente documento es de caracter informativo y tecnico, y NO constituye un informe ' +
+      'legal ni tiene validez juridica para la resolucion de casos legales, litigios o procesos ' +
+      'administrativos formales ante ningun organismo o entidad. La informacion contenida ha sido ' +
+      'generada como referencia orientativa para profesionales del comercio exterior.\n\n' +
+      'Para asuntos de caracter legal o juridico, debera consultar con su representante legal y ' +
+      'validar la informacion por las vias correspondientes ante las autoridades competentes. ' +
+      'No se hace mencion ni referencia a instituciones oficiales registradas en este informe, ' +
+      'por lo que su uso queda bajo la responsabilidad exclusiva del solicitante.';
+    addText(disclaimer, 8, 'italic', [100, 40, 40], 0);
+
+    return doc;
+  }
+
+  function downloadTechnicalReport() {
+    if (!_lastAnswer) { alert('No hay consulta confirmada para generar el informe.'); return; }
+    const productName = (document.getElementById('productNameInput')?.value || '').trim();
+    const ts = new Date().toLocaleString('es-DO');
+    const doc = _buildPDF(_lastQuery, _lastNbName, _lastAnswer, ts, productName);
+    const filename = 'Informe_Tecnico_' + (productName || _lastNbName).replace(/\s+/g, '_').substring(0, 40) + '.pdf';
+    doc.save(filename);
+  }
+
+  function downloadHistoryReport(index) {
+    const h = history[index];
+    if (!h || !h.conforme) return;
+    const doc = _buildPDF(h.q, h.nb, h.ans, h.ts, null);
+    const filename = 'Informe_Tecnico_' + h.nb.replace(/\s+/g, '_').substring(0, 40) + '_' + index + '.pdf';
+    doc.save(filename);
   }
 
   document.getElementById('qInput').addEventListener('keydown', e => {
