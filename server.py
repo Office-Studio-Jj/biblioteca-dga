@@ -385,6 +385,8 @@ def login():
                         session["correo"]    = correo
                         session["nombre"]    = usuario["nombre"]
                         session["must_change_password"] = primer_acceso_op
+                        if primer_acceso_op:
+                            session["_first_access_pwd"] = pwd
                         evento_op = "primer_acceso" if primer_acceso_op else "inicio_sesion"
                         detalle_op = "Primer acceso operativo — debe cambiar contraseña" if primer_acceso_op else "Inicio de sesión operativo"
                         log_historial(correo, usuario["nombre"], evento_op, detalle_op)
@@ -407,6 +409,8 @@ def login():
                     session["correo"]             = correo
                     session["nombre"]             = usuario["nombre"]
                     session["must_change_password"] = primer_acceso
+                    if primer_acceso:
+                        session["_first_access_pwd"] = pwd
                     evento = "primer_acceso" if primer_acceso else "inicio_sesion"
                     log_historial(correo, usuario["nombre"], evento,
                                   "Primer acceso — debe cambiar contraseña" if primer_acceso else "Inicio de sesión")
@@ -435,12 +439,14 @@ def logout():
 @app.route("/")
 @login_required
 def index():
-    role                = session.get("role", "invitado")
-    nombre              = session.get("nombre", "")
-    correo              = session.get("correo", "")
+    role                 = session.get("role", "invitado")
+    nombre               = session.get("nombre", "")
+    correo               = session.get("correo", "")
     must_change_password = session.get("must_change_password", False)
+    first_access_pwd     = session.get("_first_access_pwd", "") if must_change_password else ""
     return render_template("index.html", notebooks=get_notebooks(), role=role, nombre=nombre,
-                           correo=correo, must_change_password=must_change_password)
+                           correo=correo, must_change_password=must_change_password,
+                           first_access_pwd=first_access_pwd)
 
 @app.route("/consultar", methods=["POST"])
 @login_required
@@ -788,6 +794,7 @@ def cambiar_contrasena():
         es_primer_cambio = not usuario.get("password_changed", False)
         detalle_op = "Cambio de contraseña obligatorio (primer acceso)" if es_primer_cambio else "Cambio de contraseña personal"
         log_historial(correo_session, nombre_session, "cambio_contrasena", detalle_op)
+        session.pop("_first_access_pwd", None)
         return jsonify({"ok": True, "mensaje": "Contraseña actualizada correctamente. Bienvenido/a al sistema."})
 
     # ── Cambiar contraseña compartida de invitados ──
@@ -816,6 +823,7 @@ def cambiar_contrasena():
             session["must_change_password"] = False
             detalle_inv = "Creó su contraseña personal (primer acceso)" if es_primer_acceso else "Cambió su contraseña"
             log_historial(correo_session, nombre_session, "cambio_contrasena", detalle_inv)
+            session.pop("_first_access_pwd", None)
             return jsonify({"ok": True, "mensaje": "¡Contraseña creada! Bienvenido/a al sistema."})
         else:
             return jsonify({"error": "Acceso denegado."}), 403

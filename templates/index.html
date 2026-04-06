@@ -1890,6 +1890,82 @@
     addLine([60, 80, 110]);
     addText(answer, 10, 'normal', [20, 20, 20], 6);
 
+    /* ── RECOMENDACIONES ── */
+    if (y + 20 > pageH - margin) { doc.addPage(); y = margin; }
+    addLine([40, 100, 60]);
+    addText('RECOMENDACIONES', 10, 'bold', [15, 80, 40]);
+    addLine([40, 100, 60]);
+
+    // Extraer partida arancelaria sugerida de la respuesta (si la hay)
+    const partidaMatch = answer.match(/(?:partida|subpartida|c[oó]digo)\s*(?:arancelaria)?\s*[:=]?\s*([\d]{4}[\.\d]*)/i)
+                       || answer.match(/([\d]{4}\.[\d]{2}(?:\.[\d]{2})?)/);
+    const partidaSugerida = partidaMatch ? partidaMatch[1] : '(No determinada en la consulta — verificar con especialista)';
+    addText('1. PARTIDA ARANCELARIA SUGERIDA:', 9, 'bold', [30, 30, 80]);
+    addText('   ' + partidaSugerida, 9, 'normal', [20, 20, 20]);
+    addText('   Nota: La clasificacion arancelaria sugerida es orientativa. Debe ser validada por un aforador ' +
+            'o especialista en nomenclatura arancelaria conforme a las normas vigentes.', 8, 'italic', [100, 80, 40], 4);
+
+    // Fuentes consultadas
+    addText('2. FUENTES CONSULTADAS:', 9, 'bold', [30, 30, 80]);
+    addText('   • Cuaderno de referencia: ' + nbName, 9, 'normal', [20, 20, 20]);
+    addText('   • Base de datos: Biblioteca de Logistica de Puertos y Aduanas RD', 9, 'normal', [20, 20, 20]);
+    addText('   • Motor de consulta: Sistema de inteligencia artificial especializado en normativa aduanera', 9, 'normal', [20, 20, 20]);
+    addText('   • Seccion/Capitulo: Referirse a los capitulos y secciones citados en el resultado de la consulta', 9, 'normal', [20, 20, 20]);
+    addText('   • Autores/Fuentes originales: Documentacion oficial incorporada en la biblioteca de consulta', 9, 'normal', [20, 20, 20], 4);
+
+    // Notas legales
+    addText('3. NOTAS LEGALES:', 9, 'bold', [30, 30, 80]);
+    addText('   • La clasificacion arancelaria de mercancias esta sujeta a la legislacion vigente y a las ' +
+            'disposiciones del Sistema Armonizado de Designacion y Codificacion de Mercancias (SA).', 9, 'normal', [20, 20, 20]);
+    addText('   • El presente informe no sustituye la opinion tecnica de un aforador o perito aduanero ' +
+            'debidamente acreditado.', 9, 'normal', [20, 20, 20]);
+    addText('   • Cualquier decision basada en este informe es responsabilidad exclusiva del usuario.', 9, 'normal', [20, 20, 20], 4);
+
+    // Notas explicativas
+    addText('4. NOTAS EXPLICATIVAS:', 9, 'bold', [30, 30, 80]);
+    addText('   Las Notas Explicativas del Sistema Armonizado constituyen la interpretacion oficial de ' +
+            'su contenido. Si en la respuesta se hace referencia a notas explicativas especificas de ' +
+            'capitulos, partidas o subpartidas, estas deben consultarse en su version completa para ' +
+            'una clasificacion definitiva.', 9, 'normal', [20, 20, 20], 4);
+
+    // Reglas generales de nomenclatura
+    addText('5. REGLAS GENERALES DE NOMENCLATURA APLICADAS:', 9, 'bold', [30, 30, 80]);
+    addText('   La clasificacion arancelaria se fundamenta en las 6 Reglas Generales Interpretativas ' +
+            'del Sistema Armonizado:', 9, 'normal', [20, 20, 20]);
+    addText('   • Regla 1: Los titulos de las secciones, capitulos o subcapitulos solo tienen valor indicativo.', 8, 'normal', [50, 50, 50]);
+    addText('   • Regla 2: Articulos incompletos, sin terminar, desmontados o sin montar.', 8, 'normal', [50, 50, 50]);
+    addText('   • Regla 3: Mercancias clasificables en dos o mas partidas (especificidad, caracter esencial, ultima partida).', 8, 'normal', [50, 50, 50]);
+    addText('   • Regla 4: Mercancias no comprendidas en ninguna partida — partida mas analoga.', 8, 'normal', [50, 50, 50]);
+    addText('   • Regla 5: Estuches, envases y continentes.', 8, 'normal', [50, 50, 50]);
+    addText('   • Regla 6: Clasificacion en subpartidas dentro de una misma partida.', 8, 'normal', [50, 50, 50]);
+    addText('   Referirse al resultado de la consulta para identificar la(s) regla(s) especifica(s) aplicada(s).', 8, 'italic', [100, 80, 40], 4);
+
+    // Recomendacion de ficha tecnica
+    addText('6. RECOMENDACION IMPORTANTE — FICHA TECNICA:', 9, 'bold', [180, 50, 50]);
+    addText('   Para obtener una clasificacion arancelaria mas precisa y confiable, se RECOMIENDA ' +
+            'ADJUNTAR UNA FICHA TECNICA suministrada por un EXPERTO con conocimiento del producto, ' +
+            'o un INFORME DE LA CASA DISTRIBUIDORA O COMERCIAL del mismo. La ficha tecnica debe ' +
+            'incluir: composicion del producto, materiales, funcion principal, uso previsto, y ' +
+            'cualquier especificacion tecnica relevante para su correcta clasificacion.', 9, 'normal', [20, 20, 20], 6);
+
+    /* ── Firma del consultor ── */
+    if (y + 50 > pageH - margin) { doc.addPage(); y = margin; }
+    addLine([100, 120, 150]);
+    y += 6;
+    addText('NOMBRE DEL CONSULTOR:', 9, 'bold', [60, 60, 60]);
+    y += 2;
+    doc.setDrawColor(150, 150, 150);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, margin + 90, y); // Linea para escribir nombre
+    y += 6;
+    addText('FIRMA:', 9, 'bold', [60, 60, 60]);
+    y += 10;
+    doc.line(margin, y, margin + 90, y); // Linea para firma
+    y += 6;
+    addText('FECHA:', 9, 'bold', [60, 60, 60]);
+    addText('   ' + ts, 9, 'normal', [50, 50, 50]);
+    y += 8;
+
     /* ── Disclaimer legal ── */
     if (y + 40 > pageH - margin) { doc.addPage(); y = margin; }
     addLine([180, 50, 50]);
@@ -2168,6 +2244,7 @@
   }
 
   const MUST_CHANGE_PASSWORD = {{ 'true' if must_change_password else 'false' }};
+  const FIRST_ACCESS_PWD    = {{ first_access_pwd | tojson }};
 
   function abrirModalPass(forzado) {
     document.getElementById('passActual').value    = '';
@@ -2183,14 +2260,23 @@
     const esPrimerAcceso = forzado || MUST_CHANGE_PASSWORD;
 
     if (esPrimerAcceso) {
-      // Primer acceso: ocultar campo "contraseña actual" — ya se autenticó al ingresar
-      if (actualWrap) actualWrap.style.display = 'none';
+      // Primer acceso: mostrar campo pre-rellenado con la clave del sistema (solo lectura)
+      if (actualWrap) actualWrap.style.display = 'block';
+      const passActualEl = document.getElementById('passActual');
+      passActualEl.value    = FIRST_ACCESS_PWD;
+      passActualEl.readOnly = true;
+      passActualEl.style.opacity = '0.6';
+      passActualEl.type = 'text'; // Mostrar la clave visible para que el usuario la vea
       aviso.style.display  = 'block';
       btnCan.style.display = 'none';
       titulo.textContent   = '🔐 Crea tu contraseña personal';
     } else {
-      // Cambio normal: mostrar campo contraseña actual
+      // Cambio normal: mostrar campo contraseña actual editable
       if (actualWrap) actualWrap.style.display = 'block';
+      const passActualEl = document.getElementById('passActual');
+      passActualEl.readOnly = false;
+      passActualEl.style.opacity = '1';
+      passActualEl.type = 'password';
       aviso.style.display  = 'none';
       btnCan.style.display = 'inline-block';
       titulo.textContent   = '🔑 Cambiar Contraseña';
@@ -2229,9 +2315,9 @@
       errEl.style.display = 'block'; return;
     }
 
-    // Si es primer acceso, no se envía "actual" (el backend lo omite también)
+    // Siempre leer del campo (en primer acceso ya viene pre-rellenado)
     const esPrimerAcceso = MUST_CHANGE_PASSWORD;
-    const actualValue    = esPrimerAcceso ? '' : document.getElementById('passActual').value.trim();
+    const actualValue    = document.getElementById('passActual').value.trim();
 
     if (!esPrimerAcceso && !actualValue) {
       errEl.textContent = 'Ingresa tu contraseña actual.';
