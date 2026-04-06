@@ -1318,6 +1318,10 @@
 </div>
 
 <script>
+  /* ── Sanitizador anti-XSS ── */
+  function _esc(t) { const d = document.createElement('div'); d.textContent = t || ''; return d.innerHTML; }
+  function _escAttr(t) { return (t || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
   const USER_ROLE    = document.querySelector('meta[name="user-role"]').content;
   const IS_MASTER    = USER_ROLE === 'master';
   const IS_OPERATIVO = USER_ROLE === 'operativo';
@@ -1624,8 +1628,8 @@
       <div class="saved-item" onclick="loadSavedProduct(${i})">
         <div class="saved-item-icon">📦</div>
         <div class="saved-item-info">
-          <div class="saved-item-name">${p.product}</div>
-          <div class="saved-item-meta">📖 ${p.nbName} · ${p.ts}</div>
+          <div class="saved-item-name">${_esc(p.product)}</div>
+          <div class="saved-item-meta">📖 ${_esc(p.nbName)} · ${_esc(p.ts)}</div>
         </div>
         <div class="saved-item-del" onclick="event.stopPropagation();deleteSavedProduct(${i})">🗑️</div>
       </div>`).join('');
@@ -1805,9 +1809,9 @@
     if (!history.length) { el.innerHTML = '<div class="hist-empty">Aún no hay consultas.</div>'; return; }
     el.innerHTML = history.map((h, i) => `
       <div class="hist-item">
-        <div class="hist-q">${h.q}</div>
-        <div class="hist-nb">📖 ${h.nb} · ${h.ts}</div>
-        <div class="hist-a">${h.ans}</div>
+        <div class="hist-q">${_esc(h.q)}</div>
+        <div class="hist-nb">📖 ${_esc(h.nb)} · ${_esc(h.ts)}</div>
+        <div class="hist-a">${_esc(h.ans)}</div>
         ${h.conforme ? `<button class="btn-hist-download" onclick="downloadHistoryReport(${i})">📄 Descargar Informe Técnico</button>` : ''}
       </div>`).join('');
   }
@@ -1994,16 +1998,16 @@
       panel.innerHTML = lista.map(s => `
         <div class="sol-card ${s.estado === 'enviado' ? 'enviado' : ''}">
           <div class="sol-nombre">
-            ${s.nombre}
+            ${_esc(s.nombre)}
             ${s.estado === 'enviado' ? '<span class="badge-enviado">✅ Enviado</span>' : '<span style="display:inline-block;background:#7c2d12;color:#fdba74;font-size:0.62rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px;">⏳ Pendiente</span>'}
           </div>
           <div class="sol-meta">
-            <span>📧 ${s.correo}</span>
-            <span>🗓 ${s.fecha}</span>
+            <span>📧 ${_esc(s.correo)}</span>
+            <span>🗓 ${_esc(s.fecha)}</span>
           </div>
           ${s.estado !== 'enviado' ? `
-          <button class="btn-enviar-sol" onclick="enviarInstaladorCorreo('${s.id}','${s.correo}','${s.nombre}','${appUrl}')">
-            📧 Enviar instalador a ${s.correo}
+          <button class="btn-enviar-sol" onclick="enviarInstaladorCorreo('${_escAttr(s.id)}','${_escAttr(s.correo)}','${_escAttr(s.nombre)}','${_escAttr(appUrl)}')">
+            📧 Enviar instalador a ${_esc(s.correo)}
           </button>` : ''}
         </div>`).join('');
     } catch(e) {
@@ -2053,27 +2057,27 @@
         return;
       }
       panel.innerHTML = lista.map(u => `
-        <div class="user-card ${u.bloqueado ? 'bloqueado' : ''}" id="uc-${u.id}">
+        <div class="user-card ${u.bloqueado ? 'bloqueado' : ''}" id="uc-${_escAttr(u.id)}">
           <div class="user-name">
-            ${u.nombre}
+            ${_esc(u.nombre)}
             ${u.tipo === 'operativo' ? '<span class="badge-tipo-operativo">🛡️ Operativo</span>' : ''}
             ${u.bloqueado ? '<span class="badge-bloqueado">🚫 BLOQUEADO</span>' : ''}
           </div>
           <div class="user-meta">
-            <span>📧 ${u.correo}</span>
-            <span>📱 ${u.whatsapp || '—'}</span>
-            <span>💼 ${u.profesion || '—'} — ${u.dedicacion || '—'}</span>
-            <span>📍 ${[u.municipio, u.provincia, u.pais].filter(Boolean).join(', ') || '—'}</span>
-            ${u.calle ? `<span>🏠 ${u.calle} ${u.numero}</span>` : ''}
-            <span style="color:#475569;">🗓 Registro: ${u.fecha_registro}</span>
+            <span>📧 ${_esc(u.correo)}</span>
+            <span>📱 ${_esc(u.whatsapp || '—')}</span>
+            <span>💼 ${_esc(u.profesion || '—')} — ${_esc(u.dedicacion || '—')}</span>
+            <span>📍 ${_esc([u.municipio, u.provincia, u.pais].filter(Boolean).join(', ') || '—')}</span>
+            ${u.calle ? `<span>🏠 ${_esc(u.calle)} ${_esc(u.numero)}</span>` : ''}
+            <span style="color:#475569;">🗓 Registro: ${_esc(u.fecha_registro)}</span>
           </div>
           <div class="user-actions">
             ${u.bloqueado
-              ? `<button class="btn-desbloquear" onclick="toggleBloqueo('${u.id}', false)">✅ Activar</button>`
-              : `<button class="btn-bloquear"    onclick="toggleBloqueo('${u.id}', true)">🚫 Bloquear</button>`
+              ? `<button class="btn-desbloquear" onclick="toggleBloqueo('${_escAttr(u.id)}', false)">✅ Activar</button>`
+              : `<button class="btn-bloquear"    onclick="toggleBloqueo('${_escAttr(u.id)}', true)">🚫 Bloquear</button>`
             }
             <button class="btn-editar"   onclick="abrirEditarUsuario(${JSON.stringify(u).replace(/'/g,"&#39;")})">✏️ Editar</button>
-            <button class="btn-eliminar" onclick="eliminarUsuario('${u.id}','${u.nombre.replace(/'/g,"\\'")}')">🗑️ Borrar</button>
+            <button class="btn-eliminar" onclick="eliminarUsuario('${_escAttr(u.id)}','${_escAttr(u.nombre)}')">🗑️ Borrar</button>
           </div>
         </div>`).join('');
     } catch(e) {
@@ -2306,7 +2310,7 @@
       okEl.innerHTML = `✅ <strong>Request sent successfully.</strong><br>
         Your email client has opened with your unsubscribe request pre-filled.<br>
         Please <strong>send the email</strong> to complete the process.<br>
-        The administrator at <strong>${data.destino}</strong> will review and confirm your account deactivation.`;
+        The administrator at <strong>${_esc(data.destino)}</strong> will review and confirm your account deactivation.`;
       okEl.style.display = 'block';
       document.querySelector('#modalBaja .u-btn-save').style.display = 'none';
     } else {
@@ -2329,15 +2333,15 @@
     }
     panel.innerHTML = lista.map((c, i) => `
       <div style="background:#1e293b;border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid #334155;display:flex;align-items:center;gap:12px;">
-        <div style="font-size:1.8rem;flex-shrink:0;">${c.emoji || '📚'}</div>
+        <div style="font-size:1.8rem;flex-shrink:0;">${_esc(c.emoji || '📚')}</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:0.85rem;font-weight:700;color:#e2e8f0;">${c.nombre}</div>
-          <div style="font-size:0.65rem;color:#475569;margin-top:2px;word-break:break-all;">${c.id}</div>
+          <div style="font-size:0.85rem;font-weight:700;color:#e2e8f0;">${_esc(c.nombre)}</div>
+          <div style="font-size:0.65rem;color:#475569;margin-top:2px;word-break:break-all;">${_esc(c.id)}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-          <button onclick="abrirEditarCuaderno('${c.id}','${(c.nombre||'').replace(/'/g,"\\'")}','${c.emoji||'📚'}')"
+          <button onclick="abrirEditarCuaderno('${_escAttr(c.id)}','${_escAttr(c.nombre||'')}','${_escAttr(c.emoji||'📚')}')"
             style="background:#1e3a5f;color:#93c5fd;border:none;border-radius:8px;padding:5px 10px;font-size:0.7rem;font-weight:700;cursor:pointer;">✏️ Editar</button>
-          <button onclick="eliminarCuaderno('${c.id}','${(c.nombre||'').replace(/'/g,"\\'")}')"
+          <button onclick="eliminarCuaderno('${_escAttr(c.id)}','${_escAttr(c.nombre||'')}')"
             style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:8px;padding:5px 10px;font-size:0.7rem;font-weight:700;cursor:pointer;">🗑 Eliminar</button>
         </div>
       </div>`).join('');
@@ -2457,8 +2461,8 @@
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
           <div style="min-width:44px;height:44px;border-radius:50%;background:#0f172a;border:2px solid ${tipoColor};display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:800;color:${tipoColor};flex-shrink:0;">${inicial}</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:0.88rem;font-weight:700;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.nombre || '—'}</div>
-            <div style="font-size:0.68rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.correo}</div>
+            <div style="font-size:0.88rem;font-weight:700;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(u.nombre || '—')}</div>
+            <div style="font-size:0.68rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(u.correo)}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
             <span style="font-size:0.62rem;padding:2px 8px;border-radius:10px;background:${tipoBg};color:${tipoColor};font-weight:700;">${tipo.toUpperCase()}</span>
@@ -2468,23 +2472,23 @@
 
         <!-- Datos del usuario -->
         <div style="background:#0f172a;border-radius:10px;padding:10px 12px;margin-bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-          ${u.whatsapp   ? `<div style="font-size:0.67rem;color:#64748b;">📱 ${u.whatsapp}</div>` : ''}
-          ${u.profesion  ? `<div style="font-size:0.67rem;color:#64748b;">💼 ${u.profesion}</div>` : ''}
-          ${u.pais       ? `<div style="font-size:0.67rem;color:#64748b;">🌎 ${u.pais}</div>` : ''}
-          ${u.provincia  ? `<div style="font-size:0.67rem;color:#64748b;">📍 ${u.provincia}</div>` : ''}
-          ${u.fecha_registro ? `<div style="font-size:0.67rem;color:#334155;grid-column:1/-1;">🗓 Registro: ${u.fecha_registro}</div>` : ''}
+          ${u.whatsapp   ? `<div style="font-size:0.67rem;color:#64748b;">📱 ${_esc(u.whatsapp)}</div>` : ''}
+          ${u.profesion  ? `<div style="font-size:0.67rem;color:#64748b;">💼 ${_esc(u.profesion)}</div>` : ''}
+          ${u.pais       ? `<div style="font-size:0.67rem;color:#64748b;">🌎 ${_esc(u.pais)}</div>` : ''}
+          ${u.provincia  ? `<div style="font-size:0.67rem;color:#64748b;">📍 ${_esc(u.provincia)}</div>` : ''}
+          ${u.fecha_registro ? `<div style="font-size:0.67rem;color:#334155;grid-column:1/-1;">🗓 Registro: ${_esc(u.fecha_registro)}</div>` : ''}
         </div>
 
         <!-- Botones de acción -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <button onclick="abrirEditarUsuario('${u.id}')"
+          <button onclick="abrirEditarUsuario('${_escAttr(u.id)}')"
             style="background:#1e3a5f;color:#93c5fd;border:none;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">Editar</button>
-          <button onclick="toggleBloqueoAdmin('${u.id}', ${bloqueado})"
+          <button onclick="toggleBloqueoAdmin('${_escAttr(u.id)}', ${bloqueado})"
             style="background:${bloqueado?'#14532d':'#78350f'};color:${bloqueado?'#4ade80':'#fbbf24'};border:none;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">${bloqueado?'Desbloquear':'Bloquear'}</button>
-          ${IS_MASTER && tipo !== 'operativo' ? `<button onclick="cambiarTipoAdmin('${u.id}', '${tipo}')"
-            style="background:#1e293b;color:#d4af37;border:1px solid #334155;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">🔄 Cambiar tipo</button>` : IS_MASTER && tipo === 'operativo' ? `<button onclick="cambiarTipoAdmin('${u.id}', '${tipo}')"
+          ${IS_MASTER && tipo !== 'operativo' ? `<button onclick="cambiarTipoAdmin('${_escAttr(u.id)}', '${_escAttr(tipo)}')"
+            style="background:#1e293b;color:#d4af37;border:1px solid #334155;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">🔄 Cambiar tipo</button>` : IS_MASTER && tipo === 'operativo' ? `<button onclick="cambiarTipoAdmin('${_escAttr(u.id)}', '${_escAttr(tipo)}')"
             style="background:#1e293b;color:#d4af37;border:1px solid #334155;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">🔄 Pasar a Invitado</button>` : ''}
-          ${IS_MASTER || tipo !== 'operativo' ? `<button onclick="eliminarUsuarioAdmin('${u.id}', '${u.nombre.replace(/'/g,"\\'")}' )"
+          ${IS_MASTER || tipo !== 'operativo' ? `<button onclick="eliminarUsuarioAdmin('${_escAttr(u.id)}', '${_escAttr(u.nombre)}')"
             style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:10px;padding:9px;font-size:0.73rem;font-weight:700;cursor:pointer;">🗑 Eliminar</button>` : ''}
         </div>
       </div>`;
@@ -2548,25 +2552,25 @@
         <div style="border-bottom:1px solid #1e293b;padding:10px 4px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
-              <span style="font-size:0.78rem;color:#e2e8f0;font-weight:600;">${s.nombre}</span>
-              <span style="font-size:0.65rem;padding:2px 7px;border-radius:10px;background:${s.estado==='pendiente'?'#78350f':'#14532d'};color:${estadoColor[s.estado]||'#94a3b8'};">${s.estado}</span>
+              <span style="font-size:0.78rem;color:#e2e8f0;font-weight:600;">${_esc(s.nombre)}</span>
+              <span style="font-size:0.65rem;padding:2px 7px;border-radius:10px;background:${s.estado==='pendiente'?'#78350f':'#14532d'};color:${estadoColor[s.estado]||'#94a3b8'};">${_esc(s.estado)}</span>
             </div>
-            <div style="font-size:0.7rem;color:#94a3b8;">${s.correo} · ${s.tipo}</div>
+            <div style="font-size:0.7rem;color:#94a3b8;">${_esc(s.correo)} · ${_esc(s.tipo)}</div>
             ${s.estado === 'pendiente' ? `<div style="margin-top:4px;background:#0f172a;border-radius:8px;padding:8px 10px;">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                 <span style="font-size:0.7rem;color:#64748b;">Código:</span>
-                <span style="font-size:1rem;font-weight:700;color:#d4af37;letter-spacing:3px;">${s.codigo_temp}</span>
+                <span style="font-size:1rem;font-weight:700;color:#d4af37;letter-spacing:3px;">${_esc(s.codigo_temp)}</span>
               </div>
               <div style="display:flex;gap:6px;">
-                <a href="https://wa.me/?text=Hola%20${encodeURIComponent(s.nombre)},%20tu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20*${s.codigo_temp}*%20%F0%9F%94%91%0AIngresa%20en:%20https://biblioteca-dga-production.up.railway.app/recuperar"
+                <a href="https://wa.me/?text=Hola%20${encodeURIComponent(s.nombre)},%20tu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20*${encodeURIComponent(s.codigo_temp)}*%20%F0%9F%94%91%0AIngresa%20en:%20https://biblioteca-dga-production.up.railway.app/recuperar"
                    target="_blank" style="font-size:0.7rem;background:#14532d;color:#4ade80;border-radius:8px;padding:5px 10px;text-decoration:none;font-weight:600;">💬 WhatsApp</a>
-                <a href="mailto:${s.correo}?subject=C%C3%B3digo%20de%20recuperaci%C3%B3n%20-%20Aduanas%20RD&body=Hola%20${encodeURIComponent(s.nombre)},%0A%0ATu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20${s.codigo_temp}%0A%0AIngresa%20en:%20https://biblioteca-dga-production.up.railway.app/recuperar%0A%0ASaludos,%0AAdministrador%20Aduanas%20RD"
+                <a href="mailto:${encodeURIComponent(s.correo)}?subject=C%C3%B3digo%20de%20recuperaci%C3%B3n%20-%20Aduanas%20RD&body=Hola%20${encodeURIComponent(s.nombre)},%0A%0ATu%20c%C3%B3digo%20de%20recuperaci%C3%B3n%20es:%20${encodeURIComponent(s.codigo_temp)}%0A%0AIngresa%20en:%20https://biblioteca-dga-production.up.railway.app/recuperar%0A%0ASaludos,%0AAdministrador%20Aduanas%20RD"
                    style="font-size:0.7rem;background:#1e3a5f;color:#93c5fd;border-radius:8px;padding:5px 10px;text-decoration:none;font-weight:600;">✉️ Correo</a>
               </div>
             </div>` : ''}
-            <div style="font-size:0.65rem;color:#334155;margin-top:2px;">${s.fecha}</div>
+            <div style="font-size:0.65rem;color:#334155;margin-top:2px;">${_esc(s.fecha)}</div>
           </div>
-          <button onclick="eliminarRecuperacion('${s.id}')" style="background:none;border:none;color:#f87171;font-size:0.85rem;cursor:pointer;flex-shrink:0;">🗑</button>
+          <button onclick="eliminarRecuperacion('${_escAttr(s.id)}')" style="background:none;border:none;color:#f87171;font-size:0.85rem;cursor:pointer;flex-shrink:0;">🗑</button>
         </div>`).join('');
     } catch(e) {
       panel.innerHTML = '<div style="color:#f87171;font-size:0.75rem;padding:8px;">Error al cargar.</div>';
@@ -2605,12 +2609,12 @@
       panel.innerHTML = regs.map(reg => `
         <div style="border-bottom:1px solid #1e293b;padding:8px 4px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
           <div style="flex:1;min-width:0;">
-            <div style="font-size:0.78rem;color:#e2e8f0;font-weight:600;">${EVENTOS[reg.evento] || reg.evento}</div>
-            <div style="font-size:0.7rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${reg.nombre} — ${reg.correo}</div>
-            <div style="font-size:0.67rem;color:#475569;">${reg.detalle || ''}</div>
-            <div style="font-size:0.65rem;color:#334155;">${reg.fecha}</div>
+            <div style="font-size:0.78rem;color:#e2e8f0;font-weight:600;">${EVENTOS[reg.evento] || _esc(reg.evento)}</div>
+            <div style="font-size:0.7rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(reg.nombre)} — ${_esc(reg.correo)}</div>
+            <div style="font-size:0.67rem;color:#475569;">${_esc(reg.detalle || '')}</div>
+            <div style="font-size:0.65rem;color:#334155;">${_esc(reg.fecha)}</div>
           </div>
-          <button onclick="eliminarHistorial('${reg.id}')" style="background:none;border:none;color:#f87171;font-size:0.85rem;cursor:pointer;flex-shrink:0;">🗑</button>
+          <button onclick="eliminarHistorial('${_escAttr(reg.id)}')" style="background:none;border:none;color:#f87171;font-size:0.85rem;cursor:pointer;flex-shrink:0;">🗑</button>
         </div>`).join('');
     } catch(e) {
       panel.innerHTML = '<div style="color:#f87171;font-size:0.75rem;padding:8px;">Error al cargar historial.</div>';

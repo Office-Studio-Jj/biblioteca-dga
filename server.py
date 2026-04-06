@@ -9,20 +9,13 @@ import hashlib
 import secrets
 import json
 import uuid
+import time
+from collections import defaultdict
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, Response, make_response, send_from_directory
 
 app = Flask(__name__, static_folder='static')
-# SECRET_KEY fija via variable de entorno para que las sesiones sobrevivan reinicios de Railway
-# Si no está definida en Railway, usa una clave derivada estable (no aleatoria)
-app.secret_key = os.environ.get("SECRET_KEY", hashlib.sha256(b"DGA-Biblioteca-Puertos-Aduanas-RD-2024").hexdigest())
-# Sesiones persistentes: 30 dias (el usuario no tiene que re-iniciar sesion)
-app.permanent_session_lifetime = timedelta(days=30)
-
-# ── Contraseñas por defecto (hash SHA-256) ───────────────────────────────
-_DEFAULT_MASTER_HASH = hashlib.sha256(b"DGA2024*").hexdigest()
-_DEFAULT_GUEST_HASH = hashlib.sha256(b"Puertos2024").hexdigest()
 
 import sys
 from pathlib import Path
@@ -42,6 +35,82 @@ else:
     _DATA_DIR = Path(r"C:\Users\Usuario\Desktop\Biblioteca Notebooklm DGA\usuarios_y_administradores")
 
 _DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+# ── SECRET_KEY segura: env var > archivo persistente > generada ─────────
+def _get_or_create_secret_key():
+    env_key = os.environ.get("SECRET_KEY")
+    if env_key:
+        return env_key
+    key_file = _DATA_DIR / ".flask_secret_key"
+    try:
+        if key_file.exists():
+            return key_file.read_text().strip()
+    except Exception:
+        pass
+    key = secrets.token_hex(32)
+    try:
+        key_file.write_text(key)
+    except Exception:
+        pass
+    return key
+
+app.secret_key = _get_or_create_secret_key()
+
+# ── Configuración de sesiones y cookies ─────────────────────────────────
+app.permanent_session_lifetime          = timedelta(days=30)
+app.config['SESSION_COOKIE_SAMESITE']   = 'Lax'
+app.config['SESSION_COOKIE_HTTPONLY']    = True
+app.config['SESSION_COOKIE_SECURE']     = bool(_IS_CLOUD)
+app.config['MAX_CONTENT_LENGTH']        = 5 * 1024 * 1024  # 5 MB máx para uploads
+
+# ── Cabeceras de seguridad HTTP ─────────────────────────────────────────
+@app.after_request
+def _security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    if _IS_CLOUD:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none';"
+    )
+    response.headers['Content-Security-Policy'] = csp
+    return response
+
+# ── Rate limiter en memoria ─────────────────────────────────────────────
+_rate_limits = defaultdict(list)
+_RATE_CONFIGS = {
+    'login':           {'max': 5,  'window': 900},   # 5 intentos / 15 min
+    'recovery':        {'max': 3,  'window': 600},   # 3 solicitudes / 10 min
+    'recovery_verify': {'max': 5,  'window': 300},   # 5 verificaciones / 5 min
+    'password_change': {'max': 5,  'window': 600},   # 5 cambios / 10 min
+    'registro':        {'max': 5,  'window': 600},   # 5 registros / 10 min
+    'consulta':        {'max': 20, 'window': 60},    # 20 consultas / min
+}
+
+def _rate_limited(key, action='login'):
+    cfg = _RATE_CONFIGS.get(action, {'max': 10, 'window': 600})
+    now = time.time()
+    _rate_limits[key] = [t for t in _rate_limits[key] if now - t < cfg['window']]
+    if len(_rate_limits[key]) >= cfg['max']:
+        return True
+    _rate_limits[key].append(now)
+    return False
+
+def _get_client_ip():
+    return request.headers.get('X-Forwarded-For', request.remote_addr or '127.0.0.1').split(',')[0].strip()
+
+# ── Contraseñas por defecto (hash SHA-256) ───────────────────────────────
+_DEFAULT_MASTER_HASH = hashlib.sha256(b"DGA2024*").hexdigest()
+_DEFAULT_GUEST_HASH = hashlib.sha256(b"Puertos2024").hexdigest()
+
 USERS_FILE       = str(_DATA_DIR / "usuarios.json")
 SOLICITUDES_FILE = str(_DATA_DIR / "solicitudes.json")
 PASSWORDS_FILE   = str(_DATA_DIR / "passwords.json")
@@ -201,6 +270,10 @@ def admin_or_master_required(f):
 @app.route("/registro", methods=["GET", "POST"])
 def registro():
     if request.method == "POST":
+        ip = _get_client_ip()
+        if _rate_limited(f"registro:{ip}", 'registro'):
+            return render_template("registro.html", error="Demasiados intentos de registro. Espera 10 minutos.")
+
         d = request.form
         correo = d.get("correo", "").strip().lower()
         if not correo:
@@ -246,6 +319,14 @@ def login():
     # Detectar si el formulario viene desde /invitado para redirigir errores allí
     from_invitado = False
     if request.method == "POST":
+        ip = _get_client_ip()
+        if _rate_limited(f"login:{ip}", 'login'):
+            error = "Demasiados intentos. Espera 15 minutos antes de intentar de nuevo."
+            referer = request.headers.get("Referer", "")
+            if "/invitado" in referer:
+                return render_template("login_invitado.html", error=error)
+            return render_template("login.html", error=error)
+
         pwd      = request.form.get("password", "")
         role_req = request.form.get("role", "admin")
         correo   = request.form.get("correo", "").strip().lower()
@@ -380,6 +461,16 @@ def consultar():
     if not notebook_id:
         return jsonify({"error": "Selecciona un cuaderno"}), 400
 
+    # ── Validación de notebook_id contra lista conocida ──
+    valid_ids = [nb['id'] for nb in get_notebooks()]
+    if notebook_id not in valid_ids:
+        return jsonify({"error": "Cuaderno no válido."}), 400
+
+    # ── Rate limit por IP ──
+    ip = _get_client_ip()
+    if _rate_limited(f"consulta:{ip}", 'consulta'):
+        return jsonify({"error": "Demasiadas consultas. Espera un momento."}), 429
+
     # Si hay archivo adjunto, extraer texto y añadirlo a la pregunta
     if archivo:
         try:
@@ -399,9 +490,10 @@ def consultar():
         answer = ask_notebooklm(question, notebook_id)
         return jsonify({"answer": answer})
     except subprocess.TimeoutExpired:
-        return jsonify({"error": "Tiempo de espera agotado (30 min). Intenta de nuevo."}), 504
+        return jsonify({"error": "Tiempo de espera agotado. Intenta de nuevo."}), 504
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"[CONSULTAR_ERROR] {e}")
+        return jsonify({"error": "Error interno al procesar la consulta. Intente de nuevo."}), 500
 
 
 def _extraer_texto_archivo(path, ext):
@@ -631,6 +723,10 @@ def admin_eliminar_usuario():
 @app.route("/cambiar-contrasena", methods=["POST"])
 @login_required
 def cambiar_contrasena():
+    ip = _get_client_ip()
+    if _rate_limited(f"pwchange:{ip}", 'password_change'):
+        return jsonify({"error": "Demasiados intentos. Espera 10 minutos."}), 429
+
     d                = request.json or {}
     tipoPassCambiar  = d.get("tipo", "")
     actual           = d.get("actual", "")
@@ -738,18 +834,22 @@ def recuperar():
     if not correo:
         return render_template("recuperar.html", error="Ingresa tu correo.", mensaje=None)
 
+    # ── Rate limit ──
+    ip = _get_client_ip()
+    if _rate_limited(f"recovery:{ip}", 'recovery'):
+        return render_template("recuperar.html", error="Demasiados intentos. Espera 10 minutos.", mensaje=None)
+
     # Validar que el correo exista (excepto admin maestro)
     if tipo == "invitado":
         usuario = find_user_by_email(correo)
         if not usuario:
-            return render_template("recuperar.html", error="Correo no registrado.", mensaje=None)
+            return render_template("recuperar.html", error="No se pudo procesar la solicitud.", mensaje=None)
         nombre = usuario["nombre"]
     else:
         nombre = "Administrador"
 
-    # Generar código de 6 dígitos
-    import random
-    codigo = str(random.randint(100000, 999999))
+    # Generar código seguro de 6 dígitos (criptográficamente aleatorio)
+    codigo = str(secrets.randbelow(900000) + 100000)
     codigo_hash = hashlib.sha256(codigo.encode()).hexdigest()
 
     data = load_recovery()
@@ -763,7 +863,9 @@ def recuperar():
         "codigo_hash": codigo_hash,
         "codigo_temp": codigo,      # Admin lo ve en el panel
         "estado":      "pendiente",
-        "fecha":       datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "fecha":       datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "expira":      (datetime.now() + timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S"),
+        "intentos":    0
     })
     save_recovery(data)
     log_historial(correo, nombre, "recuperacion_solicitada", f"Solicitó recuperación de contraseña ({tipo})")
@@ -776,12 +878,18 @@ def recuperar():
 
 @app.route("/recuperar/verificar", methods=["POST"])
 def recuperar_verificar():
+    ip     = _get_client_ip()
     correo = (request.json or {}).get("correo", "").strip().lower()
     codigo = (request.json or {}).get("codigo", "").strip()
     nueva  = (request.json or {}).get("nueva", "").strip()
 
     if not correo or not codigo or not nueva:
         return jsonify({"error": "Todos los campos son obligatorios."}), 400
+
+    # ── Rate limit por IP ──
+    if _rate_limited(f"recovery_verify:{ip}", 'recovery_verify'):
+        return jsonify({"error": "Demasiados intentos. Espera 5 minutos."}), 429
+
     if len(nueva) < 6:
         return jsonify({"error": "La nueva contraseña debe tener al menos 6 caracteres."}), 400
 
@@ -790,8 +898,28 @@ def recuperar_verificar():
     if not sol:
         return jsonify({"error": "No hay solicitud pendiente para este correo."}), 404
 
+    # ── Verificar expiración (15 minutos) ──
+    expira_str = sol.get("expira")
+    if expira_str:
+        try:
+            if datetime.now() > datetime.strptime(expira_str, "%Y-%m-%d %H:%M:%S"):
+                sol["estado"] = "expirada"
+                save_recovery(data)
+                return jsonify({"error": "El código ha expirado. Solicita uno nuevo."}), 400
+        except ValueError:
+            pass
+
+    # ── Limitar intentos fallidos (máx 5) ──
+    intentos = sol.get("intentos", 0)
+    if intentos >= 5:
+        sol["estado"] = "bloqueada"
+        save_recovery(data)
+        return jsonify({"error": "Demasiados intentos fallidos. Solicita un código nuevo."}), 400
+
     if hashlib.sha256(codigo.encode()).hexdigest() != sol["codigo_hash"]:
-        return jsonify({"error": "Código incorrecto."}), 400
+        sol["intentos"] = intentos + 1
+        save_recovery(data)
+        return jsonify({"error": f"Código incorrecto. Quedan {5 - intentos - 1} intentos."}), 400
 
     # Cambiar contraseña
     passwords = load_passwords()
@@ -981,7 +1109,7 @@ def admin_diagnostico_notebooklm():
         "skill_dir": SKILL_DIR,
         "is_cloud":  _IS_CLOUD,
         "gemini_key_set": bool(gemini_key),
-        "gemini_key_hint": (gemini_key[:6] + "…") if gemini_key else "NO CONFIGURADA",
+        "gemini_key_hint": "***configurada***" if gemini_key else "NO CONFIGURADA",
     }
 
     # ── Test Gemini ────────────────────────────────────────────────────
@@ -1055,7 +1183,8 @@ def guia_guardar():
             f.write(contenido)
         return jsonify({"ok": True})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"[GUIA_ERROR] {e}")
+        return jsonify({"error": "Error al guardar la guía."}), 500
 
 # ── Instalador / Descarga App ────────────────────────────────────────────
 # URL pública ngrok (se detecta automáticamente si está activo)
@@ -1284,7 +1413,7 @@ if __name__ == "__main__":
     print("="*55)
     print(f"\n  URL local:   http://localhost:5000")
     print(f"  URL movil:   http://{local_ip}:5000")
-    print(f"\n  Contrasena admin:    DGA2024*")
-    print(f"  Contrasena invitado: Puertos2024")
+    print(f"\n  [Seguridad] Contrasenas no se muestran en logs.")
+    print(f"  [Seguridad] SECRET_KEY: {'env var' if os.environ.get('SECRET_KEY') else 'auto-generada'}")
     print("="*55 + "\n")
     app.run(host="0.0.0.0", port=5000, debug=False)
