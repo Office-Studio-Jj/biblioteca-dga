@@ -1486,7 +1486,49 @@
   let _fichaFile = null;
   let _retryNbId = null, _retryNbName = '';
   let _lastQuery = '', _lastNbId = '', _lastNbName = '', _lastAnswer = '';
+  let _lastNomenclaturaData = null;
   const savedProducts = JSON.parse(localStorage.getItem('dga_saved_products') || '[]');
+
+  /* ── Parser del bloque estructurado de Nomenclatura ── */
+  function _parseNomenclatura(rawAnswer) {
+    const START = '---DATOS_CLASIFICACION---';
+    const END   = '---FIN_CLASIFICACION---';
+    const si = rawAnswer.indexOf(START);
+    if (si === -1) return { data: null, cleanAnswer: rawAnswer };
+    const ei = rawAnswer.indexOf(END);
+    const block = ei !== -1 ? rawAnswer.substring(si + START.length, ei) : rawAnswer.substring(si + START.length);
+    const cleanAnswer = (rawAnswer.substring(0, si) + (ei !== -1 ? rawAnswer.substring(ei + END.length) : '')).trim();
+    const get = (key) => { const m = block.match(new RegExp(key + ':\\s*([^\n]+)')); return m ? m[1].trim() : ''; };
+    return {
+      data: {
+        fuente:        get('FUENTE_NLKM')    || 'ARANCEL DE ADUANAS DE LA REPUBLICA DOMINICANA',
+        articulo:      get('ARTICULO'),
+        seccion:       get('SECCION'),
+        notaSeccion:   get('NOTA_SECCION'),
+        capitulo:      get('CAPITULO'),
+        notaCapitulo:  get('NOTA_CAPITULO'),
+        partida:       get('PARTIDA'),
+        subpartida:    get('SUBPARTIDA'),
+        subpartidaNac: get('SUBPARTIDA_NAC'),
+        auditoria:     get('AUDITORIA')      || 'APROBADA',
+        identificacion:get('IDENTIFICACION'),
+        materia:       get('MATERIA'),
+        funcion:       get('FUNCION'),
+        rgi:           get('RGI'),
+        restricciones: get('RESTRICCIONES'),
+      },
+      cleanAnswer
+    };
+  }
+
+  /* ── Limpia bloque estructurado de nomenclatura del texto visible ── */
+  function _cleanAns(ans) {
+    if (!ans) return '';
+    const si = ans.indexOf('---DATOS_CLASIFICACION---');
+    if (si === -1) return ans;
+    const ei = ans.indexOf('---FIN_CLASIFICACION---');
+    return (ans.substring(0, si) + (ei !== -1 ? ans.substring(ei + '---FIN_CLASIFICACION---'.length) : '')).trim();
+  }
 
   function resetConformity() {
     ['conformitySection','confSaveSection','fichaSection','nbChoiceSection','retryQueryBox','savedListSection'].forEach(id => {
@@ -1548,10 +1590,16 @@
       if (data.error) {
         body.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
       } else {
-        body.textContent = data.answer;
-        nb.textContent = '📖 ' + selName;
         _lastAnswer = data.answer;
-        saveHistory(q, selName, data.answer);
+        _lastNomenclaturaData = null;
+        let _displayAnswer = data.answer;
+        if (selId === 'biblioteca-de-nomenclaturas') {
+          const parsed = _parseNomenclatura(data.answer);
+          if (parsed.data) { _lastNomenclaturaData = parsed.data; _displayAnswer = parsed.cleanAnswer; }
+        }
+        body.textContent = _displayAnswer;
+        nb.textContent = '📖 ' + selName;
+        saveHistory(q, selName, data.answer, _lastNomenclaturaData);
         document.getElementById('conformitySection').style.display = 'block';
       }
     } catch(e) {
@@ -1775,10 +1823,16 @@
       if (data.error) {
         body.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
       } else {
-        body.textContent = data.answer;
-        nb.textContent = '📖 ' + _retryNbName;
         _lastAnswer = data.answer;
-        saveHistory(q, _retryNbName, data.answer);
+        _lastNomenclaturaData = null;
+        let _displayAnswerR = data.answer;
+        if (_retryNbId === 'biblioteca-de-nomenclaturas') {
+          const parsedR = _parseNomenclatura(data.answer);
+          if (parsedR.data) { _lastNomenclaturaData = parsedR.data; _displayAnswerR = parsedR.cleanAnswer; }
+        }
+        body.textContent = _displayAnswerR;
+        nb.textContent = '📖 ' + _retryNbName;
+        saveHistory(q, _retryNbName, data.answer, _lastNomenclaturaData);
         document.getElementById('fichaSection').style.display = 'none';
         document.getElementById('conformitySection').style.display = 'block';
       }
@@ -1791,8 +1845,8 @@
     document.getElementById('respCard').scrollIntoView({behavior: 'smooth', block: 'start'});
   }
 
-  function saveHistory(q, nb, ans) {
-    history.unshift({q, nb, nbId: _lastNbId, ans, ts: new Date().toLocaleString('es-DO'), conforme: false});
+  function saveHistory(q, nb, ans, nomData) {
+    history.unshift({q, nb, nbId: _lastNbId, ans, nomData: nomData || null, ts: new Date().toLocaleString('es-DO'), conforme: false});
     if (history.length > 30) history.pop();
     localStorage.setItem('dga_history', JSON.stringify(history));
   }
@@ -1811,8 +1865,8 @@
       <div class="hist-item">
         <div class="hist-q">${_esc(h.q)}</div>
         <div class="hist-nb">📖 ${_esc(h.nb)} · ${_esc(h.ts)}</div>
-        <div class="hist-a">${_esc(h.ans)}</div>
-        ${h.conforme ? `<button class="btn-hist-download" onclick="downloadHistoryReport(${i})">📄 Descargar Informe Técnico</button>` : ''}
+        <div class="hist-a">${_esc(_cleanAns(h.ans))}</div>
+        ${h.conforme ? `<button class="btn-hist-download" onclick="downloadHistoryReport(${i})">${h.nbId === 'biblioteca-de-nomenclaturas' ? '📋 Descargar Informe Merceológico' : '📄 Descargar Informe Técnico'}</button>` : ''}
       </div>`).join('');
   }
 
@@ -1985,21 +2039,251 @@
     return doc;
   }
 
+  /* ══════════════════════════════════════════════════════════════════
+     INFORME MERCEOLÓGICO DE NOMENCLATURA — máx. 2 páginas A4
+     ══════════════════════════════════════════════════════════════════ */
+  function _buildNomenclaturaInforme(query, nd, ts, productName) {
+    const { jsPDF } = window.jspdf;
+    const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const PW   = doc.internal.pageSize.getWidth();   // 210
+    const PH   = doc.internal.pageSize.getHeight();  // 297
+    const mL   = 14, mR = 14, mB = 16;
+    const cW   = PW - mL - mR;                       // 182
+    let y = mL;
+
+    /* helpers --------------------------------------------------------- */
+    const chk = (extra) => { if (y + (extra || 6) > PH - mB) { doc.addPage(); y = mL; } };
+
+    const txt = (text, size, style, rgb, gap) => {
+      doc.setFontSize(size || 9); doc.setFont('helvetica', style || 'normal');
+      doc.setTextColor(...(rgb || [25, 25, 25]));
+      doc.splitTextToSize(String(text || '—'), cW - 2).forEach(ln => {
+        chk(size * 0.48 || 5); doc.text(ln, mL, y); y += (size || 9) * 0.48;
+      });
+      y += (gap !== undefined ? gap : 1.5);
+    };
+
+    const hline = (rgb, w) => {
+      doc.setDrawColor(...(rgb || [180, 150, 50])); doc.setLineWidth(w || 0.4);
+      doc.line(mL, y, PW - mR, y); y += 3;
+    };
+
+    const secTitle = (label, bg, fg) => {
+      chk(9);
+      doc.setFillColor(...(bg || [15, 39, 68]));
+      doc.rect(mL, y, cW, 7, 'F');
+      doc.setFontSize(8.5); doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...(fg || [212, 175, 55]));
+      doc.text(label, mL + 3, y + 5); y += 9;
+    };
+
+    const field = (label, value) => {
+      chk(5);
+      const LW = 48;
+      doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 65, 115);
+      doc.text(label + ':', mL + 2, y);
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 20, 20);
+      const lines = doc.splitTextToSize(String(value || 'N/A'), cW - LW - 2);
+      lines.forEach((ln, i) => { chk(5); doc.text(ln, mL + LW, y); if (i < lines.length - 1) y += 4.5; });
+      y += 5;
+    };
+
+    /* ── ENCABEZADO ─────────────────────────────────────────────────── */
+    doc.setFillColor(10, 32, 60);
+    doc.rect(0, 0, PW, 29, 'F');
+    doc.setFillColor(212, 175, 55);
+    doc.rect(0, 29, PW, 1.2, 'F');
+    doc.setFontSize(12.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(212, 175, 55);
+    doc.text('INFORME MERCEOLOGICO DE NOMENCLATURA ARANCELARIA', PW / 2, 11, { align: 'center' });
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(170, 195, 220);
+    doc.text('Protocolo de Investigacion Merceologica  —  Cuaderno Nomenclatura DGA', PW / 2, 18.5, { align: 'center' });
+    doc.setFontSize(7.5); doc.setTextColor(110, 145, 175);
+    doc.text('Biblioteca de Logistica de Puertos y Aduanas RD  |  auditoria.puertos.aduanas@gmail.com', PW / 2, 25, { align: 'center' });
+    y = 36;
+
+    /* ── DATOS DE LA CONSULTA ───────────────────────────────────────── */
+    doc.setFillColor(238, 244, 252); doc.rect(mL, y, cW, 22, 'F');
+    doc.setDrawColor(100, 130, 180); doc.setLineWidth(0.3); doc.rect(mL, y, cW, 22);
+    const rolLabel = (typeof USER_ROLE !== 'undefined')
+      ? (USER_ROLE === 'master' ? 'Administrador Master' : USER_ROLE === 'operativo' ? 'Administrador Operativo' : 'Invitado') : 'Usuario';
+    const nombre = (typeof SESSION_NOMBRE !== 'undefined' && SESSION_NOMBRE && SESSION_NOMBRE !== 'None') ? SESSION_NOMBRE : rolLabel;
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(10, 32, 60);
+    doc.text('DATOS DE LA CONSULTA', mL + 3, y + 5);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(45, 55, 80);
+    const prod = (productName || query || '').substring(0, 80);
+    doc.text('Fecha: ' + ts, mL + 3, y + 11);
+    doc.text('Generado por: ' + nombre + '  |  Rol: ' + rolLabel, PW / 2, y + 11);
+    const prodLines = doc.splitTextToSize('Producto / Consulta: ' + prod, cW - 6);
+    doc.text(prodLines[0], mL + 3, y + 17);
+    y += 26;
+
+    /* ── I. FUENTE DE REFERENCIA ─────────────────────────────────────── */
+    secTitle('I.   FUENTE DE REFERENCIA — NOTEBOOKLM');
+    field('Nombre del archivo', nd.fuente);
+    field('Cuaderno consultado', 'Biblioteca de Nomenclaturas — DGA');
+    y += 1;
+
+    /* ── II. CLASIFICACIÓN ARANCELARIA ──────────────────────────────── */
+    secTitle('II.  CLASIFICACION ARANCELARIA DETERMINADA');
+    if (nd.articulo && nd.articulo.toUpperCase() !== 'N/A' && nd.articulo.length > 1)
+      field('Articulo utilizado', nd.articulo);
+    field('Seccion SA', nd.seccion);
+    if (nd.notaSeccion && nd.notaSeccion.toUpperCase() !== 'N/A' && nd.notaSeccion.length > 1)
+      field('Nota de Seccion', nd.notaSeccion);
+    field('Capitulo SA', nd.capitulo);
+    if (nd.notaCapitulo && nd.notaCapitulo.toUpperCase() !== 'N/A' && nd.notaCapitulo.length > 1)
+      field('Nota de Capitulo', nd.notaCapitulo);
+    y += 1;
+
+    /* recuadro dorado con los códigos arancelarios */
+    chk(22);
+    doc.setFillColor(248, 246, 235); doc.rect(mL, y, cW, 21, 'F');
+    doc.setDrawColor(180, 148, 40); doc.setLineWidth(0.6); doc.rect(mL, y, cW, 21);
+    const colA = mL + 3, colB = mL + 44;
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(15, 39, 68);
+    doc.text('Partida:', colA, y + 6);
+    doc.text('Subpartida SA:', colA, y + 12);
+    doc.text('Subpartida Regional/Nac.:', colA, y + 18);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 20, 20);
+    doc.text(nd.partida || 'No determinada', colB, y + 6);
+    doc.text(nd.subpartida || 'No determinada', colB, y + 12);
+    doc.text(nd.subpartidaNac || 'No determinada', colB, y + 18);
+    y += 25;
+
+    /* ── III. ANÁLISIS MERCEOLÓGICO ─────────────────────────────────── */
+    secTitle('III.  ANALISIS MERCEOLOGICO — RESUMEN');
+    field('Identificacion del producto', nd.identificacion);
+    field('Material constitutivo principal', nd.materia);
+    field('Funcion tecnica prevalente', nd.funcion);
+    field('Reglas generales interpretativas (RGI)', nd.rgi);
+    if (nd.restricciones && nd.restricciones.toUpperCase() !== 'NINGUNA' && nd.restricciones.length > 1)
+      field('Restricciones / Permisos previos', nd.restricciones);
+    else { chk(5); doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(40, 130, 60);
+      doc.text('Sin restricciones identificadas para esta clasificacion.', mL + 3, y); y += 6; }
+    y += 2;
+
+    /* ── IV. CUADRO COMPARATIVO — CONCLUSIÓN ────────────────────────── */
+    chk(80);
+    secTitle('IV.  CONCLUSION — CUADRO COMPARATIVO DE CLASIFICACION', [12, 60, 110], [212, 175, 55]);
+
+    const tRows = [
+      ['Identificacion tecnica',     nd.identificacion  || 'Ver analisis',    'Ley 168-21'],
+      ['Material constitutivo',       nd.materia         || 'Ver analisis',    'Dec. 755-22 Art. 2.5'],
+      ['Funcion prevalente',          nd.funcion         || 'Ver analisis',    'Dec. 755-22'],
+      ['Seccion SA',                  nd.seccion         || '—',               'SA 7a Enmienda (OMA)'],
+      ['Capitulo SA',                 nd.capitulo        || '—',               'SA 7a Enmienda (OMA)'],
+      ['Partida arancelaria',         nd.partida         || 'No determinada',  'Arancel RD / SA'],
+      ['Subpartida SA (6 digitos)',   nd.subpartida      || 'No determinada',  'SA 7a Enmienda'],
+      ['Subpartida Regional/Nac.',    nd.subpartidaNac   || 'No determinada',  'Arancel Nacional RD'],
+      ['RGI aplicada(s)',             nd.rgi             || 'Ver analisis',    'RGI 1-6 SA'],
+      ['Restricciones / Permisos',    (nd.restricciones && nd.restricciones.toUpperCase() !== 'NINGUNA') ? nd.restricciones : 'NINGUNA', 'Leyes sectoriales RD'],
+      ['Resultado de Auditoria',      nd.auditoria       || 'APROBADA',        'Protocolo Merceologico DGA'],
+    ];
+    const tH = [46, 94, 42], RH = 6.5, tX = mL;
+    const tW = tH[0] + tH[1] + tH[2];
+
+    /* cabecera */
+    chk(RH + 2);
+    doc.setFillColor(15, 39, 68); doc.rect(tX, y, tW, RH, 'F');
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(212, 175, 55);
+    let cx = tX;
+    ['CRITERIO', 'RESULTADO / VALOR DETERMINADO', 'REF. LEGAL'].forEach((h, i) => {
+      doc.text(h, cx + 2, y + 4.5); cx += tH[i];
+    });
+    const tableStartY = y; y += RH;
+
+    /* filas */
+    tRows.forEach((row, ri) => {
+      chk(RH);
+      const isAudit = ri === tRows.length - 1;
+      if (isAudit) {
+        const auditVal = (nd.auditoria || '').toUpperCase();
+        const bg = auditVal.includes('APROBADA') ? [18, 95, 40] : auditVal.includes('RECHAZADA') ? [115, 20, 20] : [95, 75, 15];
+        doc.setFillColor(...bg);
+      } else {
+        doc.setFillColor(ri % 2 === 0 ? 240 : 248, ri % 2 === 0 ? 245 : 250, 255);
+      }
+      doc.rect(tX, y, tW, RH, 'F');
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', isAudit ? 'bold' : 'normal');
+      doc.setTextColor(...(isAudit ? [255, 255, 255] : [20, 25, 55]));
+      cx = tX;
+      row.forEach((cell, ci) => {
+        const ln = doc.splitTextToSize(String(cell), tH[ci] - 4);
+        doc.text(ln[0] || '', cx + 2, y + 4.5); cx += tH[ci];
+      });
+      doc.setDrawColor(185, 195, 225); doc.setLineWidth(0.2);
+      doc.line(tX, y + RH, tX + tW, y + RH);
+      y += RH;
+    });
+
+    /* bordes exteriores y separadores de columnas */
+    doc.setDrawColor(70, 100, 155); doc.setLineWidth(0.5);
+    doc.rect(tX, tableStartY, tW, y - tableStartY);
+    doc.setLineWidth(0.25);
+    doc.line(tX + tH[0], tableStartY, tX + tH[0], y);
+    doc.line(tX + tH[0] + tH[1], tableStartY, tX + tH[0] + tH[1], y);
+    y += 4;
+
+    /* ── RESULTADO DE AUDITORÍA ──────────────────────────────────────── */
+    chk(12);
+    const auditVal = (nd.auditoria || 'APROBADA').toUpperCase();
+    const auditBg  = auditVal.includes('APROBADA') ? [18, 95, 40] : auditVal.includes('RECHAZADA') ? [115, 20, 20] : [95, 75, 15];
+    const auditTxt = auditVal.includes('APROBADA') ? 'APROBADA — Ficha lista para importacion'
+                   : auditVal.includes('RECHAZADA') ? 'RECHAZADA — Requiere revision completa'
+                   : 'CONDICIONADA — Pendiente de documentacion especifica';
+    doc.setFillColor(...auditBg); doc.rect(mL, y, cW, 9, 'F');
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(255, 255, 255);
+    doc.text('RESULTADO DE AUDITORIA:  ' + auditTxt, mL + 3, y + 6); y += 13;
+
+    /* ── DISCLAIMER ──────────────────────────────────────────────────── */
+    chk(20);
+    hline([160, 45, 45], 0.3);
+    doc.setFontSize(7); doc.setFont('helvetica', 'italic'); doc.setTextColor(115, 40, 40);
+    const disc = 'Documento de caracter informativo y tecnico. NO constituye informe legal ni tiene validez juridica formal ante ningun organismo. La clasificacion arancelaria esta sujeta a la legislacion vigente y debe ser validada por un aforador o especialista en nomenclatura debidamente acreditado. Cualquier decision basada en este documento es responsabilidad exclusiva del usuario.';
+    doc.splitTextToSize(disc, cW).forEach(ln => { chk(4); doc.text(ln, mL, y); y += 3.5; });
+
+    /* ── FIRMA ───────────────────────────────────────────────────────── */
+    y += 4; chk(14);
+    doc.setDrawColor(160, 160, 160); doc.setLineWidth(0.3);
+    doc.line(mL, y, mL + 75, y);
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(90, 90, 90);
+    doc.text('Firma / Nombre del Consultor', mL, y + 4);
+    doc.text('Fecha: ' + ts, mL + 105, y + 4);
+
+    return doc;
+  }
+
   function downloadTechnicalReport() {
     if (!_lastAnswer) { alert('No hay consulta confirmada para generar el informe.'); return; }
     const productName = (document.getElementById('productNameInput')?.value || '').trim();
     const ts = new Date().toLocaleString('es-DO');
-    const doc = _buildPDF(_lastQuery, _lastNbName, _lastAnswer, ts, productName);
-    const filename = 'Informe_Tecnico_' + (productName || _lastNbName).replace(/\s+/g, '_').substring(0, 40) + '.pdf';
-    doc.save(filename);
+    if (_lastNbId === 'biblioteca-de-nomenclaturas' && _lastNomenclaturaData) {
+      const doc = _buildNomenclaturaInforme(_lastQuery, _lastNomenclaturaData, ts, productName);
+      const fname = 'Informe_Merceologico_' + (productName || 'Nomenclatura').replace(/\s+/g, '_').substring(0, 40) + '.pdf';
+      doc.save(fname);
+    } else {
+      const doc = _buildPDF(_lastQuery, _lastNbName, _lastAnswer, ts, productName);
+      const fname = 'Informe_Tecnico_' + (productName || _lastNbName).replace(/\s+/g, '_').substring(0, 40) + '.pdf';
+      doc.save(fname);
+    }
   }
 
   function downloadHistoryReport(index) {
     const h = history[index];
     if (!h || !h.conforme) return;
-    const doc = _buildPDF(h.q, h.nb, h.ans, h.ts, null);
-    const filename = 'Informe_Tecnico_' + h.nb.replace(/\s+/g, '_').substring(0, 40) + '_' + index + '.pdf';
-    doc.save(filename);
+    const ts = h.ts || new Date().toLocaleString('es-DO');
+    if (h.nbId === 'biblioteca-de-nomenclaturas') {
+      const nd = h.nomData || (h.ans ? _parseNomenclatura(h.ans).data : null);
+      if (nd) {
+        const doc = _buildNomenclaturaInforme(h.q, nd, ts, null);
+        const fname = 'Informe_Merceologico_' + String(h.nb || 'Nomenclatura').replace(/\s+/g, '_').substring(0, 40) + '_' + index + '.pdf';
+        doc.save(fname); return;
+      }
+    }
+    const doc = _buildPDF(h.q, h.nb, _cleanAns(h.ans), ts, null);
+    const fname = 'Informe_Tecnico_' + String(h.nb || '').replace(/\s+/g, '_').substring(0, 40) + '_' + index + '.pdf';
+    doc.save(fname);
   }
 
   document.getElementById('qInput').addEventListener('keydown', e => {
