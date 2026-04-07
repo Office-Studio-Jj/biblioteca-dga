@@ -140,6 +140,27 @@
       "last_used": null
     }
   },
+    "guia-maestra-comercio-exterior": {
+      "id": "guia-maestra-comercio-exterior",
+      "url": "https://notebooklm.google.com/notebook/8a281228-0b90-4607-8470-a81e23eec9a3",
+      "name": "Gu\u00eda Maestra: link de p\u00e1ginas de comercio exterior",
+      "description": "Gu\u00eda de recursos, portales oficiales y herramientas de consulta para comercio exterior de la Rep\u00fablica Dominicana",
+      "topics": [
+        "comercio-exterior",
+        "portales-oficiales",
+        "recursos-dga",
+        "herramientas-comercio",
+        "tratados-comerciales"
+      ],
+      "content_types": [],
+      "use_cases": [],
+      "tags": [],
+      "created_at": "2026-04-05T00:00:00.000000",
+      "updated_at": "2026-04-06T00:00:00.000000",
+      "use_count": 0,
+      "last_used": null
+    }
+  },
   "active_notebook_id": "biblioteca-de-nomenclaturas",
-  "updated_at": "2026-04-03T14:09:54.084229"
+  "updated_at": "2026-04-06T00:00:00.000000"
 }
