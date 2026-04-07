@@ -11,6 +11,7 @@ acceder a NotebookLM directamente.
 import argparse
 import sys
 import os
+import re
 
 try:
     import google.generativeai as genai
@@ -120,8 +121,22 @@ Sus subpartidas nacionales son EXCLUSIVAMENTE:
   9619.00.50 = Panitos humedos
   9619.00.90 = Los demas (dentro de higienicos/panales — NO es un comodin universal)
 PROHIBICION ABSOLUTA: NINGUN dispositivo electronico, aparato, herramienta, producto de tabaco/nicotina,
-ni mercancia no higienica puede clasificarse en 9619. Un vaper/cigarro electronico es Cap. 24 o Cap. 85/87.
+ni mercancia no higienica puede clasificarse en 9619.
 Si el modelo llega a 9619 para un producto no higienico, ES UNA ALUCINACION — reiniciar clasificacion.
+
+PARTIDA 85.43 — CIGARRILLOS ELECTRONICOS Y VAPERS (VERIFICADO EN ARANCEL RD):
+La partida 85.43 = "Maquinas y aparatos electricos con funcion propia, no expresados ni comprendidos en otra parte de este Capitulo."
+Sus subpartidas nacionales REALES en el Arancel RD son EXACTAMENTE:
+  8543.10.00 = Aceleradores de particulas
+  8543.20.00 = Generadores de senales
+  8543.30.00 = Maquinas y aparatos de galvanoplastia, electrolisis o electroforesis
+  8543.40    = Cigarrillos electronicos y dispositivos personales de vaporizacion electricos similares:
+  8543.40.11 = Cigarrillos electronicos personales
+  8543.40.12 = Dispositivos de vaporizacion electricos personales
+  8543.70.00 = Las demas maquinas y aparatos
+  8543.90.00 = Partes
+REGLA PARA VAPERS/CIGARRILLOS ELECTRONICOS: SIEMPRE 8543.40.11 o 8543.40.12. NUNCA 8543.70, NUNCA 9619, NUNCA Cap. 24.
+NO EXISTE 8543.70.70 ni 8543.40.00 ni ninguna extension inventada. Solo las listadas arriba.
 
 REGLAS OBLIGATORIAS DE CODIGOS:
 1. NUNCA generar codigos de 10 digitos (XXXX.XX.XX.XX NO EXISTE en RD).
@@ -521,20 +536,31 @@ Si el sistema clasifico un producto diferente al consultado → ERROR DE IDENTID
 ¿El capitulo arancelario asignado es el correcto para este tipo de mercancia?
 El titulo del capitulo DEBE ser compatible con la naturaleza del producto.
 ERRORES CRITICOS CONFIRMADOS EN CAMPO:
-  - Dispositivos electronicos, vapers, cigarrillos electronicos → NUNCA Cap. 96.19 (higienicos/panales)
-  - Productos de tabaco o nicotina → Cap. 24, NO Cap. 96 ni Cap. 85 por defecto
+  - Vapers, cigarrillos electronicos → 8543.40.11 o 8543.40.12. NUNCA 9619, NUNCA Cap.24, NUNCA 8543.70
+  - Dispositivos electronicos en general → NUNCA Cap. 96.19 (higienicos/panales)
   - Accesorios medicos textiles bajo 9018.90 → verificar que el capitulo 90 aplique por funcion medica
   - Si el capitulo describe un tipo de mercancia incompatible con el producto → ERROR GRAVE
+CODIGOS VERIFICADOS para VAPERS en el Arancel RD (partida 85.43):
+  8543.10.00 = Aceleradores de particulas
+  8543.20.00 = Generadores de senales
+  8543.30.00 = Galvanoplastia, electrolisis, electroforesis
+  8543.40.11 = Cigarrillos electronicos personales
+  8543.40.12 = Dispositivos de vaporizacion electricos personales
+  8543.70.00 = Las demas maquinas y aparatos
+  8543.90.00 = Partes
+  NO EXISTE: 8543.70.70, 8543.40.00, 8543.70.90 ni ninguna otra extension.
 
 [CHECK 3 — EXISTENCIA DEL CODIGO NACIONAL]
 ¿El codigo de 8 digitos EXISTE fisicamente en el Arancel de la RD?
 CODIGOS CONFIRMADOS COMO INEXISTENTES EN EL ARANCEL RD:
   - 9018.90.91 — NO EXISTE. El rango de 9018.90 en RD va de .11 a .19. "Los demas" = 9018.90.19
+  - 8543.70.70 — NO EXISTE. Solo existe 8543.70.00. Los vapers son 8543.40.11 o 8543.40.12.
+  - 9619.00.90 para dispositivos electronicos — INCOHERENTE. 9619 es solo higienicos.
 PATRON TRAMPA — ERROR RECURRENTE:
   Si el codigo tiene extension .91 o .92 pero el rango nacional del capitulo termina en .19 o .09
   → ese codigo NO EXISTE. "Los demas" en ese capitulo ES el .19 o .09, no hay .91 adicional.
-  Ejemplos de rangos que terminan en .19: 9018.90 (.11-.19), muchos capitulos medicos y quimicos.
-  Ejemplos de rangos que SI usan .91: 8501.10 (.10, .20, .91, .92), algunos capitulos de maquinaria.
+  Si el codigo tiene extension .70 pero la unica extension real es .00 bajo esa subpartida
+  → ese codigo NO EXISTE (ej: 8543.70.00 existe, 8543.70.70 NO).
   Cuando no puedas confirmar el patron → usar 6 digitos con nota de verificacion.
 
 [CHECK 4 — COHERENCIA DESCRIPCION vs. PRODUCTO]
@@ -575,6 +601,134 @@ CHECK_RGI: [OK / OBSERVACION: descripcion breve]
 CHECK_PERMISOS: [OK / OBSERVACION: descripcion breve]
 CORRECCION: [descripcion de la correccion si aplica, o NINGUNA]
 ---FIN_SUPERVISION---"""
+
+
+# ── VALIDADOR PROGRAMATICO — Codigos verificados del Arancel RD ──────────
+# Diccionario de subpartidas nacionales CONFIRMADAS fisicamente en el Arancel
+# impreso de la Republica Dominicana. Cada clave es la subpartida SA (6 digitos),
+# cada valor es un dict de extension_nacional → descripcion oficial.
+# Si un capitulo esta aqui y Gemini genera un codigo que NO esta en la lista,
+# el codigo es INVALIDO y se reemplaza automaticamente por 6 digitos + nota.
+CODIGOS_VERIFICADOS_RD = {
+    "9018.90": {
+        "11": "Para medida de la presion arterial",
+        "12": "Endoscopios",
+        "13": "De diatermia",
+        "14": "De transfusion",
+        "15": "De anestesia",
+        "16": "Instrumentos de cirugia (bisturis, cizallas, tijeras, y similares)",
+        "17": "Incubadoras",
+        "18": "Grapas quirurgicas",
+        "19": "Los demas",
+    },
+    "9619.00": {
+        "10": "Compresas",
+        "20": "Tampones",
+        "30": "Panales",
+        "40": "Toallas sanitarias",
+        "50": "Panitos humedos",
+        "90": "Los demas",
+    },
+    "8543.10": {"00": "Aceleradores de particulas"},
+    "8543.20": {"00": "Generadores de senales"},
+    "8543.30": {"00": "Maquinas y aparatos de galvanoplastia, electrolisis o electroforesis"},
+    "8543.40": {
+        "11": "Cigarrillos electronicos personales",
+        "12": "Dispositivos de vaporizacion electricos personales",
+    },
+    "8543.70": {"00": "Las demas maquinas y aparatos"},
+    "8543.90": {"00": "Partes"},
+}
+
+
+def validar_codigo_nacional(answer: str) -> str:
+    """
+    Validador programatico DETERMINISTICO — intercepta codigos alucinados.
+    Busca el bloque DATOS_CLASIFICACION en la respuesta, extrae SUBPARTIDA_NAC,
+    y verifica si el codigo existe en CODIGOS_VERIFICADOS_RD.
+    Si el codigo es invalido y su subpartida SA esta en nuestra lista verificada:
+      → Reemplaza por la subpartida SA de 6 digitos + nota de verificacion.
+      → Cambia AUDITORIA a CONDICIONADA.
+    Si la subpartida SA NO esta en nuestra lista: no modifica (no tenemos datos).
+    """
+    # Extraer bloque DATOS_CLASIFICACION
+    start_tag = "---DATOS_CLASIFICACION---"
+    end_tag = "---FIN_CLASIFICACION---"
+    si = answer.find(start_tag)
+    if si == -1:
+        return answer
+    ei = answer.find(end_tag)
+    if ei == -1:
+        return answer
+
+    block = answer[si + len(start_tag):ei]
+
+    # Extraer SUBPARTIDA_NAC
+    m = re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', block)
+    if not m:
+        return answer  # No hay codigo de 8 digitos, nada que validar
+
+    codigo_completo = m.group(1)  # ej: "8543.70.70"
+    partes = codigo_completo.split(".")
+    if len(partes) != 3:
+        return answer
+
+    subpartida_sa = f"{partes[0]}.{partes[1]}"  # ej: "8543.70"
+    extension_nac = partes[2]                     # ej: "70"
+
+    # Solo validar si tenemos datos verificados para esta subpartida SA
+    if subpartida_sa not in CODIGOS_VERIFICADOS_RD:
+        print(f"[VALIDADOR] Subpartida SA {subpartida_sa} no esta en lista verificada — sin cambios")
+        return answer
+
+    extensiones_validas = CODIGOS_VERIFICADOS_RD[subpartida_sa]
+
+    if extension_nac in extensiones_validas:
+        print(f"[VALIDADOR] Codigo {codigo_completo} VERIFICADO — existe en Arancel RD")
+        return answer
+
+    # ── CODIGO INVALIDO DETECTADO ──
+    # Buscar la extension "Los demas" como alternativa
+    ext_los_demas = None
+    for ext, desc in extensiones_validas.items():
+        if "los demas" in desc.lower() or "las demas" in desc.lower():
+            ext_los_demas = ext
+            break
+
+    codigos_disponibles = ", ".join(
+        f"{subpartida_sa}.{e} ({d})" for e, d in extensiones_validas.items()
+    )
+
+    # Determinar codigo corregido
+    if ext_los_demas:
+        codigo_corregido = f"{subpartida_sa}.{ext_los_demas}"
+        desc_corregida = extensiones_validas[ext_los_demas]
+        nota = (f"{codigo_corregido} — {desc_corregida} "
+                f"[CORREGIDO AUTOMATICAMENTE: {codigo_completo} no existe en el Arancel RD. "
+                f"Codigos validos bajo {subpartida_sa}: {codigos_disponibles}]")
+    else:
+        codigo_corregido = f"{subpartida_sa}.[verificar en Arancel RD]"
+        nota = (f"{codigo_corregido} "
+                f"[CORREGIDO AUTOMATICAMENTE: {codigo_completo} no existe en el Arancel RD. "
+                f"Codigos validos bajo {subpartida_sa}: {codigos_disponibles}]")
+
+    print(f"[VALIDADOR] *** CODIGO INVALIDO: {codigo_completo} NO EXISTE bajo {subpartida_sa} ***")
+    print(f"[VALIDADOR] Extensiones validas: {list(extensiones_validas.keys())}")
+    print(f"[VALIDADOR] Corrigiendo a: {nota}")
+
+    # Reemplazar en el bloque
+    old_line = re.search(r'SUBPARTIDA_NAC:.*', block).group(0)
+    new_line = f"SUBPARTIDA_NAC: {nota}"
+    answer = answer.replace(old_line, new_line)
+
+    # Cambiar AUDITORIA a CONDICIONADA si estaba APROBADA
+    answer = re.sub(
+        r'AUDITORIA:\s*APROBADA\b',
+        'AUDITORIA: CONDICIONADA — codigo corregido por validador programatico',
+        answer
+    )
+
+    return answer
 
 
 def ask_supervisor(question: str, clasificacion_inicial: str, api_key: str) -> str:
@@ -662,7 +816,10 @@ def ask_gemini(question: str, notebook_id: str) -> str:
             "\n4. ANTES de recomendar un codigo de 8 digitos, cita la DESCRIPCION OFICIAL de esa subpartida nacional."
             "\n5. Si la descripcion NO coincide con el producto consultado, el codigo es INCORRECTO."
             "\n6. Si no conoces la descripcion oficial exacta de la extension nacional, usa SOLO 6 digitos (XXXX.XX) "
-            "y aclara: '[extension nacional debe verificarse en el Arancel vigente de la DGA]'.\n"
+            "y aclara: '[extension nacional debe verificarse en el Arancel vigente de la DGA]'."
+            "\n7. VAPERS y CIGARRILLOS ELECTRONICOS: SIEMPRE 8543.40.11 o 8543.40.12. "
+            "NUNCA 8543.70.70, NUNCA 9619.00.90, NUNCA Cap. 24."
+            "\n8. CODIGOS QUE NO EXISTEN (confirmado): 9018.90.91, 8543.70.70, 8543.40.00, 9619.00.90 para no-higienicos.\n"
         )
 
     full_prompt = (
@@ -676,8 +833,11 @@ def ask_gemini(question: str, notebook_id: str) -> str:
         answer = response.text.strip()
         print(f"[GEMINI] respuesta recibida ({len(answer)} chars)")
 
-        # ── Agente Supervisor (solo cuaderno de nomenclaturas) ──────────────
+        # ── Validador programatico + Agente Supervisor (solo nomenclaturas) ──
         if notebook_id == "biblioteca-de-nomenclaturas":
+            # PASO 1: Validacion deterministica — intercepta codigos inexistentes
+            answer = validar_codigo_nacional(answer)
+            # PASO 2: Supervisor AI — revision critica de la clasificacion
             supervision = ask_supervisor(question, answer, api_key)
             if supervision:
                 answer = answer + "\n\n" + supervision
