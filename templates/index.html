@@ -789,14 +789,14 @@
         <div class="info-row">
           <div class="info-ico">📖</div>
           <div class="info-text">
-            <strong>7 cuadernos disponibles</strong>
-            Nomenclaturas · Legal · Valoración · Regímenes · Aforo · VUCERD · Normas de Origen
+            <strong>{{ notebooks|length }} cuadernos disponibles</strong>
+            {{ notebooks | map(attribute='nombre') | join(' · ') }}
           </div>
         </div>
       </div>
 
       <div class="info-section">
-        <h3>Los 7 cuadernos</h3>
+        <h3>Los {{ notebooks|length }} cuadernos</h3>
         {% for nb in notebooks %}
         <div class="info-row">
           <div class="info-ico">{{ nb.emoji }}</div>
