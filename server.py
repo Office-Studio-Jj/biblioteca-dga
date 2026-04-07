@@ -193,6 +193,7 @@ _DEFAULT_NOTEBOOKS = [
     {"id": "biblioteca-para-aforo-dga",                          "nombre": "Aforo DGA",              "emoji": "🔍"},
     {"id": "biblioteca-procedimiento-vucerd",                    "nombre": "VUCERD",                 "emoji": "🪟"},
     {"id": "biblioteca-de-normas-y-origen-dga",                  "nombre": "Normas y Origen",        "emoji": "🌐"},
+    {"id": "guia-maestra-comercio-exterior",                     "nombre": "Guía Maestra Comercio",  "emoji": "📖"},
 ]
 
 def load_cuadernos():
