@@ -393,6 +393,76 @@
       margin-top: 4px;
     }
 
+    /* ── Supervisor Arancelario ── */
+    .supervisor-box {
+      margin-top: 14px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #334155;
+      font-size: 0.78rem;
+    }
+    .sup-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 13px;
+      font-weight: 700;
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+    }
+    .sup-aprobada  { background: #064e3b; color: #6ee7b7; border-bottom: 1px solid #065f46; }
+    .sup-observacion{ background: #78350f; color: #fde68a; border-bottom: 1px solid #92400e; }
+    .sup-corregida { background: #1e3a5f; color: #93c5fd; border-bottom: 1px solid #1e40af; }
+    .sup-rechazada { background: #7f1d1d; color: #fca5a5; border-bottom: 1px solid #991b1b; }
+    .sup-icon { font-size: 0.9rem; }
+    .sup-title { flex: 1; }
+    .sup-resultado { font-size: 0.7rem; opacity: 0.9; text-align: right; }
+    .sup-body {
+      background: #0c1929;
+      padding: 11px 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sup-codigo-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 6px;
+      padding-bottom: 7px;
+      border-bottom: 1px solid #1e3a5f;
+    }
+    .sup-label { color: #94a3b8; font-size: 0.72rem; }
+    .sup-code  { color: #e2e8f0; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.05em; }
+    .sup-desc-verif { color: #64748b; font-size: 0.7rem; font-style: italic; }
+    .sup-checks { display: flex; flex-direction: column; gap: 3px; }
+    .sup-check-row {
+      display: flex;
+      gap: 5px;
+      align-items: baseline;
+      font-size: 0.72rem;
+      line-height: 1.4;
+    }
+    .sup-check-ok  { color: #86efac; }
+    .sup-check-err { color: #fca5a5; }
+    .sup-dot { font-size: 0.55rem; flex-shrink: 0; margin-top: 2px; }
+    .sup-correccion {
+      margin-top: 4px;
+      padding: 7px 10px;
+      background: #1e3a5f;
+      border-left: 3px solid #60a5fa;
+      border-radius: 4px;
+      color: #bfdbfe;
+      font-size: 0.72rem;
+      line-height: 1.5;
+    }
+    .sup-footer {
+      color: #334155;
+      font-size: 0.65rem;
+      text-align: right;
+      margin-top: 2px;
+    }
+
     /* ── Conformidad y ficha técnica ── */
     .conformity-section {
       margin-top: 16px;
@@ -672,6 +742,9 @@
         <div class="resp-header">Respuesta</div>
         <div class="resp-body" id="respBody"></div>
         <div class="resp-nb" id="respNb"></div>
+
+        <!-- ── Panel Supervisor Arancelario (solo nomenclatura) ── -->
+        <div id="supervisorBox" class="supervisor-box" style="display:none;"></div>
 
         <!-- ── Conformidad ── -->
         <div id="conformitySection" class="conformity-section" style="display:none;">
@@ -1521,13 +1594,107 @@
     };
   }
 
-  /* ── Limpia bloque estructurado de nomenclatura del texto visible ── */
+  /* ── Parser del bloque de Supervisión ── */
+  function _parseSupervision(rawAnswer) {
+    const START = '---SUPERVISION---';
+    const END   = '---FIN_SUPERVISION---';
+    const si = rawAnswer.indexOf(START);
+    if (si === -1) return { data: null, cleanAnswer: rawAnswer };
+    const ei = rawAnswer.indexOf(END);
+    const block = ei !== -1 ? rawAnswer.substring(si + START.length, ei) : rawAnswer.substring(si + START.length);
+    const narrativeRaw = rawAnswer.substring(0, si);
+    // Extraer narrativa del supervisor (texto antes del bloque estructurado pero despues del bloque clasificacion)
+    const cleanAnswer = (narrativeRaw + (ei !== -1 ? rawAnswer.substring(ei + END.length) : '')).trim();
+    const get = (key) => { const m = block.match(new RegExp(key + ':\\s*([^\n]+)')); return m ? m[1].trim() : ''; };
+    return {
+      data: {
+        resultado:            get('RESULTADO'),
+        codigoVerificado:     get('CODIGO_VERIFICADO'),
+        descripcionVerif:     get('DESCRIPCION_VERIFICADA'),
+        checkProducto:        get('CHECK_PRODUCTO'),
+        checkCapitulo:        get('CHECK_CAPITULO'),
+        checkCodigo:          get('CHECK_CODIGO'),
+        checkCoherencia:      get('CHECK_COHERENCIA'),
+        checkRgi:             get('CHECK_RGI'),
+        checkPermisos:        get('CHECK_PERMISOS'),
+        correccion:           get('CORRECCION'),
+      },
+      narrativa: _extractSupervisorNarrativa(rawAnswer),
+      cleanAnswer
+    };
+  }
+
+  /* Extrae la narrativa del supervisor (texto entre FIN_CLASIFICACION y ---SUPERVISION---) */
+  function _extractSupervisorNarrativa(rawAnswer) {
+    const finClasif = rawAnswer.indexOf('---FIN_CLASIFICACION---');
+    const startSup  = rawAnswer.indexOf('---SUPERVISION---');
+    if (finClasif === -1 || startSup === -1) return '';
+    return rawAnswer.substring(finClasif + '---FIN_CLASIFICACION---'.length, startSup).trim();
+  }
+
+  /* ── Limpia bloques estructurados del texto visible ── */
   function _cleanAns(ans) {
     if (!ans) return '';
-    const si = ans.indexOf('---DATOS_CLASIFICACION---');
-    if (si === -1) return ans;
-    const ei = ans.indexOf('---FIN_CLASIFICACION---');
-    return (ans.substring(0, si) + (ei !== -1 ? ans.substring(ei + '---FIN_CLASIFICACION---'.length) : '')).trim();
+    // Limpiar bloque clasificacion
+    let r = ans;
+    const si = r.indexOf('---DATOS_CLASIFICACION---');
+    if (si !== -1) {
+      const ei = r.indexOf('---FIN_CLASIFICACION---');
+      r = (r.substring(0, si) + (ei !== -1 ? r.substring(ei + '---FIN_CLASIFICACION---'.length) : '')).trim();
+    }
+    // Limpiar bloque supervision
+    const ss = r.indexOf('---SUPERVISION---');
+    if (ss !== -1) {
+      const es = r.indexOf('---FIN_SUPERVISION---');
+      r = (r.substring(0, ss) + (es !== -1 ? r.substring(es + '---FIN_SUPERVISION---'.length) : '')).trim();
+    }
+    return r;
+  }
+
+  /* ── Renderiza el panel del Supervisor Arancelario ── */
+  function _renderSupervisorBox(sd, box) {
+    const res = sd.resultado || '';
+    let colorClass = 'sup-aprobada';
+    let icon = '✅';
+    if (res.startsWith('APROBADA CON')) { colorClass = 'sup-observacion'; icon = '⚠️'; }
+    else if (res.startsWith('CORREGIDA'))  { colorClass = 'sup-corregida';   icon = '🔧'; }
+    else if (res.startsWith('RECHAZADA')) { colorClass = 'sup-rechazada';   icon = '❌'; }
+
+    const checks = [
+      { label: 'Producto',    val: sd.checkProducto },
+      { label: 'Capítulo',    val: sd.checkCapitulo },
+      { label: 'Código',      val: sd.checkCodigo },
+      { label: 'Coherencia',  val: sd.checkCoherencia },
+      { label: 'RGI',         val: sd.checkRgi },
+      { label: 'Permisos',    val: sd.checkPermisos },
+    ];
+
+    const checkRows = checks.map(c => {
+      const isOk = (c.val || '').startsWith('OK');
+      const cls  = isOk ? 'sup-check-ok' : 'sup-check-err';
+      const dot  = isOk ? '●' : '●';
+      return `<div class="sup-check-row ${cls}"><span class="sup-dot">${dot}</span><strong>${_esc(c.label)}:</strong> ${_esc(c.val || '')}</div>`;
+    }).join('');
+
+    const correccion = sd.correccion && sd.correccion !== 'NINGUNA'
+      ? `<div class="sup-correccion"><strong>🔧 Corrección:</strong> ${_esc(sd.correccion)}</div>` : '';
+
+    box.innerHTML = `
+      <div class="sup-header ${colorClass}">
+        <span class="sup-icon">${icon}</span>
+        <span class="sup-title">SUPERVISOR ARANCELARIO SENIOR</span>
+        <span class="sup-resultado">${_esc(res)}</span>
+      </div>
+      <div class="sup-body">
+        <div class="sup-codigo-row">
+          <span class="sup-label">Código verificado:</span>
+          <span class="sup-code">${_esc(sd.codigoVerificado || '—')}</span>
+          <span class="sup-desc-verif">${_esc(sd.descripcionVerif || '')}</span>
+        </div>
+        <div class="sup-checks">${checkRows}</div>
+        ${correccion}
+        <div class="sup-footer">Revisión independiente — fuente: Arancel de Aduanas RD</div>
+      </div>`;
   }
 
   function resetConformity() {
@@ -1535,6 +1702,8 @@
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
+    const supBox = document.getElementById('supervisorBox');
+    if (supBox) supBox.style.display = 'none';
     document.getElementById('otherNbGrid').classList.remove('show');
     document.getElementById('btnRetry').style.display = 'none';
     document.getElementById('saveOkMsg').style.display = 'none';
@@ -1564,7 +1733,10 @@
     btn.disabled = true;
     btn.textContent = 'Consultando...';
     card.classList.add('show');
-    body.innerHTML = '<div class="loading-row"><div class="spin"></div>Consultando... (puede tardar unos segundos)</div>';
+    const loadingMsg = selId === 'biblioteca-de-nomenclaturas'
+      ? 'Clasificando con Protocolo Merceológico + Supervisor Arancelario... (puede tardar 20-40 seg)'
+      : 'Consultando... (puede tardar unos segundos)';
+    body.innerHTML = `<div class="loading-row"><div class="spin"></div>${loadingMsg}</div>`;
     nb.textContent = '';
 
     _lastQuery = q;
@@ -1593,12 +1765,38 @@
         _lastAnswer = data.answer;
         _lastNomenclaturaData = null;
         let _displayAnswer = data.answer;
+        let _supData = null;
         if (selId === 'biblioteca-de-nomenclaturas') {
-          const parsed = _parseNomenclatura(data.answer);
-          if (parsed.data) { _lastNomenclaturaData = parsed.data; _displayAnswer = parsed.cleanAnswer; }
+          // 1. Extraer supervision primero
+          const supParsed = _parseSupervision(data.answer);
+          if (supParsed.data) {
+            _supData = supParsed.data;
+            _displayAnswer = supParsed.cleanAnswer;
+          }
+          // 2. Extraer datos de clasificacion del texto ya limpiado de supervision
+          const parsed = _parseNomenclatura(_displayAnswer);
+          if (parsed.data) {
+            _lastNomenclaturaData = parsed.data;
+            // Si el supervisor corrigio el codigo, actualizar en los datos
+            if (_supData && _supData.codigoVerificado && _supData.resultado &&
+                (_supData.resultado.startsWith('CORREGIDA') || _supData.resultado.startsWith('RECHAZADA'))) {
+              _lastNomenclaturaData.subpartidaNac = _supData.codigoVerificado;
+              _lastNomenclaturaData.auditoria = _supData.resultado;
+            }
+            _displayAnswer = parsed.cleanAnswer;
+          }
         }
+        // Mostrar respuesta principal
         body.textContent = _displayAnswer;
         nb.textContent = '📖 ' + selName;
+        // Mostrar bloque del supervisor si existe
+        const supBox = document.getElementById('supervisorBox');
+        if (_supData && supBox) {
+          _renderSupervisorBox(_supData, supBox);
+          supBox.style.display = 'block';
+        } else if (supBox) {
+          supBox.style.display = 'none';
+        }
         saveHistory(q, selName, data.answer, _lastNomenclaturaData);
         document.getElementById('conformitySection').style.display = 'block';
       }

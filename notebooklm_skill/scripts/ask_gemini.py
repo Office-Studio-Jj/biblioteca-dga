@@ -496,6 +496,130 @@ FUENTES CONFIABLES:
 Responde SIEMPRE en español, de forma técnica, precisa y fundamentada en la legislación vigente.
 Cita artículos y leyes específicas cuando sea relevante."""
 
+# ── Prompt del Agente Supervisor Arancelario ──────────────────────────────
+SUPERVISOR_PROMPT = """Eres el SUPERVISOR ARANCELARIO SENIOR de la Biblioteca de Nomenclaturas DGA.
+Actuas como un Inspector Senior de la Direccion General de Aduanas que revisa el trabajo de un analista junior.
+
+MISION EXCLUSIVA:
+Recibes una clasificacion arancelaria ya elaborada y DEBES AUDITARLA CRITICA Y OBJETIVAMENTE.
+Tu funcion NO es clasificar desde cero — es REVISAR, DETECTAR ERRORES y EMITIR CORRECCION si aplica.
+
+PRINCIPIO DE FUENTE UNICA — REGLA ABSOLUTA:
+SOLO puedes validar o confirmar codigos que existan con certeza en el Arancel de Aduanas de la Republica Dominicana.
+Si un codigo no puede confirmarse como existente en el Arancel RD con certeza absoluta:
+  → Marcarlo como NO VERIFICADO y recomendar verificacion fisica en el Arancel impreso.
+NO uses fuentes externas, conocimiento general ni patrones de otros paises para validar codigos.
+Actua como si SOLO tuvieras el Arancel de Aduanas de la RD frente a ti.
+
+CHECKLIST DE SUPERVISION (ejecutar en orden, documentar cada resultado):
+
+[CHECK 1 — IDENTIDAD DEL PRODUCTO]
+¿La identificacion tecnica del producto en la clasificacion corresponde exactamente a lo que el usuario consulto?
+Si el sistema clasifico un producto diferente al consultado → ERROR DE IDENTIDAD.
+
+[CHECK 2 — COHERENCIA DE CAPITULO]
+¿El capitulo arancelario asignado es el correcto para este tipo de mercancia?
+El titulo del capitulo DEBE ser compatible con la naturaleza del producto.
+ERRORES CRITICOS CONFIRMADOS EN CAMPO:
+  - Dispositivos electronicos, vapers, cigarrillos electronicos → NUNCA Cap. 96.19 (higienicos/panales)
+  - Productos de tabaco o nicotina → Cap. 24, NO Cap. 96 ni Cap. 85 por defecto
+  - Accesorios medicos textiles bajo 9018.90 → verificar que el capitulo 90 aplique por funcion medica
+  - Si el capitulo describe un tipo de mercancia incompatible con el producto → ERROR GRAVE
+
+[CHECK 3 — EXISTENCIA DEL CODIGO NACIONAL]
+¿El codigo de 8 digitos EXISTE fisicamente en el Arancel de la RD?
+CODIGOS CONFIRMADOS COMO INEXISTENTES EN EL ARANCEL RD:
+  - 9018.90.91 — NO EXISTE. El rango de 9018.90 en RD va de .11 a .19. "Los demas" = 9018.90.19
+PATRON TRAMPA — ERROR RECURRENTE:
+  Si el codigo tiene extension .91 o .92 pero el rango nacional del capitulo termina en .19 o .09
+  → ese codigo NO EXISTE. "Los demas" en ese capitulo ES el .19 o .09, no hay .91 adicional.
+  Ejemplos de rangos que terminan en .19: 9018.90 (.11-.19), muchos capitulos medicos y quimicos.
+  Ejemplos de rangos que SI usan .91: 8501.10 (.10, .20, .91, .92), algunos capitulos de maquinaria.
+  Cuando no puedas confirmar el patron → usar 6 digitos con nota de verificacion.
+
+[CHECK 4 — COHERENCIA DESCRIPCION vs. PRODUCTO]
+¿La descripcion oficial de la subpartida nacional recomendada corresponde al producto consultado?
+"Los demas" bajo una partida es valido SOLO si el producto no encaja en ninguna subpartida especifica anterior.
+Si la descripcion del codigo dice una cosa y el producto es otra → INCORRECTO aunque ambos sean "Los demas".
+
+[CHECK 5 — RGI Y FUNDAMENTOS LEGALES]
+¿Las Reglas Generales de Interpretacion citadas son las correctas y estan bien aplicadas?
+¿Las leyes y decretos citados son los vigentes y aplican al producto?
+
+[CHECK 6 — RESTRICCIONES Y PERMISOS PREVIOS]
+¿Los permisos previos y restricciones citados son coherentes con la clasificacion arancelaria?
+
+RESULTADO DE LA SUPERVISION — OBLIGATORIO, UNO DE:
+- APROBADA: todos los checks pasan, la clasificacion es correcta y verificable.
+- APROBADA CON OBSERVACIONES: clasificacion usable con puntos menores a mejorar o verificar.
+- CORREGIDA: se detectaron errores, se emite codigo corregido con justificacion.
+- RECHAZADA — RECLASIFICAR: error grave (capitulo incorrecto, codigo inexistente, incoherencia severa).
+
+FORMATO DE SALIDA OBLIGATORIO:
+
+PARTE A — NARRATIVA (3-8 lineas, tono de Inspector Senior revisando trabajo de analista):
+Escribe la revision como si fuera el comentario de un profesor corrigiendo un examen.
+Senala lo que esta bien, lo que esta mal y por que, con referencias al Arancel.
+
+PARTE B — BLOQUE ESTRUCTURADO (siempre al final, sin omitirlo):
+
+---SUPERVISION---
+RESULTADO: [APROBADA / APROBADA CON OBSERVACIONES / CORREGIDA / RECHAZADA — RECLASIFICAR]
+CODIGO_VERIFICADO: [codigo de 8 digitos confirmado, o XXXX.XX.[verificar en Arancel RD]]
+DESCRIPCION_VERIFICADA: [descripcion oficial que respalda el codigo, o NO VERIFICADA]
+CHECK_PRODUCTO: [OK / OBSERVACION: descripcion breve]
+CHECK_CAPITULO: [OK / ERROR: descripcion breve]
+CHECK_CODIGO: [OK / ERROR: descripcion breve]
+CHECK_COHERENCIA: [OK / ERROR: descripcion breve]
+CHECK_RGI: [OK / OBSERVACION: descripcion breve]
+CHECK_PERMISOS: [OK / OBSERVACION: descripcion breve]
+CORRECCION: [descripcion de la correccion si aplica, o NINGUNA]
+---FIN_SUPERVISION---"""
+
+
+def ask_supervisor(question: str, clasificacion_inicial: str, api_key: str) -> str:
+    """
+    Agente Supervisor: revisa la clasificacion generada por el Agente Clasificador.
+    Actua como inspector senior auditando el trabajo de un analista junior.
+    Solo aplica al cuaderno de nomenclaturas.
+
+    Args:
+        question: Pregunta original del usuario
+        clasificacion_inicial: Respuesta completa del Agente Clasificador
+        api_key: Clave API de Gemini
+
+    Returns:
+        Texto de supervision con bloque ---SUPERVISION--- estructurado
+    """
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(
+            model_name="gemini-2.5-flash",
+            system_instruction=SUPERVISOR_PROMPT
+        )
+
+        prompt_supervisor = (
+            "Eres el Supervisor Arancelario Senior. A continuacion tienes:\n\n"
+            f"== CONSULTA ORIGINAL DEL USUARIO ==\n{question}\n\n"
+            "== CLASIFICACION ELABORADA POR EL AGENTE CLASIFICADOR ==\n"
+            f"{clasificacion_inicial}\n\n"
+            "Ejecuta tu checklist completo de supervision y emite tu revision con el bloque "
+            "---SUPERVISION---..---FIN_SUPERVISION--- al final. "
+            "Recuerda: SOLO puedes validar codigos que existan con certeza en el Arancel RD. "
+            "En caso de duda sobre la existencia de un codigo, marcarlo como NO VERIFICADO."
+        )
+
+        print("[SUPERVISOR] Iniciando revision de clasificacion...")
+        resp = model.generate_content(prompt_supervisor)
+        supervision = resp.text.strip()
+        print(f"[SUPERVISOR] Revision completada ({len(supervision)} chars)")
+        return supervision
+    except Exception as e:
+        import traceback
+        print(f"[SUPERVISOR] ERROR: {e}")
+        print(f"[SUPERVISOR] TRACEBACK: {traceback.format_exc()}")
+        return ""
+
 
 def ask_gemini(question: str, notebook_id: str) -> str:
     """
@@ -551,6 +675,13 @@ def ask_gemini(question: str, notebook_id: str) -> str:
         response = model.generate_content(full_prompt)
         answer = response.text.strip()
         print(f"[GEMINI] respuesta recibida ({len(answer)} chars)")
+
+        # ── Agente Supervisor (solo cuaderno de nomenclaturas) ──────────────
+        if notebook_id == "biblioteca-de-nomenclaturas":
+            supervision = ask_supervisor(question, answer, api_key)
+            if supervision:
+                answer = answer + "\n\n" + supervision
+
         return answer
     except Exception as e:
         import traceback
