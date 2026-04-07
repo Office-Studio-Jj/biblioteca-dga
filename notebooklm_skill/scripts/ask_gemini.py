@@ -51,7 +51,9 @@ Verificar: (1) Consistencia: la funcion concuerda con la partida SA asignada. (2
   a) FORMATO: El codigo tiene EXACTAMENTE 8 digitos (XXXX.XX.XX), NO 10 digitos, NO extensiones ".00.00" inventadas.
   b) DESCRIPCION: La descripcion oficial de la subpartida nacional COINCIDE con el producto consultado. Ejemplo de ERROR: recomendar 8501.10.10 ("Motores para juguetes") para un motor automotriz — la descripcion NO coincide.
   c) COHERENCIA: Si el producto es automotriz, la subpartida NO puede decir "para juguetes". Si el producto es alimenticio, la subpartida NO puede decir "para uso industrial". La descripcion debe SER COHERENTE con el producto.
-  Si el codigo falla CUALQUIERA de estas 3 validaciones, NO recomendar ese codigo. En su lugar, dar la subpartida SA de 6 digitos e indicar que la extension nacional requiere verificacion en el Arancel vigente de la DGA.
+  d) COHERENCIA DE CAPITULO: Verifica que el titulo del CAPITULO COMPLETO sea compatible con el producto. Ejemplos de INCOHERENCIA GRAVE confirmada: dispositivo electronico en Cap. 96 (higienicos/panales) → RECHAZADO; accesorio medico textil en 9018.90.91 (codigo que no existe, el rango termina en .19) → RECHAZADO. Si el capitulo es incompatible, "Los demas" de ese capitulo TAMPOCO aplica.
+  e) EXISTENCIA DEL CODIGO: Si el codigo termina en .91 pero el rango nacional de esa partida solo llega a .19 o .09, el codigo NO EXISTE — usar 6 digitos con nota de verificacion.
+  Si el codigo falla CUALQUIERA de estas 5 validaciones, NO recomendar ese codigo. En su lugar, dar la subpartida SA de 6 digitos e indicar que la extension nacional requiere verificacion en el Arancel vigente de la DGA.
 Determinar resultado: APROBADA / CONDICIONADA (falta documentacion especifica o extension nacional no verificada) / RECHAZADA (requiere revision completa).
 
 FUENTES CONFIABLES A CONSULTAR (auditoria interna obligatoria):
@@ -93,6 +95,34 @@ Los numeros NO siguen patrones intuitivos. Por ejemplo:
 Un motor de sunroof automotriz (DC) seria 8501.10.91, NUNCA 8501.10.10 (que es para juguetes).
 Este ejemplo demuestra que asumir o adivinar la extension nacional lleva a errores GRAVES.
 
+TRAMPA DE PATRONES NUMERICOS — ERRORES CONFIRMADOS EN CAMPO:
+En algunos capitulos las extensiones nacionales van de .11 a .19 (no usan .91/.92).
+Ejemplo REAL verificado: bajo 9018.90 en el Arancel RD las subpartidas nacionales son:
+  9018.90.11 = Para medida de la presion arterial
+  9018.90.12 = Endoscopios
+  9018.90.13 = De diatermia
+  9018.90.14 = De transfusion
+  9018.90.15 = De anestesia
+  9018.90.16 = Instrumentos de cirugia (bisturis, cizallas, tijeras, y similares)
+  9018.90.17 = Incubadoras
+  9018.90.18 = Grapas quirurgicas
+  9018.90.19 = Los demas
+NO EXISTE 9018.90.91 en el Arancel RD. Si un accesorio medico no encaja en .11-.18, es SIEMPRE 9018.90.19.
+REGLA: Cuando las extensiones de un capitulo terminan en .19 o .09, "Los demas" ES ese codigo — NO existe un .91 adicional.
+
+TRAMPA DEL CAPITULO 96.19 — ERROR CRITICO CONFIRMADO:
+La partida 96.19 en el Arancel de RD se denomina: "Compresas y tampones higienicos, panales y articulos similares, de cualquier materia."
+Sus subpartidas nacionales son EXCLUSIVAMENTE:
+  9619.00.10 = Compresas
+  9619.00.20 = Tampones
+  9619.00.30 = Panales
+  9619.00.40 = Toallas sanitarias
+  9619.00.50 = Panitos humedos
+  9619.00.90 = Los demas (dentro de higienicos/panales — NO es un comodin universal)
+PROHIBICION ABSOLUTA: NINGUN dispositivo electronico, aparato, herramienta, producto de tabaco/nicotina,
+ni mercancia no higienica puede clasificarse en 9619. Un vaper/cigarro electronico es Cap. 24 o Cap. 85/87.
+Si el modelo llega a 9619 para un producto no higienico, ES UNA ALUCINACION — reiniciar clasificacion.
+
 REGLAS OBLIGATORIAS DE CODIGOS:
 1. NUNCA generar codigos de 10 digitos (XXXX.XX.XX.XX NO EXISTE en RD).
 2. NUNCA adivinar la extension nacional. Si no conoces la descripcion OFICIAL EXACTA de la subpartida nacional en el Arancel de RD, NO la recomiendes.
@@ -104,6 +134,8 @@ REGLAS OBLIGATORIAS DE CODIGOS:
 8. Ejemplos de formatos INCORRECTOS: 8501.10.00.00 (10 digitos), 8501.10.10 para un motor automotriz (descripcion no coincide)
 9. Si tienes duda sobre la extension nacional exacta, escribe: "XXXX.XX.[verificar en Arancel RD]" y explica por que no puedes determinarla.
 10. SIEMPRE incluir junto al codigo la DESCRIPCION OFICIAL de la subpartida nacional que estas recomendando, para que el usuario pueda contrastar con su ejemplar del Arancel.
+11. VERIFICACION A NIVEL DE CAPITULO (obligatoria antes de confirmar cualquier codigo): Verifica que el TITULO del Capitulo completo sea coherente con el producto. Si el capitulo describe higienicos y tu producto es electronico → INCORRECTO. Si el capitulo describe optica/medicina y tu producto es textil → INCORRECTO. El hecho de que exista 'XXXX.XX.90 — Los demas' en cualquier partida NO significa que cualquier producto puede ir ahi si el capitulo es incompatible.
+12. PATRON .91 NO UNIVERSAL: El patron de extension .91 (como 8501.10.91) NO existe en todos los capitulos. En capitulos donde las extensiones terminan en .19 o .09, "Los demas" ES ese codigo. Si asignas .91 a una partida cuyo rango nacional termina en .19, es una ALUCINACION.
 
 FORMATO DE RESPUESTA — ESTRUCTURA OBLIGATORIA EN DOS PARTES:
 
