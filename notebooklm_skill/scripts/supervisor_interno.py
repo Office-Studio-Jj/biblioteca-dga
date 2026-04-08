@@ -186,6 +186,14 @@ CODIGOS_VERIFICADOS_RD = {
     },
     "8543.70": {"00": "Las demas maquinas y aparatos"},
     "8543.90": {"00": "Partes"},
+    # ── Capitulo 48: Papel y carton — verificado en Arancel impreso RD ───
+    # UNICA extension nacional valida para todas estas subpartidas: "00"
+    # Error comun de Gemini: genera .90 o .19 en lugar de .00
+    "4818.10": {"00": "Papel higienico"},
+    "4818.20": {"00": "Panuelos, toallitas de desmaquillar, toallas, sabanas y articulos similares para uso domestico, higienico o de tocador"},
+    "4818.30": {"00": "Manteles y servilletas"},
+    "4818.50": {"00": "Prendas y complementos (accesorios), de vestir"},
+    "4818.90": {"00": "Los demas"},  # papel camilla, papel sábana, etc.
 }
 
 
@@ -289,6 +297,16 @@ INCOHERENCIAS_CONOCIDAS = [
         "capitulos_incorrectos": ["8543", "8501", "3926"],
         "capitulo_correcto": "9619.00",
         "mensaje": "Productos higienicos → 9619.00.xx",
+    },
+    {
+        "productos": ["papel camilla", "papel sabana", "papel medico", "rollo medico",
+                      "papel examen", "papel camion", "sabana desechable"],
+        "capitulos_incorrectos": ["9619", "4818.90.90", "4818.90.19", "4818.90.10"],
+        "capitulo_correcto": "4818.90.00",
+        "mensaje": "Papel camilla y papeles similares de uso medico/sanitario → "
+                   "4818.90.00 (Los demas). "
+                   "NUNCA 4818.90.90 ni 4818.90.19 — NO EXISTEN en el Arancel RD. "
+                   "La unica extension valida bajo 4818.90 es .00",
     },
 ]
 
