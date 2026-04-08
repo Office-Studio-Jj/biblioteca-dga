@@ -182,15 +182,17 @@ def _validar_gravamen_python(resultado: dict, codigo: str) -> dict:
     return resultado
 
 
-def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str) -> dict | None:
+def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str, arancel_file=None) -> dict | None:
     """
     Verifica codigo arancelario Y cargos fiscales contra el Arancel RD.
+    Si arancel_file esta disponible, Gemini lee el PDF real.
     Una sola consulta dirigida cubre: existencia, gravamen, ITBIS, selectivo, otros.
 
     Args:
-        codigo:   Codigo de 8 digitos a verificar (ej: "4818.90.90")
-        producto: Descripcion del producto para contexto (ej: "papel camilla")
-        api_key:  GEMINI_API_KEY de Railway
+        codigo:       Codigo de 8 digitos a verificar (ej: "4818.90.90")
+        producto:     Descripcion del producto para contexto (ej: "papel camilla")
+        api_key:      GEMINI_API_KEY de Railway
+        arancel_file: Referencia al Arancel PDF en Gemini File API (opcional)
 
     Returns:
         dict completo con codigo + cargos verificados, o None si falla
@@ -223,7 +225,11 @@ def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str) -> dict 
         )
 
         print(f"[VERIFICADOR] Verificando codigo + cargos: {codigo} para: {producto[:60]}")
-        response = model.generate_content(pregunta)
+        if arancel_file:
+            print("[VERIFICADOR] Verificando contra Arancel PDF real")
+            response = model.generate_content([arancel_file, pregunta])
+        else:
+            response = model.generate_content(pregunta)
         texto = response.text.strip()
 
         # Extraer JSON — puede venir con backticks o texto adicional
@@ -375,7 +381,7 @@ def _corregir_cargos_en_respuesta(respuesta: str, resultado: dict, codigo_final:
     return respuesta
 
 
-def pre_verificar_codigo_en_respuesta(respuesta: str, pregunta: str, api_key: str) -> tuple[str, bool]:
+def pre_verificar_codigo_en_respuesta(respuesta: str, pregunta: str, api_key: str, arancel_file=None) -> tuple[str, bool]:
     """
     Punto de entrada principal. Extrae el SUBPARTIDA_NAC del borrador de Gemini,
     verifica el codigo Y los cargos fiscales contra el Arancel RD.
@@ -383,9 +389,10 @@ def pre_verificar_codigo_en_respuesta(respuesta: str, pregunta: str, api_key: st
     Se invoca desde ask_gemini.py ANTES de pasar la respuesta al supervisor.
 
     Args:
-        respuesta: Borrador completo de Gemini
-        pregunta:  Consulta original del usuario
-        api_key:   GEMINI_API_KEY
+        respuesta:    Borrador completo de Gemini
+        pregunta:     Consulta original del usuario
+        api_key:      GEMINI_API_KEY
+        arancel_file: Referencia al Arancel PDF en Gemini File API (opcional)
 
     Returns:
         (respuesta_corregida, fue_corregida)
@@ -406,7 +413,7 @@ def pre_verificar_codigo_en_respuesta(respuesta: str, pregunta: str, api_key: st
     fue_corregida = False
 
     # ── Consulta unica: verifica codigo + cargos fiscales ──
-    resultado = verificar_codigo_y_cargos(codigo, pregunta, api_key)
+    resultado = verificar_codigo_y_cargos(codigo, pregunta, api_key, arancel_file=arancel_file)
     if resultado is None:
         return respuesta, False
 

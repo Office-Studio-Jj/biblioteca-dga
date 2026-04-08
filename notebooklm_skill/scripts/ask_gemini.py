@@ -12,6 +12,8 @@ import argparse
 import sys
 import os
 import re
+import json
+import time
 
 try:
     import google.generativeai as genai
@@ -560,6 +562,67 @@ from supervisor_interno import CODIGOS_VERIFICADOS_RD as _CODIGOS_VERIFICADOS_RD
 from verificador_arancelario import pre_verificar_codigo_en_respuesta as _pre_verificar
 # ──────────────────────────────────────────────────────────────────────────
 
+# ── Arancel PDF: contexto real para consultas de nomenclatura ─────────────
+_ARANCEL_PDF = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "arancel_7ma_enmienda.pdf")
+_ARANCEL_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "arancel_gemini_cache.json")
+
+
+def _obtener_arancel_gemini(api_key):
+    """
+    Obtiene referencia al Arancel PDF en Gemini File API.
+    Primer uso: sube el PDF (~5.8MB, toma ~10s). Usos siguientes: cache 48h.
+    """
+    genai.configure(api_key=api_key)
+
+    # 1. Intentar cache local (evita re-subir)
+    if os.path.exists(_ARANCEL_CACHE):
+        try:
+            with open(_ARANCEL_CACHE, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+            file_ref = genai.get_file(cached["name"])
+            if file_ref.state.name == "ACTIVE":
+                print(f"[ARANCEL] PDF en cache Gemini: {file_ref.name}")
+                return file_ref
+            print("[ARANCEL] Cache expirado, re-subiendo...")
+        except Exception as e:
+            print(f"[ARANCEL] Cache invalido ({e}), re-subiendo...")
+
+    # 2. Verificar que el PDF existe localmente
+    if not os.path.exists(_ARANCEL_PDF):
+        print(f"[ARANCEL] PDF no encontrado en {_ARANCEL_PDF}")
+        return None
+
+    # 3. Subir a Gemini File API
+    print("[ARANCEL] Subiendo Arancel 7ma Enmienda a Gemini File API...")
+    try:
+        file_ref = genai.upload_file(
+            path=_ARANCEL_PDF,
+            display_name="Arancel 7ma Enmienda RD"
+        )
+
+        # Esperar procesamiento del PDF
+        intentos = 0
+        while file_ref.state.name == "PROCESSING" and intentos < 30:
+            print(f"[ARANCEL] Procesando PDF... ({intentos * 3}s)")
+            time.sleep(3)
+            file_ref = genai.get_file(file_ref.name)
+            intentos += 1
+
+        if file_ref.state.name != "ACTIVE":
+            print(f"[ARANCEL] Error: estado final = {file_ref.state.name}")
+            return None
+
+        # Guardar cache para proximas consultas
+        with open(_ARANCEL_CACHE, "w", encoding="utf-8") as f:
+            json.dump({"name": file_ref.name, "uri": file_ref.uri}, f)
+
+        print(f"[ARANCEL] PDF listo en Gemini: {file_ref.name}")
+        return file_ref
+
+    except Exception as e:
+        print(f"[ARANCEL] Error subiendo PDF: {e}")
+        return None
+
 
 def ask_gemini(question, notebook_id):
     """Consulta Gemini API. Borrador pasa por Supervisor General Interno (Python)."""
@@ -580,17 +643,35 @@ def ask_gemini(question, notebook_id):
         system_instruction=system_prompt
     )
 
+    # ── Para nomenclatura: obtener Arancel PDF como contexto real ──
+    arancel_file = None
+    if notebook_id == "biblioteca-de-nomenclaturas":
+        arancel_file = _obtener_arancel_gemini(api_key)
+
     # Refuerzo critico para nomenclatura
     refuerzo = ""
     if notebook_id == "biblioteca-de-nomenclaturas":
-        refuerzo = (
-            "\n\nRECORDATORIO CRITICO PARA ESTA CONSULTA:"
-            "\n1. Arancel RD usa EXACTAMENTE 8 digitos (XXXX.XX.XX). NUNCA 10."
-            "\n2. NO ADIVINES la extension nacional. Cita la DESCRIPCION OFICIAL."
-            "\n3. Si no conoces la descripcion oficial exacta, usa SOLO 6 digitos."
-            "\n4. VAPERS: SIEMPRE 8543.40.11 o 8543.40.12."
-            "\n5. NO EXISTEN: 9018.90.91, 8543.70.70, 8543.40.00.\n"
-        )
+        if arancel_file:
+            # CON Arancel PDF: decirle a Gemini que lo use
+            refuerzo = (
+                "\n\nRECORDATORIO CRITICO — TIENES EL ARANCEL PDF ADJUNTO:"
+                "\n1. BUSCA el codigo arancelario DIRECTAMENTE en el documento PDF adjunto."
+                "\n2. LEE la columna GRAV. del Arancel para obtener el gravamen REAL en porcentaje."
+                "\n3. LEE la columna EX. ITBIS: si esta EN BLANCO = ITBIS 18%. Si tiene marca = EXENTO."
+                "\n4. El codigo DEBE existir en el PDF adjunto. Si no lo encuentras, NO lo recomiendes."
+                "\n5. Formato EXACTO: XXXX.XX.XX (8 digitos). NUNCA 10 digitos."
+                "\n6. CITA la descripcion EXACTA que aparece en el Arancel junto al codigo.\n"
+            )
+        else:
+            # SIN Arancel PDF: modo conservador
+            refuerzo = (
+                "\n\nRECORDATORIO CRITICO PARA ESTA CONSULTA:"
+                "\n1. Arancel RD usa EXACTAMENTE 8 digitos (XXXX.XX.XX). NUNCA 10."
+                "\n2. NO ADIVINES la extension nacional. Cita la DESCRIPCION OFICIAL."
+                "\n3. Si no conoces la descripcion oficial exacta, usa SOLO 6 digitos."
+                "\n4. VAPERS: SIEMPRE 8543.40.11 o 8543.40.12."
+                "\n5. NO EXISTEN: 9018.90.91, 8543.70.70, 8543.40.00.\n"
+            )
 
     full_prompt = (
         "Contexto: Pregunta de un profesional de aduanas/comercio exterior "
@@ -599,16 +680,20 @@ def ask_gemini(question, notebook_id):
     )
 
     try:
-        response = model.generate_content(full_prompt)
+        # ── Generar respuesta: con o sin Arancel PDF ──
+        if arancel_file:
+            print("[GEMINI] Consultando CON Arancel PDF como contexto...")
+            response = model.generate_content([arancel_file, full_prompt])
+        else:
+            response = model.generate_content(full_prompt)
         answer = response.text.strip()
         print("[GEMINI] Borrador recibido (" + str(len(answer)) + " chars)")
 
         # ── VERIFICADOR ARANCELARIO AUTOMATICO (nomenclatura) ──────────────
-        # Verifica TODOS los codigos arancelarios sin excepcion:
-        # codigo, gravamen, ITBIS, selectivo, otros cargos.
+        # Verifica codigos y cargos contra el Arancel PDF real.
         if notebook_id == "biblioteca-de-nomenclaturas":
-            print("[GEMINI] Activando Verificador Arancelario para TODOS los codigos...")
-            answer, _corregido = _pre_verificar(answer, question, api_key)
+            print("[GEMINI] Activando Verificador Arancelario...")
+            answer, _corregido = _pre_verificar(answer, question, api_key, arancel_file=arancel_file)
             if _corregido:
                 print("[GEMINI] Verificador corrigio codigo y/o cargos antes del supervisor")
 
