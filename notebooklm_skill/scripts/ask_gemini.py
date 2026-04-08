@@ -109,7 +109,6 @@ Incluir SIEMPRE una tabla con porcentaje y descripcion de cada cargo:
 | Gravamen (NMF)  | Valor CIF            | X%                     | Estandar o preferencial (tratado)  |
 | ITBIS           | CIF + Gravamen       | 18% o EXENTO           | Ley o base de exencion si aplica   |
 | ISC             | Segun tipo (Cap.)    | Monto o % si aplica    | Solo Caps. 22, 24, 27, 87         |
-| CARGA TOTAL     | —                    | X% total sobre CIF     | Suma de todos los impuestos        |
 
 NOTA CRITICA: Si el Arancel.pdf disponible en la fuente indica una tasa diferente a las estandar, USAR la tasa del Arancel.pdf como fuente primaria. Las tasas de este prompt son orientativas. El Arancel vigente (Septima Enmienda) prevalece siempre.
 
@@ -215,7 +214,6 @@ RESTRICCIONES: [restricciones o permisos previos aplicables en max 1 linea, o NI
 GRAVAMEN: [X% — NMF estandar / o tasa preferencial indicando el tratado (DR-CAFTA, CARICOM, EPA)]
 ITBIS: [18% sobre (CIF + Gravamen) / o EXENTO — indicar base legal de exencion]
 ISC: [NO APLICA / o descripcion del cargo selectivo con tasa o monto si aplica (Caps. 22, 24, 27, 87)]
-CARGA_TOTAL: [resumen: ej. 3% Gravamen + 18% ITBIS = 21% sobre CIF / o detalle si hay ISC]
 ---FIN_CLASIFICACION---""",
 
     "biblioteca-legal-y-procedimiento-dga": """Eres un experto y asesor en Logística de Aduanas y Puertos de la República Dominicana, especializado en legislación aduanera y procedimientos de comercio exterior.
