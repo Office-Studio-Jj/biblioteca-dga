@@ -415,6 +415,8 @@
     .sup-corregida { background: #1e3a5f; color: #93c5fd; border-bottom: 1px solid #1e40af; }
     .sup-rechazada { background: #7f1d1d; color: #fca5a5; border-bottom: 1px solid #991b1b; }
     .sup-icon { font-size: 0.9rem; }
+    .sup-lock-ok   { font-size: 0.85rem; opacity: 0.9; }
+    .sup-lock-warn { font-size: 0.85rem; opacity: 0.7; }
     .sup-title { flex: 1; }
     .sup-resultado { font-size: 0.7rem; opacity: 0.9; text-align: right; }
     .sup-body {
@@ -1620,6 +1622,8 @@
         codigoVerificado: get('CODIGO_VERIFICADO'),
         descripcionVerif: get('DESCRIPCION_VERIFICADA'),
         correccion:       get('CORRECCION'),
+        firma:            get('FIRMA'),
+        timestamp:        get('TIMESTAMP'),
         checks:           checks,
       },
       cleanAnswer
@@ -1673,17 +1677,24 @@
           <span class="sup-desc-verif">${_esc(sd.descripcionVerif || '')}</span>
         </div>` : '';
 
+    const lockIcon = sd.firma ? '🔒' : '🔓';
+    const lockClass = sd.firma ? 'sup-lock-ok' : 'sup-lock-warn';
+    const lockTitle = sd.firma
+      ? 'Bloque firmado con HMAC-SHA256 — autenticidad verificada'
+      : 'Sin firma criptográfica — verificar autenticidad';
+
     box.innerHTML = `
       <div class="sup-header ${colorClass}">
         <span class="sup-icon">${icon}</span>
         <span class="sup-title">SUPERVISOR GENERAL INTERNO</span>
         <span class="sup-resultado">${_esc(res)}</span>
+        <span class="${lockClass}" title="${lockTitle}">${lockIcon}</span>
       </div>
       <div class="sup-body">
         ${codigoRow}
         <div class="sup-checks">${checkRows}</div>
         ${correccion}
-        <div class="sup-footer">${_esc(sd.verificadoPor || 'Python — determinístico')} · ${_esc(sd.cuaderno || '')}</div>
+        <div class="sup-footer">${_esc(sd.verificadoPor || 'Python — determinístico')} · ${_esc(sd.cuaderno || '')}${sd.firma ? ' · HMAC: ' + _esc(sd.firma.substring(0,8)) + '...' : ''}</div>
       </div>`;
   }
 

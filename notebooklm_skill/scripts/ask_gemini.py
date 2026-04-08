@@ -514,6 +514,7 @@ Cita artículos y leyes específicas cuando sea relevante."""
 # ── Supervisor General Interno (Python — controlador maestro) ─────────────
 # Gemini genera borradores. supervisor_interno.py los verifica, corrige o rechaza.
 from supervisor_interno import supervisar as _supervisar_respuesta
+from supervisor_interno import verificar_firma_supervision as _verificar_firma
 # ──────────────────────────────────────────────────────────────────────────
 
 
@@ -562,7 +563,19 @@ def ask_gemini(question, notebook_id):
         # ── SUPERVISOR GENERAL INTERNO — controla TODOS los cuadernos ──
         print("[GEMINI] Enviando borrador al Supervisor General Interno...")
         answer, bloque_supervision = _supervisar_respuesta(question, notebook_id, answer)
-        answer = answer + "\n\n" + bloque_supervision
+
+        # ── VERIFICACION DE FIRMA — candado criptografico ──
+        if _verificar_firma(bloque_supervision):
+            print("[GEMINI] Firma HMAC verificada — bloque autentico")
+            answer = answer + "\n\n" + bloque_supervision
+        else:
+            print("[GEMINI] *** ALERTA: firma invalida — bloque rechazado ***")
+            answer = answer + ("\n\n---SUPERVISION---\n"
+                              "RESULTADO: BLOQUEADO — FIRMA INVALIDA\n"
+                              "VERIFICADO_POR: Sistema de seguridad\n"
+                              "CHECK_SEGURIDAD: ERROR: Bloque de supervision no paso verificacion HMAC\n"
+                              "---FIN_SUPERVISION---")
+
         print("[GEMINI] Supervision completada")
 
         return answer

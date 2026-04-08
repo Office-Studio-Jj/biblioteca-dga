@@ -17,7 +17,135 @@ ARQUITECTURA:
 """
 
 import re
+import hashlib
+import hmac
+import json
+import os
+import time
 from typing import Dict, List, Tuple, Optional
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# SECCION 0: SEGURIDAD — CANDADO CRIPTOGRAFICO DEL SUPERVISOR
+# Ningún agente externo (Gemini, otro LLM, inyección) puede:
+#   - Generar bloques SUPERVISION validos (requiere firma HMAC)
+#   - Inyectar bloques falsos (se sanitizan antes de procesar)
+#   - Modificar los datos de referencia (hash de integridad)
+#   - Suplantar la identidad del supervisor (firma unica por instancia)
+# ══════════════════════════════════════════════════════════════════════════
+
+# Clave secreta de firma — configurar en Railway como SUPERVISOR_SECRET
+_SECRET_SEED = os.environ.get("SUPERVISOR_SECRET", "DGA_SGI_2026_CANDADO_MAESTRO")
+_SIGNING_KEY = hashlib.sha256((_SECRET_SEED + "_hmac_key").encode()).digest()
+
+# Hash de integridad — se calcula al cargar el modulo
+_INTEGRITY_HASH_AT_LOAD = None
+
+
+def _calcular_hash_integridad():
+    """Calcula SHA-256 de todas las bases de datos de referencia."""
+    payload = json.dumps({
+        "c": CODIGOS_VERIFICADOS_RD,
+        "l": {k: v["vigente"] for k, v in LEYES_RD.items()},
+        "d": list(DOMINIOS.keys()),
+        "i": [r["capitulo_correcto"] for r in INCOHERENCIAS_CONOCIDAS],
+    }, sort_keys=True, ensure_ascii=True)
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _verificar_integridad():
+    """Verifica que los datos de referencia no han sido manipulados en runtime."""
+    global _INTEGRITY_HASH_AT_LOAD
+    actual = _calcular_hash_integridad()
+    if _INTEGRITY_HASH_AT_LOAD is None:
+        _INTEGRITY_HASH_AT_LOAD = actual
+        print(f"[SEGURIDAD] Hash de integridad registrado: {actual[:16]}...")
+        return True
+    if actual != _INTEGRITY_HASH_AT_LOAD:
+        print(f"[SEGURIDAD] *** ALERTA: DATOS DE REFERENCIA MANIPULADOS ***")
+        print(f"[SEGURIDAD] Esperado: {_INTEGRITY_HASH_AT_LOAD[:16]}...")
+        print(f"[SEGURIDAD] Actual:   {actual[:16]}...")
+        return False
+    return True
+
+
+def _firmar_bloque(contenido: str, ts: str) -> str:
+    """Genera firma HMAC-SHA256 del bloque de supervision."""
+    msg = (contenido + "|" + ts).encode("utf-8")
+    return hmac.new(_SIGNING_KEY, msg, hashlib.sha256).hexdigest()[:24]
+
+
+def verificar_firma_supervision(bloque_texto: str) -> bool:
+    """
+    Verifica que un bloque SUPERVISION fue generado por ESTE modulo.
+    Uso: llamar desde ask_gemini.py o server.py para confirmar autenticidad.
+    """
+    m_firma = re.search(r'FIRMA:\s*([a-f0-9]+)', bloque_texto)
+    m_ts = re.search(r'TIMESTAMP:\s*(\d+)', bloque_texto)
+    if not m_firma or not m_ts:
+        return False
+    # Reconstruir contenido sin la linea FIRMA para verificar
+    contenido_sin_firma = re.sub(r'\nFIRMA:[^\n]*', '', bloque_texto)
+    esperada = _firmar_bloque(contenido_sin_firma, m_ts.group(1))
+    return hmac.compare_digest(m_firma.group(1), esperada)
+
+
+def _sanitizar_respuesta_gemini(respuesta: str) -> Tuple[str, List[str]]:
+    """
+    BARRERA DE SEGURIDAD #1: Limpia la respuesta de Gemini ANTES de procesarla.
+    Elimina cualquier intento de inyeccion, suplantacion o manipulacion.
+
+    Returns:
+        (respuesta_limpia, alertas_de_seguridad)
+    """
+    alertas = []
+
+    # 1. BLOQUEAR bloques ---SUPERVISION--- inyectados por Gemini
+    count = respuesta.count('---SUPERVISION---')
+    if count > 0:
+        alertas.append(f"INYECCION BLOQUEADA: {count} bloque(s) SUPERVISION falso(s) eliminado(s)")
+        while '---SUPERVISION---' in respuesta:
+            si = respuesta.find('---SUPERVISION---')
+            ei = respuesta.find('---FIN_SUPERVISION---')
+            if ei != -1:
+                respuesta = respuesta[:si].rstrip() + respuesta[ei + len('---FIN_SUPERVISION---'):]
+            else:
+                respuesta = respuesta[:si].rstrip()
+
+    # 2. BLOQUEAR lineas FIRMA: (solo el supervisor puede firmar)
+    if 'FIRMA:' in respuesta and '---DATOS_CLASIFICACION---' not in respuesta.split('FIRMA:')[0][-50:]:
+        firmas = re.findall(r'FIRMA:\s*[a-f0-9]+', respuesta)
+        if firmas:
+            alertas.append(f"INYECCION BLOQUEADA: {len(firmas)} FIRMA(s) falsa(s) eliminada(s)")
+            respuesta = re.sub(r'FIRMA:\s*[a-f0-9]+', '', respuesta)
+
+    # 3. BLOQUEAR lineas VERIFICADO_POR: (suplantacion del supervisor)
+    if 'VERIFICADO_POR:' in respuesta:
+        alertas.append("SUPLANTACION BLOQUEADA: VERIFICADO_POR falso eliminado")
+        respuesta = re.sub(r'VERIFICADO_POR:[^\n]*', '', respuesta)
+
+    # 4. BLOQUEAR lineas TIMESTAMP: fuera de contexto
+    ts_fuera = re.findall(r'TIMESTAMP:\s*\d+', respuesta)
+    if ts_fuera:
+        alertas.append(f"INYECCION BLOQUEADA: {len(ts_fuera)} TIMESTAMP(s) falso(s) eliminado(s)")
+        respuesta = re.sub(r'TIMESTAMP:\s*\d+', '', respuesta)
+
+    # 5. DETECTAR patrones de prompt injection / manipulacion
+    patrones_hostiles = [
+        (r'ignor(?:a|ar|e)\s+(?:el\s+)?supervisor', "intento de desactivar supervisor"),
+        (r'override\s+validat', "intento de override de validacion"),
+        (r'bypass\s+(?:the\s+)?check', "intento de bypass de checks"),
+        (r'skip\s+(?:the\s+)?supervis', "intento de saltar supervisor"),
+        (r'desactivar?\s+(?:el\s+)?supervisor', "intento de desactivar supervisor"),
+        (r'deshabilitar?\s+(?:el\s+)?supervisor', "intento de deshabilitar supervisor"),
+        (r'no\s+apliqu(?:e|es|ar)\s+(?:la\s+)?validaci[oó]n', "intento de evadir validacion"),
+        (r'RESULTADO:\s*APROBADA', "intento de pre-aprobar resultado"),
+    ]
+    for patron, desc in patrones_hostiles:
+        if re.search(patron, respuesta, re.IGNORECASE):
+            alertas.append(f"PROMPT INJECTION: {desc}")
+
+    return respuesta.strip(), alertas
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -405,8 +533,11 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
     """
     PUNTO DE ENTRADA PRINCIPAL del Supervisor General Interno.
 
-    Recibe el borrador de Gemini y ejecuta la bateria completa de validaciones.
-    TODAS las respuestas de TODOS los cuadernos pasan por aqui.
+    PROTOCOLO DE SEGURIDAD:
+      1. Verificar integridad de datos de referencia (anti-tampering)
+      2. Sanitizar respuesta de Gemini (anti-inyeccion)
+      3. Ejecutar bateria de validaciones
+      4. Firmar bloque de supervision con HMAC-SHA256 (anti-falsificacion)
 
     Args:
         pregunta:         Consulta original del usuario
@@ -414,65 +545,82 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
         respuesta_gemini: Respuesta bruta generada por Gemini (borrador)
 
     Returns:
-        Tupla (respuesta_corregida, bloque_supervision)
-        - respuesta_corregida: texto con correcciones aplicadas
-        - bloque_supervision:  bloque ---SUPERVISION---...---FIN_SUPERVISION---
+        Tupla (respuesta_corregida, bloque_supervision_firmado)
     """
     print(f"[SUPERVISOR_INTERNO] Validando respuesta para: {notebook_id}")
 
-    checks: List[Tuple[str, str, str]] = []  # (nombre, estado, mensaje)
-    respuesta = respuesta_gemini
+    # ══ SEGURIDAD PASO 1: Verificar integridad de datos de referencia ════
+    if not _verificar_integridad():
+        bloque_error = (
+            "---SUPERVISION---\n"
+            "RESULTADO: BLOQUEADO — INTEGRIDAD COMPROMETIDA\n"
+            "VERIFICADO_POR: Supervisor General Interno v1.0 (ALERTA DE SEGURIDAD)\n"
+            "CUADERNO: " + notebook_id + "\n"
+            "CHECK_SEGURIDAD: ERROR: Datos de referencia manipulados en runtime\n"
+            "CORRECCION: Reiniciar el servidor para restaurar integridad\n"
+            "---FIN_SUPERVISION---"
+        )
+        print("[SEGURIDAD] *** OPERACION BLOQUEADA: integridad comprometida ***")
+        return respuesta_gemini, bloque_error
 
-    # ── Check 1: Codigo arancelario (si hay bloque DATOS_CLASIFICACION) ──
+    # ══ SEGURIDAD PASO 2: Sanitizar respuesta de Gemini ══════════════════
+    respuesta, alertas_seguridad = _sanitizar_respuesta_gemini(respuesta_gemini)
+    for alerta in alertas_seguridad:
+        print(f"[SEGURIDAD] {alerta}")
+
+    # ══ VALIDACION: Ejecutar bateria de checks ═══════════════════════════
+    checks: List[Tuple[str, str, str]] = []
+
+    # Check 1: Codigo arancelario
     respuesta, st_cod, msg_cod = _check_codigo_arancelario(respuesta)
     checks.append(("Codigo", st_cod, msg_cod))
 
-    # ── Check 2: Incoherencia producto-capitulo ──────────────────────────
+    # Check 2: Incoherencia producto-capitulo
     st_inc, msg_inc = _check_incoherencia_producto(respuesta, pregunta)
     checks.append(("Capitulo", st_inc, msg_inc))
 
-    # ── Check 3: Dominio tematico del cuaderno ───────────────────────────
+    # Check 3: Dominio tematico
     st_dom, msg_dom = _check_dominio(respuesta, notebook_id)
     checks.append(("Dominio", st_dom, msg_dom))
 
-    # ── Check 4: Leyes y normativas citadas ──────────────────────────────
+    # Check 4: Leyes citadas
     st_ley, msg_ley = _check_leyes_citadas(respuesta, notebook_id)
     checks.append(("Leyes", st_ley, msg_ley))
 
-    # ── Check 5: Coherencia general ──────────────────────────────────────
+    # Check 5: Coherencia
     st_coh, msg_coh = _check_coherencia(respuesta, pregunta)
     checks.append(("Coherencia", st_coh, msg_coh))
 
-    # ── Check 6: Fuente / contexto dominicano ────────────────────────────
+    # Check 6: Fuente
     st_fue, msg_fue = _check_fuente(respuesta, notebook_id)
     checks.append(("Fuente", st_fue, msg_fue))
 
-    # ── Determinar resultado general ─────────────────────────────────────
+    # Check 7: Alertas de seguridad (si se detectaron inyecciones)
+    if alertas_seguridad:
+        checks.append(("Seguridad", "OBSERVACION",
+                        f"{len(alertas_seguridad)} inyeccion(es) bloqueada(s)"))
+    else:
+        checks.append(("Seguridad", "OK", "Sin intentos de inyeccion"))
+
+    # ── Determinar resultado ─────────────────────────────────────────────
     errores = [c for c in checks if c[1] == "ERROR"]
     observaciones = [c for c in checks if c[1] == "OBSERVACION"]
-
     hay_correccion_codigo = any(c[0] == "Codigo" and c[1] == "ERROR" for c in checks)
 
     if errores:
-        if hay_correccion_codigo:
-            resultado = "CORREGIDA"
-        else:
-            resultado = "CONDICIONADA"
+        resultado = "CORREGIDA" if hay_correccion_codigo else "CONDICIONADA"
     elif observaciones:
         resultado = "APROBADA CON OBSERVACIONES"
     else:
         resultado = "APROBADA"
 
-    # ── Extraer codigo verificado (si aplica) ────────────────────────────
+    # ── Extraer codigo verificado ────────────────────────────────────────
     codigo_verificado = "N/A"
     descripcion_verificada = "N/A"
-
-    tag_start = "---DATOS_CLASIFICACION---"
-    tag_end = "---FIN_CLASIFICACION---"
-    si = respuesta.find(tag_start)
-    ei = respuesta.find(tag_end)
+    si = respuesta.find("---DATOS_CLASIFICACION---")
+    ei = respuesta.find("---FIN_CLASIFICACION---")
     if si != -1 and ei != -1:
-        block = respuesta[si + len(tag_start):ei]
+        block = respuesta[si + len("---DATOS_CLASIFICACION---"):ei]
         m_code = re.search(r'SUBPARTIDA_NAC:\s*(\S+)', block)
         if m_code:
             codigo_verificado = m_code.group(1)
@@ -480,11 +628,11 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
         if m_desc:
             descripcion_verificada = m_desc.group(1).strip()
 
-    # ── Construir texto de correcciones ───────────────────────────────────
+    # ── Construir correcciones ───────────────────────────────────────────
     correcciones = [c[2] for c in checks if c[1] == "ERROR"]
     correccion_text = "; ".join(correcciones) if correcciones else "NINGUNA"
 
-    # ── Generar bloque SUPERVISION ────────────────────────────────────────
+    # ── Construir check lines ────────────────────────────────────────────
     check_lines = []
     for nombre, estado, mensaje in checks:
         tag = f"CHECK_{nombre.upper()}"
@@ -495,8 +643,11 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
 
     dominio = DOMINIOS.get(notebook_id, {})
     nombre_cuaderno = dominio.get("nombre", notebook_id)
+    ts = str(int(time.time()))
 
-    bloque = (
+    # ══ SEGURIDAD PASO 3: Generar bloque firmado ═════════════════════════
+    # El bloque se construye SIN firma, se firma, y se agrega la firma
+    bloque_sin_firma = (
         "---SUPERVISION---\n"
         f"RESULTADO: {resultado}\n"
         f"VERIFICADO_POR: Supervisor General Interno v1.0 (Python — deterministico)\n"
@@ -505,10 +656,36 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
         f"DESCRIPCION_VERIFICADA: {descripcion_verificada}\n"
         + "\n".join(check_lines) + "\n"
         f"CORRECCION: {correccion_text}\n"
+        f"TIMESTAMP: {ts}\n"
+        "---FIN_SUPERVISION---"
+    )
+
+    firma = _firmar_bloque(bloque_sin_firma, ts)
+
+    bloque_firmado = (
+        "---SUPERVISION---\n"
+        f"RESULTADO: {resultado}\n"
+        f"VERIFICADO_POR: Supervisor General Interno v1.0 (Python — deterministico)\n"
+        f"CUADERNO: {nombre_cuaderno}\n"
+        f"CODIGO_VERIFICADO: {codigo_verificado}\n"
+        f"DESCRIPCION_VERIFICADA: {descripcion_verificada}\n"
+        + "\n".join(check_lines) + "\n"
+        f"CORRECCION: {correccion_text}\n"
+        f"TIMESTAMP: {ts}\n"
+        f"FIRMA: {firma}\n"
         "---FIN_SUPERVISION---"
     )
 
     print(f"[SUPERVISOR_INTERNO] Resultado: {resultado} "
-          f"({len(errores)} errores, {len(observaciones)} observaciones)")
+          f"({len(errores)} errores, {len(observaciones)} obs) "
+          f"Firma: {firma[:8]}...")
 
-    return respuesta, bloque
+    return respuesta, bloque_firmado
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# SECCION 4: INICIALIZACION DE SEGURIDAD
+# Se ejecuta al importar el modulo — registra el hash de integridad
+# ══════════════════════════════════════════════════════════════════════════
+_INTEGRITY_HASH_AT_LOAD = _calcular_hash_integridad()
+print(f"[SUPERVISOR_INTERNO] Modulo cargado. Integridad: {_INTEGRITY_HASH_AT_LOAD[:16]}...")
