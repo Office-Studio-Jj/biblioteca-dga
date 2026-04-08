@@ -186,41 +186,69 @@ def _corregir_cargos_en_respuesta(respuesta: str, resultado: dict, codigo_final:
     bloque_cargos += "\n---FIN_CARGOS_VERIFICADOS---"
 
     # ── Corregir gravamen incorrecto en el texto de Gemini ──
-    # Patron: "Ad-Valorem: X%" o "Gravamen: X%" o "gravamen ... X%"
-    # Solo corregir si el verificador dio un valor concreto (no "?")
+    # Gemini usa muchos formatos distintos. Cubrir TODOS:
+    #   "Derecho Ad Valorem: 0%"  |  "**Ad-Valorem:** 0%"  |  "Ad Valorem: 0%"
+    #   "Gravamen ad valorem: 0%"  |  "Gravamen NMF: 0%"  |  "gravamen: 0%"
+    #   "* Derecho Ad Valorem: 0%"  |  "Arancel: 0%"
     if gravamen and gravamen not in ("?", "VERIFICAR EN ARANCEL VIGENTE"):
-        # Reemplazar porcentajes de gravamen incorrectos en el texto
+        _patrones_gravamen = [
+            # "Derecho Ad Valorem: 0%" (con o sin asteriscos/bullets)
+            r'([\*\s]*Derecho\s+Ad[\s\-]*Valorem:?\s*)\d+%',
+            # "**Ad-Valorem:** 0%" o "Ad Valorem: 0%"
+            r'(\*{0,2}Ad[\s\-]*Valorem:?\*{0,2}:?\s*)\d+%',
+            # "Gravamen NMF ad valorem: 0%" o "Gravamen: 0%"
+            r'(Gravamen\s*(?:NMF\s*)?(?:ad[\s\-]*valorem\s*)?(?:aplicable\s*)?:?\s*)\d+%',
+            # "Arancel: 0%"
+            r'(Arancel:?\s*)\d+%',
+        ]
+        for patron in _patrones_gravamen:
+            respuesta = re.sub(
+                patron,
+                r'\g<1>' + gravamen,
+                respuesta,
+                flags=re.IGNORECASE
+            )
+        # Tambien corregir en parentesis: "(0%)" → "(20%)"
         respuesta = re.sub(
-            r'(\*\*Ad[\s-]*Valorem:?\*\*:?\s*)\d+%',
-            r'\g<1>' + gravamen,
-            respuesta,
-            flags=re.IGNORECASE
-        )
-        respuesta = re.sub(
-            r'(Gravamen\s+(?:NMF\s+)?(?:ad[\s-]*valorem)?:?\s*)\d+%',
-            r'\g<1>' + gravamen,
+            r'(ad[\s\-]*valorem[^)]*?)\d+(%\s*(?:\(|,|\.|\)))',
+            r'\g<1>' + gravamen.replace('%', '') + r'\2',
             respuesta,
             flags=re.IGNORECASE
         )
 
     # ── Corregir ITBIS incorrecto en el texto ──
+    # Formatos: "ITBIS: 18%"  |  "**ITBIS:** 18%"  |  "* ITBIS: 18%"
+    #           "ITBIS (18%)"  |  "ITBIS...18%"
     if itbis and itbis not in ("?", "VERIFICAR EN ARANCEL VIGENTE"):
+        itbis_texto_reemplazo = itbis
+        if itbis_base and itbis.upper() == "EXENTO":
+            itbis_texto_reemplazo = f"EXENTO — {itbis_base}"
+
         if itbis.upper() == "EXENTO":
-            # Si es exento, reemplazar "18%" por "EXENTO"
-            respuesta = re.sub(
-                r'(\*\*ITBIS[^*]*\*\*:?\s*)18%[^\n]*',
-                r'\g<1>EXENTO' + (f' — {itbis_base}' if itbis_base else ''),
-                respuesta,
-                flags=re.IGNORECASE
-            )
-        else:
-            # Si tiene tasa especifica
-            respuesta = re.sub(
-                r'(\*\*ITBIS[^*]*\*\*:?\s*)(?:EXENTO|0%)',
-                r'\g<1>' + itbis,
-                respuesta,
-                flags=re.IGNORECASE
-            )
+            # Producto exento: reemplazar "18%" por "EXENTO"
+            _patrones_itbis_18 = [
+                r'([\*\s]*\*{0,2}ITBIS[^:\n]*:?\*{0,2}:?\s*)18%[^\n]*',
+                r'(ITBIS\s*\([^)]*)\b18%',
+            ]
+            for patron in _patrones_itbis_18:
+                respuesta = re.sub(
+                    patron,
+                    r'\g<1>' + itbis_texto_reemplazo,
+                    respuesta,
+                    flags=re.IGNORECASE
+                )
+        elif itbis != "18%":
+            # Tasa diferente a 18%
+            _patrones_itbis = [
+                r'([\*\s]*\*{0,2}ITBIS[^:\n]*:?\*{0,2}:?\s*)(?:EXENTO|0%|18%)[^\n]*',
+            ]
+            for patron in _patrones_itbis:
+                respuesta = re.sub(
+                    patron,
+                    r'\g<1>' + itbis_texto_reemplazo,
+                    respuesta,
+                    flags=re.IGNORECASE
+                )
 
     # ── Insertar bloque de cargos verificados antes de FIN_CLASIFICACION ──
     fin_clas = respuesta.find("---FIN_CLASIFICACION---")
