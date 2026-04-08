@@ -565,24 +565,14 @@ def ask_gemini(question, notebook_id):
         answer = response.text.strip()
         print("[GEMINI] Borrador recibido (" + str(len(answer)) + " chars)")
 
-        # ── VERIFICADOR ARANCELARIO AUTOMATICO (solo nomenclatura) ────────
-        # Verifica el codigo SUBPARTIDA_NAC contra el Arancel RD antes del supervisor.
-        # Si el codigo no existe, lo corrige automaticamente sin intervencion manual.
+        # ── VERIFICADOR ARANCELARIO AUTOMATICO (nomenclatura) ──────────────
+        # Verifica TODOS los codigos arancelarios sin excepcion:
+        # codigo, gravamen, ITBIS, selectivo, otros cargos.
         if notebook_id == "biblioteca-de-nomenclaturas":
-            import re as _re
-            # Detectar si el codigo ya esta en la base estatica del supervisor
-            _m = _re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', answer)
-            if _m:
-                _codigo = _m.group(1)
-                _sub_sa = ".".join(_codigo.split(".")[:2])
-                if _sub_sa not in _CODIGOS_VERIFICADOS_RD:
-                    # Codigo no esta en base estatica — verificacion dinamica
-                    print(f"[GEMINI] Codigo {_codigo} no en base estatica — activando Verificador Arancelario...")
-                    answer, _corregido = _pre_verificar(answer, question, api_key)
-                    if _corregido:
-                        print(f"[GEMINI] Verificador corrigio el codigo antes del supervisor")
-                else:
-                    print(f"[GEMINI] Codigo {_codigo} en base estatica — verificacion por supervisor")
+            print("[GEMINI] Activando Verificador Arancelario para TODOS los codigos...")
+            answer, _corregido = _pre_verificar(answer, question, api_key)
+            if _corregido:
+                print("[GEMINI] Verificador corrigio codigo y/o cargos antes del supervisor")
 
         # ── SUPERVISOR GENERAL INTERNO — controla TODOS los cuadernos ──
         print("[GEMINI] Enviando borrador al Supervisor General Interno...")
