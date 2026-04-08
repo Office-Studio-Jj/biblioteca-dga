@@ -33,26 +33,55 @@ except ImportError:
 # ══════════════════════════════════════════════════════════════════════════
 
 _SYSTEM_VERIFICACION = """Eres un verificador tecnico del Arancel de Aduanas de la Republica Dominicana.
-Tu funcion es verificar DOS cosas para un codigo arancelario especifico:
+Tu funcion es verificar un codigo arancelario y sus cargos fiscales.
+
+ESTRUCTURA DE LA TABLA DEL ARANCEL DE LA RD (como leer el libro):
+El Arancel impreso de la Republica Dominicana tiene estas columnas:
+  | CODIGO | DESIGNACION DE LA MERCANCIA | GRAV. | EX. ITBIS |
+
+- Columna CODIGO: codigo arancelario de 8 digitos (XXXX.XX.XX)
+- Columna DESIGNACION: descripcion oficial de la mercancia
+- Columna GRAV.: porcentaje de gravamen ad-valorem. Es un NUMERO (ej: 8, 14, 20).
+  Este numero ES el porcentaje de gravamen. Si dice 20, el gravamen es 20%.
+- Columna EX. ITBIS: si esta EN BLANCO = ITBIS 18% aplica. Si tiene una marca = EXENTO de ITBIS.
 
 VERIFICACION 1 — EXISTENCIA DEL CODIGO:
 1. Busca el codigo exacto (8 digitos, XXXX.XX.XX) en el Arancel de la RD.
 2. Si NO existe con esa extension nacional exacta: proporciona el codigo correcto.
 3. Muchas subpartidas SA solo tienen extension .00 — en esos casos .90, .19, .10 NO existen.
 
-VERIFICACION 2 — CARGOS FISCALES REALES:
-Para el codigo CORRECTO (ya verificado), determina los cargos REALES segun el Arancel y leyes fiscales de la RD:
+VERIFICACION 2 — GRAVAMEN AD-VALOREM (columna GRAV.):
+Lee el NUMERO que aparece en la columna GRAV. junto al codigo en el Arancel.
 
-a) GRAVAMEN AD-VALOREM: El porcentaje que aparece junto al codigo en el Arancel.
-   - Valores comunes: 0%, 3%, 8%, 14%, 20%, 25%.
-   - Si el producto tiene acuerdo comercial (DR-CAFTA, CARICOM, EPA), indicarlo como alternativa.
+REGLA ANTI-ALUCINACION CRITICA SOBRE EL GRAVAMEN:
+- El gravamen 0% es MUY RARO en el Arancel RD. La gran mayoria de productos tiene gravamen > 0%.
+- NUNCA respondas 0% a menos que el Arancel EXPLICITAMENTE muestre 0 en la columna GRAV.
+- Si no puedes leer el numero exacto de la columna GRAV., responde "VERIFICAR EN ARANCEL VIGENTE".
+- NO asumas, NO adivines, NO inventes. Lee el numero de la tabla.
 
-b) ITBIS: Impuesto sobre Transferencias de Bienes Industrializados y Servicios.
-   - Tasa general: 18% sobre (CIF + gravamen).
-   - EXENTO: Algunos productos estan exentos por ley (alimentos basicos, medicamentos,
-     insumos agropecuarios, libros, combustibles, segun Ley 11-92 Art. 343 y modificaciones).
-   - Si el producto esta exento, indicar "EXENTO" y la base legal.
-   - NO asumir exencion sin base legal. Por defecto aplica 18%.
+GRAVAMENES CONOCIDOS POR CAPITULO (referencia de validacion):
+  Cap. 01-05 (animales): 8-25%     Cap. 06-14 (vegetales): 3-20%
+  Cap. 15-24 (alimentos): 8-25%    Cap. 25-27 (minerales): 3-20%
+  Cap. 28-38 (quimicos): 3-14%     Cap. 39-40 (plasticos): 8-20%
+  Cap. 41-43 (cueros): 8-20%       Cap. 44-46 (madera): 8-20%
+  Cap. 47-49 (papel): 8-20%        Cap. 50-63 (textiles): 14-20%
+  Cap. 64-67 (calzado): 20%        Cap. 68-70 (piedra/vidrio): 8-20%
+  Cap. 71 (metales preciosos): 8-20%  Cap. 72-83 (metales comunes): 3-20%
+  Cap. 84-85 (maquinas/electr): 3-20% Cap. 86-89 (vehiculos): 3-20%
+  Cap. 90-92 (instrumentos): 3-14% Cap. 93 (armas): 20-25%
+  Cap. 94-96 (muebles/varios): 14-20% Cap. 97 (arte): 3-20%
+
+Si tu respuesta de gravamen es 0% pero el capitulo indica un rango de 8-20%,
+tu respuesta PROBABLEMENTE es incorrecta. Verifica de nuevo.
+
+VERIFICACION 3 — ITBIS (columna EX. ITBIS):
+- Tasa general: 18% sobre (CIF + gravamen).
+- Lee la columna EX. ITBIS del Arancel:
+  Si esta EN BLANCO → ITBIS 18% aplica normalmente.
+  Si tiene una marca (X, E, 0, o similar) → producto EXENTO de ITBIS.
+- Productos tipicamente exentos: alimentos basicos (canasta familiar), medicamentos,
+  insumos agropecuarios, libros, combustibles (Ley 11-92 Art. 343).
+- NO asumir exencion sin evidencia. Por defecto aplica 18%.
 
 c) SELECTIVO AL CONSUMO: Impuesto selectivo (Ley 11-92, Titulo IV).
    - Aplica a: bebidas alcoholicas, tabaco, vehiculos de motor, productos de lujo, combustibles.
@@ -80,6 +109,77 @@ FORMATO DE RESPUESTA — EXCLUSIVAMENTE JSON, sin texto adicional:
 
 NO agregues texto antes ni despues del JSON.
 Si no puedes determinar un cargo con certeza, indica "VERIFICAR EN ARANCEL VIGENTE" en ese campo."""
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# GRAVAMENES MINIMOS POR CAPITULO — red de seguridad Python
+# Si Gemini dice 0% pero el capitulo tiene un minimo conocido > 0%,
+# Python rechaza el 0% y marca como sospechoso.
+# Fuente: Arancel de Aduanas de la RD, verificado en campo.
+# ══════════════════════════════════════════════════════════════════════════
+_GRAVAMEN_MINIMO_POR_CAPITULO = {
+    # Cap 01-24: Productos animales, vegetales, alimentos
+    "01": 8, "02": 14, "03": 8, "04": 8, "05": 3,
+    "06": 3, "07": 8, "08": 8, "09": 8, "10": 3,
+    "11": 8, "12": 3, "13": 3, "14": 3,
+    "15": 8, "16": 14, "17": 8, "18": 14, "19": 14, "20": 14,
+    "21": 14, "22": 8, "23": 3, "24": 20,
+    # Cap 25-27: Minerales y combustibles
+    "25": 3, "26": 3, "27": 0,  # combustibles pueden ser 0%
+    # Cap 28-38: Productos quimicos
+    "28": 3, "29": 3, "30": 0,  # medicamentos pueden ser 0%
+    "31": 0,  # abonos pueden ser 0%
+    "32": 3, "33": 8, "34": 8, "35": 3, "36": 14, "37": 3, "38": 3,
+    # Cap 39-40: Plasticos y caucho
+    "39": 8, "40": 3,
+    # Cap 41-49: Cueros, madera, papel
+    "41": 3, "42": 14, "43": 14, "44": 3, "45": 8, "46": 14,
+    "47": 3, "48": 8, "49": 3,
+    # Cap 50-67: Textiles, calzado
+    "50": 3, "51": 3, "52": 3, "53": 3, "54": 8, "55": 8,
+    "56": 8, "57": 14, "58": 14, "59": 3, "60": 8,
+    "61": 14, "62": 14, "63": 14, "64": 20, "65": 14, "66": 14, "67": 14,
+    # Cap 68-71: Piedra, ceramica, vidrio, metales preciosos
+    "68": 8, "69": 8, "70": 8, "71": 8,
+    # Cap 72-83: Metales comunes
+    "72": 3, "73": 3, "74": 3, "75": 3, "76": 3,
+    "78": 3, "79": 3, "80": 3, "81": 3, "82": 8, "83": 14,
+    # Cap 84-85: Maquinas y aparatos electricos
+    "84": 3, "85": 3,
+    # Cap 86-89: Material de transporte
+    "86": 3, "87": 3, "88": 3, "89": 3,
+    # Cap 90-97: Instrumentos, armas, muebles, varios
+    "90": 3, "91": 8, "92": 14, "93": 20,
+    "94": 14, "95": 14, "96": 8, "97": 3,
+}
+
+
+def _validar_gravamen_python(resultado: dict, codigo: str) -> dict:
+    """
+    Red de seguridad Python: si Gemini dice gravamen 0% pero el capitulo
+    normalmente tiene gravamen > 0%, marca como sospechoso.
+    """
+    grav_str = resultado.get("gravamen_ad_valorem", "?")
+    if grav_str in ("?", "VERIFICAR EN ARANCEL VIGENTE", ""):
+        return resultado
+
+    # Extraer numero del gravamen
+    m = re.search(r'(\d+)', grav_str)
+    if not m:
+        return resultado
+
+    grav_num = int(m.group(1))
+    capitulo = codigo[:2]
+
+    gravamen_minimo = _GRAVAMEN_MINIMO_POR_CAPITULO.get(capitulo, 0)
+
+    if grav_num < gravamen_minimo:
+        print(f"[VERIFICADOR-PYTHON] ALERTA: Gemini dijo {grav_num}% para cap. {capitulo} "
+              f"pero el minimo conocido es {gravamen_minimo}%. Marcando como sospechoso.")
+        resultado["gravamen_ad_valorem"] = f"VERIFICAR EN ARANCEL VIGENTE (Gemini respondio {grav_num}% pero cap. {capitulo} tiene minimo {gravamen_minimo}%)"
+        resultado["gravamen_alerta"] = True
+
+    return resultado
 
 
 def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str) -> dict | None:
@@ -111,14 +211,15 @@ def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str) -> dict 
         )
 
         pregunta = (
-            f"Verifica el siguiente codigo arancelario en el Arancel de la "
-            f"Republica Dominicana y determina TODOS los cargos fiscales aplicables:\n\n"
-            f"Codigo a verificar: {codigo}\n"
+            f"Verifica el codigo arancelario {codigo} en el Arancel de la Republica Dominicana.\n"
             f"Producto: {producto}\n\n"
-            f"1. ¿Existe el codigo {codigo} en el Arancel RD con esa extension nacional exacta?\n"
-            f"2. ¿Cual es el gravamen ad-valorem REAL que aparece en el Arancel para este codigo?\n"
-            f"3. ¿Este producto esta exento de ITBIS o paga 18%? Cita la base legal.\n"
-            f"4. ¿Aplica impuesto selectivo al consumo? ¿Otros cargos?\n"
+            f"INSTRUCCIONES ESPECIFICAS:\n"
+            f"1. ¿Existe el codigo {codigo} con esa extension nacional exacta?\n"
+            f"2. Lee la columna GRAV. del Arancel junto a este codigo. "
+            f"¿Que NUMERO aparece en esa columna? Ese numero es el gravamen ad-valorem en porcentaje. "
+            f"NO respondas 0% a menos que la columna GRAV. explicitamente muestre 0.\n"
+            f"3. Lee la columna EX. ITBIS. ¿Esta en blanco (ITBIS 18% aplica) o tiene marca (EXENTO)?\n"
+            f"4. ¿Aplica selectivo al consumo u otros cargos?\n"
         )
 
         print(f"[VERIFICADOR] Verificando codigo + cargos: {codigo} para: {producto[:60]}")
@@ -142,6 +243,12 @@ def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str) -> dict 
             itbis = resultado.get("itbis", "?")
             selec = resultado.get("selectivo", "?")
 
+            # ── VALIDACION PYTHON: detectar gravamen 0% sospechoso ──
+            # Si Gemini dice 0% pero el capitulo normalmente tiene gravamen,
+            # marcar como no confiable y forzar "VERIFICAR EN ARANCEL VIGENTE"
+            resultado = _validar_gravamen_python(resultado, codigo_c or codigo)
+
+            grav = resultado.get("gravamen_ad_valorem", "?")
             estado = "CONFIRMADO" if existe else "NO EXISTE"
             print(f"[VERIFICADOR] Codigo: {codigo} → {estado} (correcto: {codigo_c})")
             print(f"[VERIFICADOR] Gravamen: {grav} | ITBIS: {itbis} | Selectivo: {selec}")
@@ -190,7 +297,14 @@ def _corregir_cargos_en_respuesta(respuesta: str, resultado: dict, codigo_final:
     #   "Derecho Ad Valorem: 0%"  |  "**Ad-Valorem:** 0%"  |  "Ad Valorem: 0%"
     #   "Gravamen ad valorem: 0%"  |  "Gravamen NMF: 0%"  |  "gravamen: 0%"
     #   "* Derecho Ad Valorem: 0%"  |  "Arancel: 0%"
-    if gravamen and gravamen not in ("?", "VERIFICAR EN ARANCEL VIGENTE"):
+    es_gravamen_alerta = resultado.get("gravamen_alerta", False)
+
+    if gravamen and gravamen not in ("?",):
+        # Si es alerta de Python (0% sospechoso), reemplazar el 0% con la advertencia
+        gravamen_reemplazo = gravamen
+        if es_gravamen_alerta or "VERIFICAR" in gravamen:
+            gravamen_reemplazo = gravamen
+
         _patrones_gravamen = [
             # "Derecho Ad Valorem: 0%" (con o sin asteriscos/bullets)
             r'([\*\s]*Derecho\s+Ad[\s\-]*Valorem:?\s*)\d+%',
@@ -204,7 +318,7 @@ def _corregir_cargos_en_respuesta(respuesta: str, resultado: dict, codigo_final:
         for patron in _patrones_gravamen:
             respuesta = re.sub(
                 patron,
-                r'\g<1>' + gravamen,
+                r'\g<1>' + gravamen_reemplazo,
                 respuesta,
                 flags=re.IGNORECASE
             )
