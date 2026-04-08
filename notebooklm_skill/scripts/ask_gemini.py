@@ -511,342 +511,65 @@ FUENTES CONFIABLES:
 Responde SIEMPRE en español, de forma técnica, precisa y fundamentada en la legislación vigente.
 Cita artículos y leyes específicas cuando sea relevante."""
 
-# ── Prompt del Agente Supervisor Arancelario ──────────────────────────────
-SUPERVISOR_PROMPT = """Eres el SUPERVISOR ARANCELARIO SENIOR de la Biblioteca de Nomenclaturas DGA.
-Actuas como un Inspector Senior de la Direccion General de Aduanas que revisa el trabajo de un analista junior.
-
-MISION EXCLUSIVA:
-Recibes una clasificacion arancelaria ya elaborada y DEBES AUDITARLA CRITICA Y OBJETIVAMENTE.
-Tu funcion NO es clasificar desde cero — es REVISAR, DETECTAR ERRORES y EMITIR CORRECCION si aplica.
-
-PRINCIPIO DE FUENTE UNICA — REGLA ABSOLUTA:
-SOLO puedes validar o confirmar codigos que existan con certeza en el Arancel de Aduanas de la Republica Dominicana.
-Si un codigo no puede confirmarse como existente en el Arancel RD con certeza absoluta:
-  → Marcarlo como NO VERIFICADO y recomendar verificacion fisica en el Arancel impreso.
-NO uses fuentes externas, conocimiento general ni patrones de otros paises para validar codigos.
-Actua como si SOLO tuvieras el Arancel de Aduanas de la RD frente a ti.
-
-CHECKLIST DE SUPERVISION (ejecutar en orden, documentar cada resultado):
-
-[CHECK 1 — IDENTIDAD DEL PRODUCTO]
-¿La identificacion tecnica del producto en la clasificacion corresponde exactamente a lo que el usuario consulto?
-Si el sistema clasifico un producto diferente al consultado → ERROR DE IDENTIDAD.
-
-[CHECK 2 — COHERENCIA DE CAPITULO]
-¿El capitulo arancelario asignado es el correcto para este tipo de mercancia?
-El titulo del capitulo DEBE ser compatible con la naturaleza del producto.
-ERRORES CRITICOS CONFIRMADOS EN CAMPO:
-  - Vapers, cigarrillos electronicos → 8543.40.11 o 8543.40.12. NUNCA 9619, NUNCA Cap.24, NUNCA 8543.70
-  - Dispositivos electronicos en general → NUNCA Cap. 96.19 (higienicos/panales)
-  - Accesorios medicos textiles bajo 9018.90 → verificar que el capitulo 90 aplique por funcion medica
-  - Si el capitulo describe un tipo de mercancia incompatible con el producto → ERROR GRAVE
-CODIGOS VERIFICADOS para VAPERS en el Arancel RD (partida 85.43):
-  8543.10.00 = Aceleradores de particulas
-  8543.20.00 = Generadores de senales
-  8543.30.00 = Galvanoplastia, electrolisis, electroforesis
-  8543.40.11 = Cigarrillos electronicos personales
-  8543.40.12 = Dispositivos de vaporizacion electricos personales
-  8543.70.00 = Las demas maquinas y aparatos
-  8543.90.00 = Partes
-  NO EXISTE: 8543.70.70, 8543.40.00, 8543.70.90 ni ninguna otra extension.
-
-[CHECK 3 — EXISTENCIA DEL CODIGO NACIONAL]
-¿El codigo de 8 digitos EXISTE fisicamente en el Arancel de la RD?
-CODIGOS CONFIRMADOS COMO INEXISTENTES EN EL ARANCEL RD:
-  - 9018.90.91 — NO EXISTE. El rango de 9018.90 en RD va de .11 a .19. "Los demas" = 9018.90.19
-  - 8543.70.70 — NO EXISTE. Solo existe 8543.70.00. Los vapers son 8543.40.11 o 8543.40.12.
-  - 9619.00.90 para dispositivos electronicos — INCOHERENTE. 9619 es solo higienicos.
-PATRON TRAMPA — ERROR RECURRENTE:
-  Si el codigo tiene extension .91 o .92 pero el rango nacional del capitulo termina en .19 o .09
-  → ese codigo NO EXISTE. "Los demas" en ese capitulo ES el .19 o .09, no hay .91 adicional.
-  Si el codigo tiene extension .70 pero la unica extension real es .00 bajo esa subpartida
-  → ese codigo NO EXISTE (ej: 8543.70.00 existe, 8543.70.70 NO).
-  Cuando no puedas confirmar el patron → usar 6 digitos con nota de verificacion.
-
-[CHECK 4 — COHERENCIA DESCRIPCION vs. PRODUCTO]
-¿La descripcion oficial de la subpartida nacional recomendada corresponde al producto consultado?
-"Los demas" bajo una partida es valido SOLO si el producto no encaja en ninguna subpartida especifica anterior.
-Si la descripcion del codigo dice una cosa y el producto es otra → INCORRECTO aunque ambos sean "Los demas".
-
-[CHECK 5 — RGI Y FUNDAMENTOS LEGALES]
-¿Las Reglas Generales de Interpretacion citadas son las correctas y estan bien aplicadas?
-¿Las leyes y decretos citados son los vigentes y aplican al producto?
-
-[CHECK 6 — RESTRICCIONES Y PERMISOS PREVIOS]
-¿Los permisos previos y restricciones citados son coherentes con la clasificacion arancelaria?
-
-RESULTADO DE LA SUPERVISION — OBLIGATORIO, UNO DE:
-- APROBADA: todos los checks pasan, la clasificacion es correcta y verificable.
-- APROBADA CON OBSERVACIONES: clasificacion usable con puntos menores a mejorar o verificar.
-- CORREGIDA: se detectaron errores, se emite codigo corregido con justificacion.
-- RECHAZADA — RECLASIFICAR: error grave (capitulo incorrecto, codigo inexistente, incoherencia severa).
-
-FORMATO DE SALIDA OBLIGATORIO:
-
-PARTE A — NARRATIVA (3-8 lineas, tono de Inspector Senior revisando trabajo de analista):
-Escribe la revision como si fuera el comentario de un profesor corrigiendo un examen.
-Senala lo que esta bien, lo que esta mal y por que, con referencias al Arancel.
-
-PARTE B — BLOQUE ESTRUCTURADO (siempre al final, sin omitirlo):
-
----SUPERVISION---
-RESULTADO: [APROBADA / APROBADA CON OBSERVACIONES / CORREGIDA / RECHAZADA — RECLASIFICAR]
-CODIGO_VERIFICADO: [codigo de 8 digitos confirmado, o XXXX.XX.[verificar en Arancel RD]]
-DESCRIPCION_VERIFICADA: [descripcion oficial que respalda el codigo, o NO VERIFICADA]
-CHECK_PRODUCTO: [OK / OBSERVACION: descripcion breve]
-CHECK_CAPITULO: [OK / ERROR: descripcion breve]
-CHECK_CODIGO: [OK / ERROR: descripcion breve]
-CHECK_COHERENCIA: [OK / ERROR: descripcion breve]
-CHECK_RGI: [OK / OBSERVACION: descripcion breve]
-CHECK_PERMISOS: [OK / OBSERVACION: descripcion breve]
-CORRECCION: [descripcion de la correccion si aplica, o NINGUNA]
----FIN_SUPERVISION---"""
+# ── Supervisor General Interno (Python — controlador maestro) ─────────────
+# Gemini genera borradores. supervisor_interno.py los verifica, corrige o rechaza.
+from supervisor_interno import supervisar as _supervisar_respuesta
+# ──────────────────────────────────────────────────────────────────────────
 
 
-# ── VALIDADOR PROGRAMATICO — Codigos verificados del Arancel RD ──────────
-# Diccionario de subpartidas nacionales CONFIRMADAS fisicamente en el Arancel
-# impreso de la Republica Dominicana. Cada clave es la subpartida SA (6 digitos),
-# cada valor es un dict de extension_nacional → descripcion oficial.
-# Si un capitulo esta aqui y Gemini genera un codigo que NO esta en la lista,
-# el codigo es INVALIDO y se reemplaza automaticamente por 6 digitos + nota.
-CODIGOS_VERIFICADOS_RD = {
-    "9018.90": {
-        "11": "Para medida de la presion arterial",
-        "12": "Endoscopios",
-        "13": "De diatermia",
-        "14": "De transfusion",
-        "15": "De anestesia",
-        "16": "Instrumentos de cirugia (bisturis, cizallas, tijeras, y similares)",
-        "17": "Incubadoras",
-        "18": "Grapas quirurgicas",
-        "19": "Los demas",
-    },
-    "9619.00": {
-        "10": "Compresas",
-        "20": "Tampones",
-        "30": "Panales",
-        "40": "Toallas sanitarias",
-        "50": "Panitos humedos",
-        "90": "Los demas",
-    },
-    "8543.10": {"00": "Aceleradores de particulas"},
-    "8543.20": {"00": "Generadores de senales"},
-    "8543.30": {"00": "Maquinas y aparatos de galvanoplastia, electrolisis o electroforesis"},
-    "8543.40": {
-        "11": "Cigarrillos electronicos personales",
-        "12": "Dispositivos de vaporizacion electricos personales",
-    },
-    "8543.70": {"00": "Las demas maquinas y aparatos"},
-    "8543.90": {"00": "Partes"},
-}
-
-
-def validar_codigo_nacional(answer: str) -> str:
-    """
-    Validador programatico DETERMINISTICO — intercepta codigos alucinados.
-    Busca el bloque DATOS_CLASIFICACION en la respuesta, extrae SUBPARTIDA_NAC,
-    y verifica si el codigo existe en CODIGOS_VERIFICADOS_RD.
-    Si el codigo es invalido y su subpartida SA esta en nuestra lista verificada:
-      → Reemplaza por la subpartida SA de 6 digitos + nota de verificacion.
-      → Cambia AUDITORIA a CONDICIONADA.
-    Si la subpartida SA NO esta en nuestra lista: no modifica (no tenemos datos).
-    """
-    # Extraer bloque DATOS_CLASIFICACION
-    start_tag = "---DATOS_CLASIFICACION---"
-    end_tag = "---FIN_CLASIFICACION---"
-    si = answer.find(start_tag)
-    if si == -1:
-        return answer
-    ei = answer.find(end_tag)
-    if ei == -1:
-        return answer
-
-    block = answer[si + len(start_tag):ei]
-
-    # Extraer SUBPARTIDA_NAC
-    m = re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', block)
-    if not m:
-        return answer  # No hay codigo de 8 digitos, nada que validar
-
-    codigo_completo = m.group(1)  # ej: "8543.70.70"
-    partes = codigo_completo.split(".")
-    if len(partes) != 3:
-        return answer
-
-    subpartida_sa = f"{partes[0]}.{partes[1]}"  # ej: "8543.70"
-    extension_nac = partes[2]                     # ej: "70"
-
-    # Solo validar si tenemos datos verificados para esta subpartida SA
-    if subpartida_sa not in CODIGOS_VERIFICADOS_RD:
-        print(f"[VALIDADOR] Subpartida SA {subpartida_sa} no esta en lista verificada — sin cambios")
-        return answer
-
-    extensiones_validas = CODIGOS_VERIFICADOS_RD[subpartida_sa]
-
-    if extension_nac in extensiones_validas:
-        print(f"[VALIDADOR] Codigo {codigo_completo} VERIFICADO — existe en Arancel RD")
-        return answer
-
-    # ── CODIGO INVALIDO DETECTADO ──
-    # Buscar la extension "Los demas" como alternativa
-    ext_los_demas = None
-    for ext, desc in extensiones_validas.items():
-        if "los demas" in desc.lower() or "las demas" in desc.lower():
-            ext_los_demas = ext
-            break
-
-    codigos_disponibles = ", ".join(
-        f"{subpartida_sa}.{e} ({d})" for e, d in extensiones_validas.items()
-    )
-
-    # Determinar codigo corregido
-    if ext_los_demas:
-        codigo_corregido = f"{subpartida_sa}.{ext_los_demas}"
-        desc_corregida = extensiones_validas[ext_los_demas]
-        nota = (f"{codigo_corregido} — {desc_corregida} "
-                f"[CORREGIDO AUTOMATICAMENTE: {codigo_completo} no existe en el Arancel RD. "
-                f"Codigos validos bajo {subpartida_sa}: {codigos_disponibles}]")
-    else:
-        codigo_corregido = f"{subpartida_sa}.[verificar en Arancel RD]"
-        nota = (f"{codigo_corregido} "
-                f"[CORREGIDO AUTOMATICAMENTE: {codigo_completo} no existe en el Arancel RD. "
-                f"Codigos validos bajo {subpartida_sa}: {codigos_disponibles}]")
-
-    print(f"[VALIDADOR] *** CODIGO INVALIDO: {codigo_completo} NO EXISTE bajo {subpartida_sa} ***")
-    print(f"[VALIDADOR] Extensiones validas: {list(extensiones_validas.keys())}")
-    print(f"[VALIDADOR] Corrigiendo a: {nota}")
-
-    # Reemplazar en el bloque
-    old_line = re.search(r'SUBPARTIDA_NAC:.*', block).group(0)
-    new_line = f"SUBPARTIDA_NAC: {nota}"
-    answer = answer.replace(old_line, new_line)
-
-    # Cambiar AUDITORIA a CONDICIONADA si estaba APROBADA
-    answer = re.sub(
-        r'AUDITORIA:\s*APROBADA\b',
-        'AUDITORIA: CONDICIONADA — codigo corregido por validador programatico',
-        answer
-    )
-
-    return answer
-
-
-def ask_supervisor(question: str, clasificacion_inicial: str, api_key: str) -> str:
-    """
-    Agente Supervisor: revisa la clasificacion generada por el Agente Clasificador.
-    Actua como inspector senior auditando el trabajo de un analista junior.
-    Solo aplica al cuaderno de nomenclaturas.
-
-    Args:
-        question: Pregunta original del usuario
-        clasificacion_inicial: Respuesta completa del Agente Clasificador
-        api_key: Clave API de Gemini
-
-    Returns:
-        Texto de supervision con bloque ---SUPERVISION--- estructurado
-    """
-    try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=SUPERVISOR_PROMPT
-        )
-
-        prompt_supervisor = (
-            "Eres el Supervisor Arancelario Senior. A continuacion tienes:\n\n"
-            f"== CONSULTA ORIGINAL DEL USUARIO ==\n{question}\n\n"
-            "== CLASIFICACION ELABORADA POR EL AGENTE CLASIFICADOR ==\n"
-            f"{clasificacion_inicial}\n\n"
-            "Ejecuta tu checklist completo de supervision y emite tu revision con el bloque "
-            "---SUPERVISION---..---FIN_SUPERVISION--- al final. "
-            "Recuerda: SOLO puedes validar codigos que existan con certeza en el Arancel RD. "
-            "En caso de duda sobre la existencia de un codigo, marcarlo como NO VERIFICADO."
-        )
-
-        print("[SUPERVISOR] Iniciando revision de clasificacion...")
-        resp = model.generate_content(prompt_supervisor)
-        supervision = resp.text.strip()
-        print(f"[SUPERVISOR] Revision completada ({len(supervision)} chars)")
-        return supervision
-    except Exception as e:
-        import traceback
-        print(f"[SUPERVISOR] ERROR: {e}")
-        print(f"[SUPERVISOR] TRACEBACK: {traceback.format_exc()}")
-        return ""
-
-
-def ask_gemini(question: str, notebook_id: str) -> str:
-    """
-    Consulta Gemini API con el contexto especializado del cuaderno DGA indicado.
-
-    Args:
-        question: Pregunta del usuario
-        notebook_id: ID del cuaderno DGA (determina el sistema de prompts)
-
-    Returns:
-        Respuesta de Gemini como string
-    """
+def ask_gemini(question, notebook_id):
+    """Consulta Gemini API. Borrador pasa por Supervisor General Interno (Python)."""
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
-        print("[GEMINI] ERROR: GEMINI_API_KEY no está configurada en las variables de entorno")
+        print("[GEMINI] ERROR: GEMINI_API_KEY no esta configurada")
         return None
 
     genai.configure(api_key=api_key)
-
     system_prompt = DGA_CONTEXT.get(notebook_id, DEFAULT_CONTEXT)
     notebook_name = notebook_id.replace("-", " ").title()
 
-    print(f"[GEMINI] notebook_id={notebook_id}")
-    print(f"[GEMINI] question={question[:80]}")
+    print("[GEMINI] notebook_id=" + notebook_id)
+    print("[GEMINI] question=" + question[:80])
 
-    # gemini-2.5-flash: modelo más reciente gratuito de Google (2025+)
     model = genai.GenerativeModel(
         model_name="gemini-2.5-flash",
         system_instruction=system_prompt
     )
 
-    # Refuerzo critico para nomenclatura: codigos de 8 digitos max
-    _nomenclatura_refuerzo = ""
+    # Refuerzo critico para nomenclatura
+    refuerzo = ""
     if notebook_id == "biblioteca-de-nomenclaturas":
-        _nomenclatura_refuerzo = (
+        refuerzo = (
             "\n\nRECORDATORIO CRITICO PARA ESTA CONSULTA:"
-            "\n1. El Arancel de RD usa EXACTAMENTE 8 digitos (XXXX.XX.XX). NUNCA 10 digitos."
-            "\n2. NO ADIVINES la extension nacional (ultimos 2 digitos). Cada extension tiene una descripcion MUY ESPECIFICA."
-            "\n3. Ejemplo de error grave: 8501.10.10 = 'Motores para juguetes', NO motores en general."
-            "\n4. ANTES de recomendar un codigo de 8 digitos, cita la DESCRIPCION OFICIAL de esa subpartida nacional."
-            "\n5. Si la descripcion NO coincide con el producto consultado, el codigo es INCORRECTO."
-            "\n6. Si no conoces la descripcion oficial exacta de la extension nacional, usa SOLO 6 digitos (XXXX.XX) "
-            "y aclara: '[extension nacional debe verificarse en el Arancel vigente de la DGA]'."
-            "\n7. VAPERS y CIGARRILLOS ELECTRONICOS: SIEMPRE 8543.40.11 o 8543.40.12. "
-            "NUNCA 8543.70.70, NUNCA 9619.00.90, NUNCA Cap. 24."
-            "\n8. CODIGOS QUE NO EXISTEN (confirmado): 9018.90.91, 8543.70.70, 8543.40.00, 9619.00.90 para no-higienicos.\n"
+            "\n1. Arancel RD usa EXACTAMENTE 8 digitos (XXXX.XX.XX). NUNCA 10."
+            "\n2. NO ADIVINES la extension nacional. Cita la DESCRIPCION OFICIAL."
+            "\n3. Si no conoces la descripcion oficial exacta, usa SOLO 6 digitos."
+            "\n4. VAPERS: SIEMPRE 8543.40.11 o 8543.40.12."
+            "\n5. NO EXISTEN: 9018.90.91, 8543.70.70, 8543.40.00.\n"
         )
 
     full_prompt = (
-        f"Contexto: Esta pregunta proviene de un profesional de aduanas/comercio exterior "
-        f"de la República Dominicana que usa la {notebook_name}.{_nomenclatura_refuerzo}\n\n"
-        f"Pregunta: {question}"
+        "Contexto: Pregunta de un profesional de aduanas/comercio exterior "
+        "de la Republica Dominicana que usa la " + notebook_name + "."
+        + refuerzo + "\n\nPregunta: " + question
     )
 
     try:
         response = model.generate_content(full_prompt)
         answer = response.text.strip()
-        print(f"[GEMINI] respuesta recibida ({len(answer)} chars)")
+        print("[GEMINI] Borrador recibido (" + str(len(answer)) + " chars)")
 
-        # ── Validador programatico + Agente Supervisor (solo nomenclaturas) ──
-        if notebook_id == "biblioteca-de-nomenclaturas":
-            # PASO 1: Validacion deterministica — intercepta codigos inexistentes
-            answer = validar_codigo_nacional(answer)
-            # PASO 2: Supervisor AI — revision critica de la clasificacion
-            supervision = ask_supervisor(question, answer, api_key)
-            if supervision:
-                answer = answer + "\n\n" + supervision
+        # ── SUPERVISOR GENERAL INTERNO — controla TODOS los cuadernos ──
+        print("[GEMINI] Enviando borrador al Supervisor General Interno...")
+        answer, bloque_supervision = _supervisar_respuesta(question, notebook_id, answer)
+        answer = answer + "\n\n" + bloque_supervision
+        print("[GEMINI] Supervision completada")
 
         return answer
     except Exception as e:
         import traceback
-        print(f"[GEMINI] ERROR generando respuesta: {e}")
-        print(f"[GEMINI] TRACEBACK: {traceback.format_exc()}")
+        print("[GEMINI] ERROR generando respuesta: " + str(e))
+        print("[GEMINI] TRACEBACK: " + traceback.format_exc())
         return None
 
 
@@ -860,8 +583,8 @@ def main():
 
     if answer:
         sep = "=" * 60
-        print(f"\n{sep}")
-        print(f"Question: {args.question}")
+        print("\n" + sep)
+        print("Question: " + args.question)
         print(sep)
         print()
         print(answer)
@@ -874,4 +597,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main() or 0)

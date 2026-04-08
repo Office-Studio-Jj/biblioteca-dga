@@ -443,8 +443,9 @@
       font-size: 0.72rem;
       line-height: 1.4;
     }
-    .sup-check-ok  { color: #86efac; }
-    .sup-check-err { color: #fca5a5; }
+    .sup-check-ok   { color: #86efac; }
+    .sup-check-warn { color: #fde68a; }
+    .sup-check-err  { color: #fca5a5; }
     .sup-dot { font-size: 0.55rem; flex-shrink: 0; margin-top: 2px; }
     .sup-correccion {
       margin-top: 4px;
@@ -1594,7 +1595,7 @@
     };
   }
 
-  /* ── Parser del bloque de Supervisión ── */
+  /* ── Parser del bloque de Supervisión (dinámico, todos los cuadernos) ── */
   function _parseSupervision(rawAnswer) {
     const START = '---SUPERVISION---';
     const END   = '---FIN_SUPERVISION---';
@@ -1602,34 +1603,27 @@
     if (si === -1) return { data: null, cleanAnswer: rawAnswer };
     const ei = rawAnswer.indexOf(END);
     const block = ei !== -1 ? rawAnswer.substring(si + START.length, ei) : rawAnswer.substring(si + START.length);
-    const narrativeRaw = rawAnswer.substring(0, si);
-    // Extraer narrativa del supervisor (texto antes del bloque estructurado pero despues del bloque clasificacion)
-    const cleanAnswer = (narrativeRaw + (ei !== -1 ? rawAnswer.substring(ei + END.length) : '')).trim();
+    const cleanAnswer = (rawAnswer.substring(0, si) + (ei !== -1 ? rawAnswer.substring(ei + END.length) : '')).trim();
     const get = (key) => { const m = block.match(new RegExp(key + ':\\s*([^\n]+)')); return m ? m[1].trim() : ''; };
+    /* Extraer CHECK_* dinamicamente */
+    const checks = [];
+    const rx = /CHECK_(\w+):\s*([^\n]+)/g;
+    let match;
+    while ((match = rx.exec(block)) !== null) {
+      checks.push({ label: match[1].charAt(0) + match[1].slice(1).toLowerCase(), val: match[2].trim() });
+    }
     return {
       data: {
-        resultado:            get('RESULTADO'),
-        codigoVerificado:     get('CODIGO_VERIFICADO'),
-        descripcionVerif:     get('DESCRIPCION_VERIFICADA'),
-        checkProducto:        get('CHECK_PRODUCTO'),
-        checkCapitulo:        get('CHECK_CAPITULO'),
-        checkCodigo:          get('CHECK_CODIGO'),
-        checkCoherencia:      get('CHECK_COHERENCIA'),
-        checkRgi:             get('CHECK_RGI'),
-        checkPermisos:        get('CHECK_PERMISOS'),
-        correccion:           get('CORRECCION'),
+        resultado:        get('RESULTADO'),
+        verificadoPor:    get('VERIFICADO_POR'),
+        cuaderno:         get('CUADERNO'),
+        codigoVerificado: get('CODIGO_VERIFICADO'),
+        descripcionVerif: get('DESCRIPCION_VERIFICADA'),
+        correccion:       get('CORRECCION'),
+        checks:           checks,
       },
-      narrativa: _extractSupervisorNarrativa(rawAnswer),
       cleanAnswer
     };
-  }
-
-  /* Extrae la narrativa del supervisor (texto entre FIN_CLASIFICACION y ---SUPERVISION---) */
-  function _extractSupervisorNarrativa(rawAnswer) {
-    const finClasif = rawAnswer.indexOf('---FIN_CLASIFICACION---');
-    const startSup  = rawAnswer.indexOf('---SUPERVISION---');
-    if (finClasif === -1 || startSup === -1) return '';
-    return rawAnswer.substring(finClasif + '---FIN_CLASIFICACION---'.length, startSup).trim();
   }
 
   /* ── Limpia bloques estructurados del texto visible ── */
@@ -1651,49 +1645,45 @@
     return r;
   }
 
-  /* ── Renderiza el panel del Supervisor Arancelario ── */
+  /* ── Renderiza el panel del Supervisor General Interno (todos los cuadernos) ── */
   function _renderSupervisorBox(sd, box) {
     const res = sd.resultado || '';
     let colorClass = 'sup-aprobada';
     let icon = '✅';
-    if (res.startsWith('APROBADA CON')) { colorClass = 'sup-observacion'; icon = '⚠️'; }
-    else if (res.startsWith('CORREGIDA'))  { colorClass = 'sup-corregida';   icon = '🔧'; }
-    else if (res.startsWith('RECHAZADA')) { colorClass = 'sup-rechazada';   icon = '❌'; }
+    if (res.startsWith('APROBADA CON'))   { colorClass = 'sup-observacion'; icon = '⚠️'; }
+    else if (res.startsWith('CORREGIDA')) { colorClass = 'sup-corregida';   icon = '🔧'; }
+    else if (res.startsWith('CONDICIONADA')){ colorClass = 'sup-corregida'; icon = '⚠️'; }
+    else if (res.startsWith('RECHAZADA')){ colorClass = 'sup-rechazada';   icon = '❌'; }
 
-    const checks = [
-      { label: 'Producto',    val: sd.checkProducto },
-      { label: 'Capítulo',    val: sd.checkCapitulo },
-      { label: 'Código',      val: sd.checkCodigo },
-      { label: 'Coherencia',  val: sd.checkCoherencia },
-      { label: 'RGI',         val: sd.checkRgi },
-      { label: 'Permisos',    val: sd.checkPermisos },
-    ];
-
-    const checkRows = checks.map(c => {
-      const isOk = (c.val || '').startsWith('OK');
-      const cls  = isOk ? 'sup-check-ok' : 'sup-check-err';
-      const dot  = isOk ? '●' : '●';
-      return `<div class="sup-check-row ${cls}"><span class="sup-dot">${dot}</span><strong>${_esc(c.label)}:</strong> ${_esc(c.val || '')}</div>`;
+    const checkRows = (sd.checks || []).map(c => {
+      const v = c.val || '';
+      const isOk   = v.startsWith('OK');
+      const isWarn  = v.startsWith('OBSERVACION');
+      const cls = isOk ? 'sup-check-ok' : (isWarn ? 'sup-check-warn' : 'sup-check-err');
+      return `<div class="sup-check-row ${cls}"><span class="sup-dot">●</span><strong>${_esc(c.label)}:</strong> ${_esc(v)}</div>`;
     }).join('');
 
     const correccion = sd.correccion && sd.correccion !== 'NINGUNA'
       ? `<div class="sup-correccion"><strong>🔧 Corrección:</strong> ${_esc(sd.correccion)}</div>` : '';
 
+    const codigoRow = sd.codigoVerificado && sd.codigoVerificado !== 'N/A'
+      ? `<div class="sup-codigo-row">
+          <span class="sup-label">Código verificado:</span>
+          <span class="sup-code">${_esc(sd.codigoVerificado)}</span>
+          <span class="sup-desc-verif">${_esc(sd.descripcionVerif || '')}</span>
+        </div>` : '';
+
     box.innerHTML = `
       <div class="sup-header ${colorClass}">
         <span class="sup-icon">${icon}</span>
-        <span class="sup-title">SUPERVISOR ARANCELARIO SENIOR</span>
+        <span class="sup-title">SUPERVISOR GENERAL INTERNO</span>
         <span class="sup-resultado">${_esc(res)}</span>
       </div>
       <div class="sup-body">
-        <div class="sup-codigo-row">
-          <span class="sup-label">Código verificado:</span>
-          <span class="sup-code">${_esc(sd.codigoVerificado || '—')}</span>
-          <span class="sup-desc-verif">${_esc(sd.descripcionVerif || '')}</span>
-        </div>
+        ${codigoRow}
         <div class="sup-checks">${checkRows}</div>
         ${correccion}
-        <div class="sup-footer">Revisión independiente — fuente: Arancel de Aduanas RD</div>
+        <div class="sup-footer">${_esc(sd.verificadoPor || 'Python — determinístico')} · ${_esc(sd.cuaderno || '')}</div>
       </div>`;
   }
 
@@ -1733,10 +1723,7 @@
     btn.disabled = true;
     btn.textContent = 'Consultando...';
     card.classList.add('show');
-    const loadingMsg = selId === 'biblioteca-de-nomenclaturas'
-      ? 'Clasificando con Protocolo Merceológico + Supervisor Arancelario... (puede tardar 20-40 seg)'
-      : 'Consultando... (puede tardar unos segundos)';
-    body.innerHTML = `<div class="loading-row"><div class="spin"></div>${loadingMsg}</div>`;
+    body.innerHTML = '<div class="loading-row"><div class="spin"></div>Consultando + Supervisor Interno... (puede tardar unos segundos)</div>';
     nb.textContent = '';
 
     _lastQuery = q;
@@ -1766,30 +1753,33 @@
         _lastNomenclaturaData = null;
         let _displayAnswer = data.answer;
         let _supData = null;
+
+        // 1. Extraer supervision (TODOS los cuadernos — Supervisor General Interno)
+        const supParsed = _parseSupervision(data.answer);
+        if (supParsed.data) {
+          _supData = supParsed.data;
+          _displayAnswer = supParsed.cleanAnswer;
+        }
+
+        // 2. Extraer datos de clasificacion (solo nomenclatura)
         if (selId === 'biblioteca-de-nomenclaturas') {
-          // 1. Extraer supervision primero
-          const supParsed = _parseSupervision(data.answer);
-          if (supParsed.data) {
-            _supData = supParsed.data;
-            _displayAnswer = supParsed.cleanAnswer;
-          }
-          // 2. Extraer datos de clasificacion del texto ya limpiado de supervision
           const parsed = _parseNomenclatura(_displayAnswer);
           if (parsed.data) {
             _lastNomenclaturaData = parsed.data;
-            // Si el supervisor corrigio el codigo, actualizar en los datos
-            if (_supData && _supData.codigoVerificado && _supData.resultado &&
-                (_supData.resultado.startsWith('CORREGIDA') || _supData.resultado.startsWith('RECHAZADA'))) {
+            if (_supData && _supData.codigoVerificado && _supData.codigoVerificado !== 'N/A' &&
+                _supData.resultado && (_supData.resultado.startsWith('CORREGIDA') || _supData.resultado.startsWith('CONDICIONADA'))) {
               _lastNomenclaturaData.subpartidaNac = _supData.codigoVerificado;
               _lastNomenclaturaData.auditoria = _supData.resultado;
             }
             _displayAnswer = parsed.cleanAnswer;
           }
         }
-        // Mostrar respuesta principal
+
+        // 3. Mostrar respuesta principal
         body.textContent = _displayAnswer;
         nb.textContent = '📖 ' + selName;
-        // Mostrar bloque del supervisor si existe
+
+        // 4. Mostrar panel del Supervisor General Interno
         const supBox = document.getElementById('supervisorBox');
         if (_supData && supBox) {
           _renderSupervisorBox(_supData, supBox);
