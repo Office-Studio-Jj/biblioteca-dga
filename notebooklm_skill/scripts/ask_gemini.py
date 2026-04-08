@@ -515,6 +515,11 @@ Cita artículos y leyes específicas cuando sea relevante."""
 # Gemini genera borradores. supervisor_interno.py los verifica, corrige o rechaza.
 from supervisor_interno import supervisar as _supervisar_respuesta
 from supervisor_interno import verificar_firma_supervision as _verificar_firma
+from supervisor_interno import CODIGOS_VERIFICADOS_RD as _CODIGOS_VERIFICADOS_RD
+# ── Verificador Arancelario Automatico — segunda pasada de codigos ─────────
+# Cuando el supervisor no tiene el codigo en su base estatica, este modulo
+# hace una consulta dirigida y cerrada al cuaderno de nomenclaturas.
+from verificador_arancelario import pre_verificar_codigo_en_respuesta as _pre_verificar
 # ──────────────────────────────────────────────────────────────────────────
 
 
@@ -559,6 +564,25 @@ def ask_gemini(question, notebook_id):
         response = model.generate_content(full_prompt)
         answer = response.text.strip()
         print("[GEMINI] Borrador recibido (" + str(len(answer)) + " chars)")
+
+        # ── VERIFICADOR ARANCELARIO AUTOMATICO (solo nomenclatura) ────────
+        # Verifica el codigo SUBPARTIDA_NAC contra el Arancel RD antes del supervisor.
+        # Si el codigo no existe, lo corrige automaticamente sin intervencion manual.
+        if notebook_id == "biblioteca-de-nomenclaturas":
+            import re as _re
+            # Detectar si el codigo ya esta en la base estatica del supervisor
+            _m = _re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', answer)
+            if _m:
+                _codigo = _m.group(1)
+                _sub_sa = ".".join(_codigo.split(".")[:2])
+                if _sub_sa not in _CODIGOS_VERIFICADOS_RD:
+                    # Codigo no esta en base estatica — verificacion dinamica
+                    print(f"[GEMINI] Codigo {_codigo} no en base estatica — activando Verificador Arancelario...")
+                    answer, _corregido = _pre_verificar(answer, question, api_key)
+                    if _corregido:
+                        print(f"[GEMINI] Verificador corrigio el codigo antes del supervisor")
+                else:
+                    print(f"[GEMINI] Codigo {_codigo} en base estatica — verificacion por supervisor")
 
         # ── SUPERVISOR GENERAL INTERNO — controla TODOS los cuadernos ──
         print("[GEMINI] Enviando borrador al Supervisor General Interno...")
