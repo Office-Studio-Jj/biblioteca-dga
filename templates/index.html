@@ -694,6 +694,7 @@
       cursor: pointer; transition: border-color 0.2s, color 0.2s;
     }
     .attach-btn:active { opacity: 0.7; }
+    .attach-btn-gal { border-color: #3b2f5f; color: #c4b5fd; }
     .attach-btn-cam { border-color: #1e3a5f; color: #93c5fd; }
     .attach-zone.has-file .attach-btn { display: none; }
     .attach-name { padding: 4px 14px 2px; }
@@ -801,11 +802,13 @@
 
         <!-- Adjuntar ficha técnica -->
         <div class="attach-zone" id="attachZone">
-          <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" onchange="onFileSelected(this)" style="display:none">
+          <input type="file" id="fileInput" accept=".pdf" onchange="onFileSelected(this)" style="display:none">
+          <input type="file" id="galleryInput" accept="image/*" onchange="onFileSelected(this)" style="display:none">
           <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="onFileSelected(this)" style="display:none">
           <div class="attach-btns-row" id="attachBtnsRow">
-            <button type="button" class="attach-btn" onclick="document.getElementById('fileInput').click()">📎 Archivo / PDF</button>
-            <button type="button" class="attach-btn attach-btn-cam" onclick="document.getElementById('cameraInput').click()">📸 Tomar foto</button>
+            <button type="button" class="attach-btn" onclick="document.getElementById('fileInput').click()">📎 PDF</button>
+            <button type="button" class="attach-btn attach-btn-gal" onclick="document.getElementById('galleryInput').click()">🖼️ Galería</button>
+            <button type="button" class="attach-btn attach-btn-cam" onclick="document.getElementById('cameraInput').click()">📸 Foto</button>
           </div>
           <div class="attach-name" id="attachName"></div>
           <div class="attach-remove" id="attachRemove" onclick="removeFile(event)" style="display:none">✕ Quitar</div>
@@ -1635,6 +1638,7 @@
     e.stopPropagation();
     _attachedFile = null;
     document.getElementById('fileInput').value = '';
+    document.getElementById('galleryInput').value = '';
     document.getElementById('cameraInput').value = '';
     document.getElementById('attachZone').classList.remove('has-file');
     document.getElementById('attachName').textContent = '';
