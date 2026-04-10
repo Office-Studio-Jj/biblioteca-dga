@@ -675,6 +675,75 @@
     .footer-pad { height: calc(var(--safe-bot) + 8px); }
 
     .error { color: #f87171; font-size: 0.82rem; }
+
+    /* ── Grid cuadernos compacto ── */
+    .nb-btn { padding: 9px 8px; }
+    .nb-btn .ico { font-size: 1.25rem; margin-bottom: 3px; }
+    .nb-btn .txt { font-size: 0.63rem; }
+
+    /* ── Attach con botones de archivo / cámara ── */
+    .attach-zone { cursor: default; }
+    .attach-btns-row {
+      display: flex; gap: 8px; justify-content: center;
+      padding: 8px 12px 6px;
+    }
+    .attach-btn {
+      flex: 1; padding: 8px 6px; border-radius: 10px;
+      border: 1.5px dashed #334155; background: transparent;
+      color: #94a3b8; font-size: 0.75rem; font-weight: 600;
+      cursor: pointer; transition: border-color 0.2s, color 0.2s;
+    }
+    .attach-btn:active { opacity: 0.7; }
+    .attach-btn-cam { border-color: #1e3a5f; color: #93c5fd; }
+    .attach-zone.has-file .attach-btn { display: none; }
+    .attach-name { padding: 4px 14px 2px; }
+    .attach-remove { padding: 2px 14px 8px; font-size: 0.7rem; color: #f87171; cursor: pointer; }
+
+    /* ── Tarjeta compacta de Nomenclatura (Image 4) ── */
+    .nom-card { font-size: 0.82rem; }
+    .nom-code-box {
+      background: linear-gradient(135deg, #0f2744, #1e3a5f);
+      border: 1.5px solid var(--gold); border-radius: 12px;
+      padding: 10px 14px; margin-bottom: 10px; text-align: center;
+    }
+    .nom-code-label { display: block; font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
+    .nom-code { display: block; font-size: 1.5rem; font-weight: 800; color: var(--gold); letter-spacing: 0.06em; }
+    .nom-capitulo { display: block; font-size: 0.65rem; color: #93c5fd; margin-top: 3px; line-height: 1.4; }
+    .nom-table {
+      width: 100%; border-collapse: collapse; margin-bottom: 8px;
+      border-radius: 10px; overflow: hidden; border: 1px solid #334155;
+    }
+    .nom-table th {
+      background: #1e293b; color: #94a3b8; font-size: 0.6rem;
+      text-transform: uppercase; letter-spacing: 0.8px;
+      padding: 5px 8px; text-align: left; font-weight: 700;
+    }
+    .nom-table td {
+      padding: 6px 8px; font-size: 0.75rem; color: #e2e8f0;
+      border-top: 1px solid #1e293b; vertical-align: top;
+      line-height: 1.4;
+    }
+    .nom-impuestos th { text-align: center; }
+    .nom-impuestos td { text-align: center; font-weight: 700; font-size: 0.82rem; }
+    .nom-imp-val-grav { color: #fde68a; }
+    .nom-imp-val-itbis { color: #6ee7b7; }
+    .nom-imp-val-isc { color: #93c5fd; }
+    .nom-details {
+      margin-top: 8px; border: 1px solid #334155;
+      border-radius: 10px; overflow: hidden;
+    }
+    .nom-details summary {
+      padding: 8px 12px; font-size: 0.72rem; font-weight: 700;
+      color: var(--gold); cursor: pointer; background: #1e293b;
+      list-style: none; user-select: none;
+    }
+    .nom-details summary::-webkit-details-marker { display: none; }
+    .nom-details[open] summary { border-bottom: 1px solid #334155; }
+    .nom-full-text {
+      padding: 10px 12px; font-size: 0.78rem; color: #cbd5e1;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6;
+      max-height: 320px; overflow-y: auto;
+    }
   </style>
 </head>
 <body>
@@ -731,11 +800,15 @@
         <textarea id="qInput" placeholder="Escribe tu pregunta..." rows="3"></textarea>
 
         <!-- Adjuntar ficha técnica -->
-        <div class="attach-zone" id="attachZone" onclick="document.getElementById('fileInput').click()">
-          <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" onchange="onFileSelected(this)">
-          <div class="attach-label"><span>📎</span> Adjuntar ficha técnica (PDF o JPG) — opcional</div>
+        <div class="attach-zone" id="attachZone">
+          <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" onchange="onFileSelected(this)" style="display:none">
+          <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="onFileSelected(this)" style="display:none">
+          <div class="attach-btns-row" id="attachBtnsRow">
+            <button type="button" class="attach-btn" onclick="document.getElementById('fileInput').click()">📎 Archivo / PDF</button>
+            <button type="button" class="attach-btn attach-btn-cam" onclick="document.getElementById('cameraInput').click()">📸 Tomar foto</button>
+          </div>
           <div class="attach-name" id="attachName"></div>
-          <div class="attach-remove" id="attachRemove" onclick="removeFile(event)">✕ Quitar archivo</div>
+          <div class="attach-remove" id="attachRemove" onclick="removeFile(event)" style="display:none">✕ Quitar</div>
         </div>
 
         <button class="btn-primary" id="btnSend" onclick="send()" disabled>Consultar →</button>
@@ -1531,9 +1604,9 @@
   function onFileSelected(input) {
     const file = input.files[0];
     if (!file) return;
-    const allowed = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-    if (!allowed.includes(file.type)) {
-      alert('Solo se permiten archivos PDF, JPG o PNG.');
+    const allowed = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/webp'];
+    if (!allowed.includes(file.type) && !file.type.startsWith('image/')) {
+      alert('Solo se permiten archivos PDF o imágenes (JPG, PNG, foto).');
       input.value = '';
       return;
     }
@@ -1545,17 +1618,21 @@
     _attachedFile = file;
     const zone = document.getElementById('attachZone');
     zone.classList.add('has-file');
-    document.getElementById('attachName').textContent = '📄 ' + file.name + ' (' + (file.size/1024).toFixed(0) + ' KB)';
+    const icon = file.type.startsWith('image/') ? '📸' : '📄';
+    document.getElementById('attachName').textContent = icon + ' ' + file.name + ' (' + (file.size/1024).toFixed(0) + ' KB)';
     document.getElementById('attachRemove').style.display = 'block';
+    document.getElementById('attachBtnsRow').style.display = 'none';
   }
 
   function removeFile(e) {
     e.stopPropagation();
     _attachedFile = null;
     document.getElementById('fileInput').value = '';
+    document.getElementById('cameraInput').value = '';
     document.getElementById('attachZone').classList.remove('has-file');
     document.getElementById('attachName').textContent = '';
     document.getElementById('attachRemove').style.display = 'none';
+    document.getElementById('attachBtnsRow').style.display = 'flex';
   }
 
   /* ── Estado de conformidad / ficha técnica / productos guardados ── */
@@ -1563,6 +1640,7 @@
   let _retryNbId = null, _retryNbName = '';
   let _lastQuery = '', _lastNbId = '', _lastNbName = '', _lastAnswer = '';
   let _lastNomenclaturaData = null;
+  let _lastFullAnalysis = '';
   const savedProducts = JSON.parse(localStorage.getItem('dga_saved_products') || '[]');
 
   /* ── Parser del bloque estructurado de Nomenclatura ── */
@@ -1698,6 +1776,71 @@
       </div>`;
   }
 
+  /* ── Tarjeta compacta de Nomenclatura — solo lo esencial técnico ── */
+  function _renderNomenclaturaCard(nd, supData, fullAnalysis, bodyEl) {
+    // Extraer gravamen / ITBIS / ISC de los checks del supervisor
+    let gravamen = '', itbis = '', isc = '';
+    if (supData && supData.checks) {
+      for (const c of supData.checks) {
+        const lbl = (c.label || '').toUpperCase();
+        const val = (c.val  || '').replace(/^OK\s*[—\-–]+\s*/i, '').replace(/^OK\s*/i, '').trim();
+        if (lbl === 'GRAVAMEN') gravamen = val;
+        else if (lbl === 'ITBIS') itbis = val;
+        else if (lbl === 'ISC')   isc   = val;
+      }
+    }
+    gravamen = gravamen || '—';
+    itbis    = itbis    || '—';
+    isc      = isc      || 'N/A';
+
+    const code  = nd.subpartidaNac || nd.subpartida || nd.partida || '—';
+    const cap   = (nd.capitulo  || '').substring(0, 100);
+    const mat   = (nd.materia   || '').substring(0, 90);
+    const fun   = (nd.funcion   || '').substring(0, 90);
+    const rgi   = (nd.rgi       || '').substring(0, 60);
+    const rest  = (nd.restricciones && nd.restricciones.toUpperCase() !== 'NINGUNA') ? nd.restricciones : 'Ninguna';
+    const auditVal = (nd.auditoria || 'APROBADA').toUpperCase();
+    const auditColor = auditVal.includes('RECHAZADA') ? '#f87171' : auditVal.includes('CONDICIONADA') ? '#fde68a' : '#6ee7b7';
+
+    const detailsBlock = fullAnalysis ? `
+      <details class="nom-details">
+        <summary>📋 Ver análisis completo del protocolo ▼</summary>
+        <div class="nom-full-text">${_esc(fullAnalysis)}</div>
+      </details>` : '';
+
+    bodyEl.innerHTML = `
+      <div class="nom-card">
+        <div class="nom-code-box">
+          <span class="nom-code-label">Código Arancelario RD</span>
+          <span class="nom-code">${_esc(code)}</span>
+          <span class="nom-capitulo">${_esc(cap)}</span>
+        </div>
+        <table class="nom-table">
+          <tr>
+            <th>Material</th><th>Función técnica</th><th>RGI</th>
+          </tr>
+          <tr>
+            <td>${_esc(mat)}</td>
+            <td>${_esc(fun)}</td>
+            <td>${_esc(rgi)}</td>
+          </tr>
+        </table>
+        <table class="nom-table nom-impuestos">
+          <tr><th>Gravamen</th><th>ITBIS</th><th>ISC</th></tr>
+          <tr>
+            <td class="nom-imp-val-grav">${_esc(gravamen)}</td>
+            <td class="nom-imp-val-itbis">${_esc(itbis)}</td>
+            <td class="nom-imp-val-isc">${_esc(isc)}</td>
+          </tr>
+        </table>
+        <div style="font-size:0.7rem;color:#64748b;padding:4px 2px;margin-bottom:6px;">
+          ⚠️ Restricciones: <span style="color:#e2e8f0;">${_esc(rest)}</span>
+          &nbsp;·&nbsp; Auditoría: <span style="color:${auditColor};font-weight:700;">${_esc(auditVal)}</span>
+        </div>
+        ${detailsBlock}
+      </div>`;
+  }
+
   function resetConformity() {
     ['conformitySection','confSaveSection','fichaSection','nbChoiceSection','retryQueryBox','savedListSection'].forEach(id => {
       const el = document.getElementById(id);
@@ -1741,6 +1884,8 @@
     _lastNbId = selId;
     _lastNbName = selName;
 
+    const _ctrl = new AbortController();
+    const _tid  = setTimeout(() => _ctrl.abort(), 150000);
     try {
       let res;
       if (_attachedFile) {
@@ -1748,14 +1893,16 @@
         fd.append('question', q);
         fd.append('notebook_id', selId);
         fd.append('archivo', _attachedFile);
-        res = await fetch('/consultar', { method: 'POST', body: fd });
+        res = await fetch('/consultar', { method: 'POST', body: fd, signal: _ctrl.signal });
       } else {
         res = await fetch('/consultar', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({question: q, notebook_id: selId})
+          body: JSON.stringify({question: q, notebook_id: selId}),
+          signal: _ctrl.signal
         });
       }
+      clearTimeout(_tid);
       const data = await res.json();
       if (data.error) {
         body.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
@@ -1786,8 +1933,13 @@
           }
         }
 
-        // 3. Mostrar respuesta principal
-        body.textContent = _displayAnswer;
+        // 3. Mostrar respuesta: tarjeta compacta (nomenclatura) o texto (otros cuadernos)
+        if (selId === 'biblioteca-de-nomenclaturas' && _lastNomenclaturaData) {
+          _renderNomenclaturaCard(_lastNomenclaturaData, _supData, _displayAnswer, body);
+          _lastFullAnalysis = _displayAnswer;
+        } else {
+          body.textContent = _displayAnswer;
+        }
         nb.textContent = '📖 ' + selName;
 
         // 4. Mostrar panel del Supervisor General Interno
@@ -1802,7 +1954,12 @@
         document.getElementById('conformitySection').style.display = 'block';
       }
     } catch(e) {
-      body.innerHTML = '<span class="error">No se pudo conectar con el servidor.<br>Verifica tu conexión a internet.</span>';
+      clearTimeout(_tid);
+      if (e.name === 'AbortError') {
+        body.innerHTML = '<span class="error">⏱ La consulta tardó demasiado (más de 2 min).<br>El servidor sigue procesando. Intenta de nuevo en unos segundos.</span>';
+      } else {
+        body.innerHTML = '<span class="error">Sin conexión con el servidor.<br>Verifica tu internet e intenta de nuevo.</span>';
+      }
     }
 
     btn.disabled = false;
@@ -2003,6 +2160,8 @@
     _lastNbId = _retryNbId;
     _lastNbName = _retryNbName;
 
+    const _ctrlR = new AbortController();
+    const _tidR  = setTimeout(() => _ctrlR.abort(), 150000);
     try {
       let res;
       if (_fichaFile) {
@@ -2010,14 +2169,16 @@
         fd.append('question', q);
         fd.append('notebook_id', _retryNbId);
         fd.append('archivo', _fichaFile);
-        res = await fetch('/consultar', { method: 'POST', body: fd });
+        res = await fetch('/consultar', { method: 'POST', body: fd, signal: _ctrlR.signal });
       } else {
         res = await fetch('/consultar', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({question: q, notebook_id: _retryNbId})
+          body: JSON.stringify({question: q, notebook_id: _retryNbId}),
+          signal: _ctrlR.signal
         });
       }
+      clearTimeout(_tidR);
       const data = await res.json();
       if (data.error) {
         body.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
@@ -2025,18 +2186,39 @@
         _lastAnswer = data.answer;
         _lastNomenclaturaData = null;
         let _displayAnswerR = data.answer;
+        let _supDataR = null;
+        const supParsedR = _parseSupervision(_displayAnswerR);
+        if (supParsedR.data) { _supDataR = supParsedR.data; _displayAnswerR = supParsedR.cleanAnswer; }
         if (_retryNbId === 'biblioteca-de-nomenclaturas') {
-          const parsedR = _parseNomenclatura(data.answer);
-          if (parsedR.data) { _lastNomenclaturaData = parsedR.data; _displayAnswerR = parsedR.cleanAnswer; }
+          const parsedR = _parseNomenclatura(_displayAnswerR);
+          if (parsedR.data) {
+            _lastNomenclaturaData = parsedR.data;
+            if (_supDataR && _supDataR.codigoVerificado && _supDataR.codigoVerificado !== 'N/A' &&
+                _supDataR.resultado && (_supDataR.resultado.startsWith('CORREGIDA') || _supDataR.resultado.startsWith('CONDICIONADA'))) {
+              _lastNomenclaturaData.subpartidaNac = _supDataR.codigoVerificado;
+              _lastNomenclaturaData.auditoria = _supDataR.resultado;
+            }
+            _displayAnswerR = parsedR.cleanAnswer;
+          }
         }
-        body.textContent = _displayAnswerR;
+        if (_retryNbId === 'biblioteca-de-nomenclaturas' && _lastNomenclaturaData) {
+          _renderNomenclaturaCard(_lastNomenclaturaData, _supDataR, _displayAnswerR, body);
+          _lastFullAnalysis = _displayAnswerR;
+        } else {
+          body.textContent = _displayAnswerR;
+        }
         nb.textContent = '📖 ' + _retryNbName;
         saveHistory(q, _retryNbName, data.answer, _lastNomenclaturaData);
         document.getElementById('fichaSection').style.display = 'none';
         document.getElementById('conformitySection').style.display = 'block';
       }
     } catch(e) {
-      body.innerHTML = '<span class="error">No se pudo conectar con el servidor.</span>';
+      clearTimeout(_tidR);
+      if (e.name === 'AbortError') {
+        body.innerHTML = '<span class="error">⏱ La consulta tardó demasiado. Intenta de nuevo.</span>';
+      } else {
+        body.innerHTML = '<span class="error">Sin conexión con el servidor.</span>';
+      }
     }
 
     btn.disabled = false;
@@ -2045,7 +2227,7 @@
   }
 
   function saveHistory(q, nb, ans, nomData) {
-    history.unshift({q, nb, nbId: _lastNbId, ans, nomData: nomData || null, ts: new Date().toLocaleString('es-DO'), conforme: false});
+    history.unshift({q, nb, nbId: _lastNbId, ans, nomData: nomData || null, fullAnalysis: _lastFullAnalysis || '', ts: new Date().toLocaleString('es-DO'), conforme: false});
     if (history.length > 30) history.pop();
     localStorage.setItem('dga_history', JSON.stringify(history));
   }
@@ -2241,50 +2423,53 @@
   /* ══════════════════════════════════════════════════════════════════
      INFORME MERCEOLÓGICO DE NOMENCLATURA — máx. 2 páginas A4
      ══════════════════════════════════════════════════════════════════ */
-  function _buildNomenclaturaInforme(query, nd, ts, productName) {
+  function _buildNomenclaturaInforme(query, nd, ts, productName, fullAnalysis) {
     const { jsPDF } = window.jspdf;
     const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const PW   = doc.internal.pageSize.getWidth();   // 210
     const PH   = doc.internal.pageSize.getHeight();  // 297
-    const mL   = 14, mR = 14, mB = 16;
-    const cW   = PW - mL - mR;                       // 182
+    const mL   = 13, mR = 13, mB = 14;
+    const cW   = PW - mL - mR;                       // 184
     let y = mL;
+    let page1Only = true; // bandera: todo el informe formal va en página 1
 
     /* helpers --------------------------------------------------------- */
-    const chk = (extra) => { if (y + (extra || 6) > PH - mB) { doc.addPage(); y = mL; } };
+    const chk = (extra) => {
+      if (page1Only) return; // en modo página 1 no agregar páginas (comprimir in-situ)
+      if (y + (extra || 6) > PH - mB) { doc.addPage(); y = mL; }
+    };
 
     const txt = (text, size, style, rgb, gap) => {
       doc.setFontSize(size || 9); doc.setFont('helvetica', style || 'normal');
       doc.setTextColor(...(rgb || [25, 25, 25]));
       doc.splitTextToSize(String(text || '—'), cW - 2).forEach(ln => {
-        chk(size * 0.48 || 5); doc.text(ln, mL, y); y += (size || 9) * 0.48;
+        doc.text(ln, mL, y); y += (size || 9) * 0.42;
       });
-      y += (gap !== undefined ? gap : 1.5);
+      y += (gap !== undefined ? gap : 1.2);
     };
 
     const hline = (rgb, w) => {
       doc.setDrawColor(...(rgb || [180, 150, 50])); doc.setLineWidth(w || 0.4);
-      doc.line(mL, y, PW - mR, y); y += 3;
+      doc.line(mL, y, PW - mR, y); y += 2.5;
     };
 
     const secTitle = (label, bg, fg) => {
-      chk(9);
       doc.setFillColor(...(bg || [15, 39, 68]));
-      doc.rect(mL, y, cW, 7, 'F');
-      doc.setFontSize(8.5); doc.setFont('helvetica', 'bold');
+      doc.rect(mL, y, cW, 6.5, 'F');
+      doc.setFontSize(8); doc.setFont('helvetica', 'bold');
       doc.setTextColor(...(fg || [212, 175, 55]));
-      doc.text(label, mL + 3, y + 5); y += 9;
+      doc.text(label, mL + 3, y + 4.5); y += 8;
     };
 
-    const field = (label, value) => {
-      chk(5);
-      const LW = 48;
-      doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 65, 115);
+    const field = (label, value, maxLines) => {
+      const LW = 46;
+      doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 65, 115);
       doc.text(label + ':', mL + 2, y);
       doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 20, 20);
-      const lines = doc.splitTextToSize(String(value || 'N/A'), cW - LW - 2);
-      lines.forEach((ln, i) => { chk(5); doc.text(ln, mL + LW, y); if (i < lines.length - 1) y += 4.5; });
-      y += 5;
+      let lines = doc.splitTextToSize(String(value || 'N/A'), cW - LW - 2);
+      if (maxLines && lines.length > maxLines) lines = lines.slice(0, maxLines);
+      lines.forEach((ln, i) => { doc.text(ln, mL + LW, y); if (i < lines.length - 1) y += 4.2; });
+      y += 4.8;
     };
 
     /* ── ENCABEZADO ─────────────────────────────────────────────────── */
@@ -2301,20 +2486,20 @@
     y = 36;
 
     /* ── DATOS DE LA CONSULTA ───────────────────────────────────────── */
-    doc.setFillColor(238, 244, 252); doc.rect(mL, y, cW, 22, 'F');
-    doc.setDrawColor(100, 130, 180); doc.setLineWidth(0.3); doc.rect(mL, y, cW, 22);
+    doc.setFillColor(238, 244, 252); doc.rect(mL, y, cW, 18, 'F');
+    doc.setDrawColor(100, 130, 180); doc.setLineWidth(0.3); doc.rect(mL, y, cW, 18);
     const rolLabel = (typeof USER_ROLE !== 'undefined')
       ? (USER_ROLE === 'master' ? 'Administrador Master' : USER_ROLE === 'operativo' ? 'Administrador Operativo' : 'Invitado') : 'Usuario';
     const nombre = (typeof SESSION_NOMBRE !== 'undefined' && SESSION_NOMBRE && SESSION_NOMBRE !== 'None') ? SESSION_NOMBRE : rolLabel;
-    doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(10, 32, 60);
-    doc.text('DATOS DE LA CONSULTA', mL + 3, y + 5);
+    doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(10, 32, 60);
+    doc.text('DATOS DE LA CONSULTA', mL + 3, y + 4.5);
     doc.setFont('helvetica', 'normal'); doc.setTextColor(45, 55, 80);
-    const prod = (productName || query || '').substring(0, 80);
-    doc.text('Fecha: ' + ts, mL + 3, y + 11);
-    doc.text('Generado por: ' + nombre + '  |  Rol: ' + rolLabel, PW / 2, y + 11);
+    const prod = (productName || query || '').substring(0, 90);
+    doc.text('Fecha: ' + ts, mL + 3, y + 9.5);
+    doc.text('Generado por: ' + nombre + '  |  Rol: ' + rolLabel, PW / 2, y + 9.5);
     const prodLines = doc.splitTextToSize('Producto / Consulta: ' + prod, cW - 6);
-    doc.text(prodLines[0], mL + 3, y + 17);
-    y += 26;
+    doc.text(prodLines[0], mL + 3, y + 14.5);
+    y += 22;
 
     /* ── I. FUENTE DE REFERENCIA ─────────────────────────────────────── */
     secTitle('I.   FUENTE DE REFERENCIA — NOTEBOOKLM');
@@ -2324,76 +2509,66 @@
 
     /* ── II. CLASIFICACIÓN ARANCELARIA ──────────────────────────────── */
     secTitle('II.  CLASIFICACION ARANCELARIA DETERMINADA');
-    if (nd.articulo && nd.articulo.toUpperCase() !== 'N/A' && nd.articulo.length > 1)
-      field('Articulo utilizado', nd.articulo);
-    field('Seccion SA', nd.seccion);
-    if (nd.notaSeccion && nd.notaSeccion.toUpperCase() !== 'N/A' && nd.notaSeccion.length > 1)
-      field('Nota de Seccion', nd.notaSeccion);
-    field('Capitulo SA', nd.capitulo);
-    if (nd.notaCapitulo && nd.notaCapitulo.toUpperCase() !== 'N/A' && nd.notaCapitulo.length > 1)
-      field('Nota de Capitulo', nd.notaCapitulo);
-    y += 1;
+    field('Seccion SA', nd.seccion, 2);
+    field('Capitulo SA', nd.capitulo, 1);
 
     /* recuadro dorado con los códigos arancelarios */
-    chk(22);
-    doc.setFillColor(248, 246, 235); doc.rect(mL, y, cW, 21, 'F');
-    doc.setDrawColor(180, 148, 40); doc.setLineWidth(0.6); doc.rect(mL, y, cW, 21);
-    const colA = mL + 3, colB = mL + 44;
+    doc.setFillColor(248, 246, 235); doc.rect(mL, y, cW, 18, 'F');
+    doc.setDrawColor(180, 148, 40); doc.setLineWidth(0.6); doc.rect(mL, y, cW, 18);
+    const colA = mL + 3, colB = mL + 48;
     doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(15, 39, 68);
-    doc.text('Partida:', colA, y + 6);
-    doc.text('Subpartida SA:', colA, y + 12);
-    doc.text('Subpartida Regional/Nac.:', colA, y + 18);
+    doc.text('Partida:', colA, y + 5);
+    doc.text('Subpartida SA:', colA, y + 10.5);
+    doc.text('Subpartida Regional/Nac.:', colA, y + 16);
     doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 20, 20);
-    doc.text(nd.partida || 'No determinada', colB, y + 6);
-    doc.text(nd.subpartida || 'No determinada', colB, y + 12);
-    doc.text(nd.subpartidaNac || 'No determinada', colB, y + 18);
-    y += 25;
+    doc.text(nd.partida || 'No determinada', colB, y + 5);
+    doc.text(nd.subpartida || 'No determinada', colB, y + 10.5);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(10, 40, 90);
+    doc.text(nd.subpartidaNac || 'No determinada', colB, y + 16);
+    y += 22;
 
     /* ── III. ANÁLISIS MERCEOLÓGICO ─────────────────────────────────── */
     secTitle('III.  ANALISIS MERCEOLOGICO — RESUMEN');
-    field('Identificacion del producto', nd.identificacion);
-    field('Material constitutivo principal', nd.materia);
-    field('Funcion tecnica prevalente', nd.funcion);
-    field('Reglas generales interpretativas (RGI)', nd.rgi);
+    field('Identificacion del producto', nd.identificacion, 2);
+    field('Material constitutivo principal', nd.materia, 1);
+    field('Funcion tecnica prevalente', nd.funcion, 1);
+    field('Reglas interpretativas (RGI)', nd.rgi, 1);
     if (nd.restricciones && nd.restricciones.toUpperCase() !== 'NINGUNA' && nd.restricciones.length > 1)
-      field('Restricciones / Permisos previos', nd.restricciones);
-    else { chk(5); doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(40, 130, 60);
-      doc.text('Sin restricciones identificadas para esta clasificacion.', mL + 3, y); y += 6; }
-    y += 2;
+      field('Restricciones / Permisos previos', nd.restricciones, 1);
+    else { doc.setFontSize(7.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(40, 130, 60);
+      doc.text('Sin restricciones identificadas para esta clasificacion.', mL + 3, y); y += 5; }
+    y += 1;
 
     /* ── IV. CUADRO COMPARATIVO — CONCLUSIÓN ────────────────────────── */
-    chk(80);
     secTitle('IV.  CONCLUSION — CUADRO COMPARATIVO DE CLASIFICACION', [12, 60, 110], [212, 175, 55]);
 
     const tRows = [
-      ['Identificacion tecnica',     nd.identificacion  || 'Ver analisis',    'Ley 168-21'],
-      ['Material constitutivo',       nd.materia         || 'Ver analisis',    'Dec. 755-22 Art. 2.5'],
-      ['Funcion prevalente',          nd.funcion         || 'Ver analisis',    'Dec. 755-22'],
-      ['Seccion SA',                  nd.seccion         || '—',               'SA 7a Enmienda (OMA)'],
-      ['Capitulo SA',                 nd.capitulo        || '—',               'SA 7a Enmienda (OMA)'],
-      ['Partida arancelaria',         nd.partida         || 'No determinada',  'Arancel RD / SA'],
-      ['Subpartida SA (6 digitos)',   nd.subpartida      || 'No determinada',  'SA 7a Enmienda'],
-      ['Subpartida Regional/Nac.',    nd.subpartidaNac   || 'No determinada',  'Arancel Nacional RD'],
-      ['RGI aplicada(s)',             nd.rgi             || 'Ver analisis',    'RGI 1-6 SA'],
-      ['Restricciones / Permisos',    (nd.restricciones && nd.restricciones.toUpperCase() !== 'NINGUNA') ? nd.restricciones : 'NINGUNA', 'Leyes sectoriales RD'],
-      ['Resultado de Auditoria',      nd.auditoria       || 'APROBADA',        'Protocolo Merceologico DGA'],
+      ['Identificacion tecnica',    (nd.identificacion || 'Ver analisis').substring(0,70),  'Ley 168-21'],
+      ['Material constitutivo',      (nd.materia        || 'Ver analisis').substring(0,70),  'Dec. 755-22 Art. 2.5'],
+      ['Funcion prevalente',         (nd.funcion        || 'Ver analisis').substring(0,70),  'Dec. 755-22'],
+      ['Seccion SA',                 (nd.seccion        || '—').substring(0,70),              'SA 7a Enmienda (OMA)'],
+      ['Capitulo SA',                (nd.capitulo       || '—').substring(0,70),              'SA 7a Enmienda (OMA)'],
+      ['Partida arancelaria',        nd.partida         || 'No determinada',                  'Arancel RD / SA'],
+      ['Subpartida SA (6 dig.)',     nd.subpartida      || 'No determinada',                  'SA 7a Enmienda'],
+      ['Subpartida Regional/Nac.',   nd.subpartidaNac   || 'No determinada',                  'Arancel Nacional RD'],
+      ['RGI aplicada(s)',            (nd.rgi            || 'Ver analisis').substring(0,70),   'RGI 1-6 SA'],
+      ['Restricciones / Permisos',   (nd.restricciones && nd.restricciones.toUpperCase() !== 'NINGUNA') ? nd.restricciones.substring(0,70) : 'NINGUNA', 'Leyes sectoriales RD'],
+      ['Resultado de Auditoria',     nd.auditoria       || 'APROBADA',                        'Protocolo Merceologico DGA'],
     ];
-    const tH = [46, 94, 42], RH = 6.5, tX = mL;
+    const tH = [44, 96, 44], RH = 5.2, tX = mL;
     const tW = tH[0] + tH[1] + tH[2];
 
     /* cabecera */
-    chk(RH + 2);
     doc.setFillColor(15, 39, 68); doc.rect(tX, y, tW, RH, 'F');
-    doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(212, 175, 55);
+    doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(212, 175, 55);
     let cx = tX;
     ['CRITERIO', 'RESULTADO / VALOR DETERMINADO', 'REF. LEGAL'].forEach((h, i) => {
-      doc.text(h, cx + 2, y + 4.5); cx += tH[i];
+      doc.text(h, cx + 2, y + 3.6); cx += tH[i];
     });
     const tableStartY = y; y += RH;
 
     /* filas */
     tRows.forEach((row, ri) => {
-      chk(RH);
       const isAudit = ri === tRows.length - 1;
       if (isAudit) {
         const auditVal = (nd.auditoria || '').toUpperCase();
@@ -2403,13 +2578,13 @@
         doc.setFillColor(ri % 2 === 0 ? 240 : 248, ri % 2 === 0 ? 245 : 250, 255);
       }
       doc.rect(tX, y, tW, RH, 'F');
-      doc.setFontSize(7.5);
+      doc.setFontSize(7);
       doc.setFont('helvetica', isAudit ? 'bold' : 'normal');
       doc.setTextColor(...(isAudit ? [255, 255, 255] : [20, 25, 55]));
       cx = tX;
       row.forEach((cell, ci) => {
-        const ln = doc.splitTextToSize(String(cell), tH[ci] - 4);
-        doc.text(ln[0] || '', cx + 2, y + 4.5); cx += tH[ci];
+        const ln = doc.splitTextToSize(String(cell), tH[ci] - 3);
+        doc.text(ln[0] || '', cx + 2, y + 3.6); cx += tH[ci];
       });
       doc.setDrawColor(185, 195, 225); doc.setLineWidth(0.2);
       doc.line(tX, y + RH, tX + tW, y + RH);
@@ -2422,33 +2597,61 @@
     doc.setLineWidth(0.25);
     doc.line(tX + tH[0], tableStartY, tX + tH[0], y);
     doc.line(tX + tH[0] + tH[1], tableStartY, tX + tH[0] + tH[1], y);
-    y += 4;
+    y += 3;
 
     /* ── RESULTADO DE AUDITORÍA ──────────────────────────────────────── */
-    chk(12);
     const auditVal = (nd.auditoria || 'APROBADA').toUpperCase();
     const auditBg  = auditVal.includes('APROBADA') ? [18, 95, 40] : auditVal.includes('RECHAZADA') ? [115, 20, 20] : [95, 75, 15];
     const auditTxt = auditVal.includes('APROBADA') ? 'APROBADA — Ficha lista para importacion'
                    : auditVal.includes('RECHAZADA') ? 'RECHAZADA — Requiere revision completa'
                    : 'CONDICIONADA — Pendiente de documentacion especifica';
-    doc.setFillColor(...auditBg); doc.rect(mL, y, cW, 9, 'F');
-    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(255, 255, 255);
-    doc.text('RESULTADO DE AUDITORIA:  ' + auditTxt, mL + 3, y + 6); y += 13;
+    doc.setFillColor(...auditBg); doc.rect(mL, y, cW, 8, 'F');
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(255, 255, 255);
+    doc.text('RESULTADO:  ' + auditTxt, mL + 3, y + 5.5); y += 11;
 
-    /* ── DISCLAIMER ──────────────────────────────────────────────────── */
-    chk(20);
+    /* ── DISCLAIMER (página 1 — comprimido) ─────────────────────────── */
     hline([160, 45, 45], 0.3);
-    doc.setFontSize(7); doc.setFont('helvetica', 'italic'); doc.setTextColor(115, 40, 40);
-    const disc = 'Documento de caracter informativo y tecnico. NO constituye informe legal ni tiene validez juridica formal ante ningun organismo. La clasificacion arancelaria esta sujeta a la legislacion vigente y debe ser validada por un aforador o especialista en nomenclatura debidamente acreditado. Cualquier decision basada en este documento es responsabilidad exclusiva del usuario.';
-    doc.splitTextToSize(disc, cW).forEach(ln => { chk(4); doc.text(ln, mL, y); y += 3.5; });
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(115, 40, 40);
+    const disc = 'Documento informativo y tecnico. NO constituye informe legal ni tiene validez juridica formal. La clasificacion arancelaria debe ser validada por un aforador o especialista en nomenclatura debidamente acreditado. Responsabilidad exclusiva del usuario.';
+    doc.splitTextToSize(disc, cW).forEach(ln => { doc.text(ln, mL, y); y += 3.2; });
 
     /* ── FIRMA ───────────────────────────────────────────────────────── */
-    y += 4; chk(14);
+    y += 3;
     doc.setDrawColor(160, 160, 160); doc.setLineWidth(0.3);
-    doc.line(mL, y, mL + 75, y);
-    doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(90, 90, 90);
-    doc.text('Firma / Nombre del Consultor', mL, y + 4);
-    doc.text('Fecha: ' + ts, mL + 105, y + 4);
+    doc.line(mL, y, mL + 70, y);
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(90, 90, 90);
+    doc.text('Firma / Nombre del Consultor', mL, y + 3.5);
+    doc.text('Fecha: ' + ts, mL + 100, y + 3.5);
+
+    /* ── PÁGINA 2: ANÁLISIS COMPLETO DEL PROTOCOLO ───────────────────── */
+    if (fullAnalysis && fullAnalysis.trim().length > 20) {
+      doc.addPage();
+      let y2 = 14;
+      // Encabezado página 2
+      doc.setFillColor(10, 32, 60); doc.rect(0, 0, PW, 22, 'F');
+      doc.setFillColor(212, 175, 55); doc.rect(0, 22, PW, 0.8, 'F');
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(212, 175, 55);
+      doc.text('ANÁLISIS COMPLETO DEL PROTOCOLO MERCEOLÓGICO', PW / 2, 10, { align: 'center' });
+      doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(170, 195, 220);
+      doc.text('Continuación — ' + (productName || query || '').substring(0, 80), PW / 2, 17, { align: 'center' });
+      y2 = 28;
+
+      // Texto del análisis
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(25, 25, 25);
+      const anaLines = doc.splitTextToSize(fullAnalysis.trim(), cW);
+      const lh = 4.2;
+      for (const ln of anaLines) {
+        if (y2 + lh > PH - 14) { doc.addPage(); y2 = 14; doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(25,25,25); }
+        doc.text(ln, mL, y2); y2 += lh;
+      }
+
+      // Disclaimer página 2
+      y2 += 4;
+      doc.setDrawColor(160, 45, 45); doc.setLineWidth(0.3); doc.line(mL, y2, PW - mR, y2); y2 += 3;
+      doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(115, 40, 40);
+      const disc2 = 'Documento de caracter informativo. NO constituye informe legal. Cualquier decision basada en este documento es responsabilidad exclusiva del usuario.';
+      doc.splitTextToSize(disc2, cW).forEach(ln => { doc.text(ln, mL, y2); y2 += 3.2; });
+    }
 
     return doc;
   }
@@ -2458,7 +2661,7 @@
     const productName = (document.getElementById('productNameInput')?.value || '').trim();
     const ts = new Date().toLocaleString('es-DO');
     if (_lastNbId === 'biblioteca-de-nomenclaturas' && _lastNomenclaturaData) {
-      const doc = _buildNomenclaturaInforme(_lastQuery, _lastNomenclaturaData, ts, productName);
+      const doc = _buildNomenclaturaInforme(_lastQuery, _lastNomenclaturaData, ts, productName, _lastFullAnalysis);
       const fname = 'Informe_Merceologico_' + (productName || 'Nomenclatura').replace(/\s+/g, '_').substring(0, 40) + '.pdf';
       doc.save(fname);
     } else {
@@ -2475,7 +2678,7 @@
     if (h.nbId === 'biblioteca-de-nomenclaturas') {
       const nd = h.nomData || (h.ans ? _parseNomenclatura(h.ans).data : null);
       if (nd) {
-        const doc = _buildNomenclaturaInforme(h.q, nd, ts, null);
+        const doc = _buildNomenclaturaInforme(h.q, nd, ts, null, h.fullAnalysis || '');
         const fname = 'Informe_Merceologico_' + String(h.nb || 'Nomenclatura').replace(/\s+/g, '_').substring(0, 40) + '_' + index + '.pdf';
         doc.save(fname); return;
       }

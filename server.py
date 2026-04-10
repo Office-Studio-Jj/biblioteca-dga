@@ -73,7 +73,7 @@ def _security_headers(response):
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    response.headers['Permissions-Policy'] = 'camera=(self), microphone=(), geolocation=()'
     if _IS_CLOUD:
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     csp = (
