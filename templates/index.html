@@ -736,6 +736,19 @@
     .nom-imp-val-itbis { color: #6ee7b7; }
     .nom-imp-val-isc { color: #93c5fd; }
     .nom-imp-val-otros { color: #c4b5fd; }
+    .nom-permisos {
+      background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+      padding: 8px 12px; margin-bottom: 8px;
+    }
+    .nom-permiso-row {
+      display: flex; gap: 6px; align-items: baseline;
+      padding: 4px 0; font-size: 0.73rem; line-height: 1.4;
+    }
+    .nom-permiso-row + .nom-permiso-row { border-top: 1px solid #293548; }
+    .nom-permiso-label {
+      color: #94a3b8; font-weight: 700; white-space: nowrap; flex-shrink: 0;
+    }
+    .nom-permiso-val { color: #e2e8f0; }
     .nom-details {
       margin-top: 8px; border: 1px solid #334155;
       border-radius: 10px; overflow: hidden;
@@ -1694,6 +1707,8 @@
         itbis:         get('ITBIS'),
         isc:           get('ISC'),
         otrosCobros:   get('OTROS_COBROS'),
+        vucerd:        get('VUCERD'),
+        otrosPermisos: get('OTROS_PERMISOS'),
       },
       cleanAnswer
     };
@@ -1827,6 +1842,8 @@
     const fun   = (nd.funcion   || '').substring(0, 90);
     const rgi   = (nd.rgi       || '').substring(0, 60);
     const rest  = (nd.restricciones && nd.restricciones.toUpperCase() !== 'NINGUNA') ? nd.restricciones : 'Ninguna';
+    const vucerd = nd.vucerd || 'Consultar';
+    const otrosPermisos = nd.otrosPermisos || 'NINGUNO';
     const auditVal = (nd.auditoria || 'APROBADA').toUpperCase();
     const auditColor = auditVal.includes('RECHAZADA') ? '#f87171' : auditVal.includes('CONDICIONADA') ? '#fde68a' : '#6ee7b7';
 
@@ -1864,6 +1881,16 @@
             <td>${_esc(rgi)}</td>
           </tr>
         </table>
+        <div class="nom-permisos">
+          <div class="nom-permiso-row">
+            <span class="nom-permiso-label">🏛️ VUCERD:</span>
+            <span class="nom-permiso-val">${_esc(vucerd)}</span>
+          </div>
+          <div class="nom-permiso-row">
+            <span class="nom-permiso-label">📋 Otros permisos:</span>
+            <span class="nom-permiso-val">${_esc(otrosPermisos)}</span>
+          </div>
+        </div>
         <div style="font-size:0.7rem;color:#64748b;padding:4px 2px;margin-bottom:6px;">
           ⚠️ Restricciones: <span style="color:#e2e8f0;">${_esc(rest)}</span>
           &nbsp;·&nbsp; Auditoría: <span style="color:${auditColor};font-weight:700;">${_esc(auditVal)}</span>

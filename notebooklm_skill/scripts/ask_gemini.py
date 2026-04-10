@@ -214,6 +214,8 @@ RESTRICCIONES: [restricciones o permisos previos aplicables en max 1 linea, o NI
 GRAVAMEN: [X% — NMF estandar / o tasa preferencial indicando el tratado (DR-CAFTA, CARICOM, EPA)]
 ITBIS: [18% sobre (CIF + Gravamen) / o EXENTO — indicar base legal de exencion]
 ISC: [NO APLICA / o descripcion del cargo selectivo con tasa o monto si aplica (Caps. 22, 24, 27, 87)]
+VUCERD: [SI — indicar tipo de permiso VUCERD requerido y la institucion gubernamental que lo emite (ej: Permiso Sanitario — Ministerio de Salud Publica, Permiso Fitosanitario — Ministerio de Agricultura, Registro Sanitario — DIGEMAPS, Permiso Ambiental — Ministerio de Medio Ambiente, etc.) / NO REQUIERE]
+OTROS_PERMISOS: [Listar cada permiso adicional con nombre completo y la institucion que lo expide, separados por punto y coma. Ej: Certificado de No Objecion — CNZFE; Licencia de Importacion — Ministerio de Industria y Comercio. Si no aplica: NINGUNO]
 ---FIN_CLASIFICACION---""",
 
     "biblioteca-legal-y-procedimiento-dga": """Eres un experto y asesor en Logística de Aduanas y Puertos de la República Dominicana, especializado en legislación aduanera y procedimientos de comercio exterior.
