@@ -1947,6 +1947,12 @@
         let _displayAnswer = data.answer;
         let _supData = null;
 
+        // 0. Si el servidor identificó un producto desde imagen, usarlo como query de respaldo
+        if (data.producto_identificado) {
+          if (!_lastQuery) _lastQuery = data.producto_identificado;
+          _suggestedProductName = data.producto_identificado;
+        }
+
         // 1. Extraer supervision (TODOS los cuadernos — Supervisor General Interno)
         const supParsed = _parseSupervision(data.answer);
         if (supParsed.data) {
@@ -2248,6 +2254,10 @@
         _lastNomenclaturaData = null;
         let _displayAnswerR = data.answer;
         let _supDataR = null;
+        if (data.producto_identificado) {
+          if (!_lastQuery) _lastQuery = data.producto_identificado;
+          _suggestedProductName = data.producto_identificado;
+        }
         const supParsedR = _parseSupervision(_displayAnswerR);
         if (supParsedR.data) { _supDataR = supParsedR.data; _displayAnswerR = supParsedR.cleanAnswer; }
         if (_retryNbId === 'biblioteca-de-nomenclaturas') {

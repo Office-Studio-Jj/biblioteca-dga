@@ -483,6 +483,7 @@ def consultar():
         return jsonify({"error": "Demasiadas consultas. Espera un momento."}), 429
 
     # Si hay archivo adjunto, extraer texto / analizar imagen y añadirlo a la pregunta
+    producto_identificado = ""
     if archivo:
         try:
             import tempfile, os as _os
@@ -493,6 +494,11 @@ def consultar():
             texto_archivo = _extraer_texto_archivo(tmp_path, ext)
             _os.unlink(tmp_path)
             if texto_archivo:
+                # Extraer nombre del producto de la respuesta de Gemini Vision
+                import re as _re
+                _m = _re.search(r"PRODUCTO:\s*(.+)", texto_archivo)
+                if _m:
+                    producto_identificado = _m.group(1).strip()
                 if not question:
                     # Solo foto, sin texto: usar la descripción del producto como pregunta
                     question = ("Clasifica arancelariamente el siguiente producto identificado "
@@ -507,7 +513,10 @@ def consultar():
 
     try:
         answer = ask_notebooklm(question, notebook_id)
-        return jsonify({"answer": answer})
+        resp = {"answer": answer}
+        if producto_identificado:
+            resp["producto_identificado"] = producto_identificado
+        return jsonify(resp)
     except subprocess.TimeoutExpired:
         return jsonify({"error": "Tiempo de espera agotado. Intenta de nuevo."}), 504
     except Exception as e:
