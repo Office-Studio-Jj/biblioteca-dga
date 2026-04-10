@@ -702,6 +702,12 @@
 
     /* ── Tarjeta compacta de Nomenclatura (Image 4) ── */
     .nom-card { font-size: 0.82rem; }
+    .nom-prod-name {
+      font-size: 0.95rem; font-weight: 800; color: #e2e8f0;
+      text-align: center; padding: 8px 10px 6px;
+      border-bottom: 1px solid #334155; margin-bottom: 10px;
+      line-height: 1.3; text-transform: capitalize;
+    }
     .nom-code-box {
       background: linear-gradient(135deg, #0f2744, #1e3a5f);
       border: 1.5px solid var(--gold); border-radius: 12px;
@@ -729,6 +735,7 @@
     .nom-imp-val-grav { color: #fde68a; }
     .nom-imp-val-itbis { color: #6ee7b7; }
     .nom-imp-val-isc { color: #93c5fd; }
+    .nom-imp-val-otros { color: #c4b5fd; }
     .nom-details {
       margin-top: 8px; border: 1px solid #334155;
       border-radius: 10px; overflow: hidden;
@@ -1653,6 +1660,7 @@
   let _lastQuery = '', _lastNbId = '', _lastNbName = '', _lastAnswer = '';
   let _lastNomenclaturaData = null;
   let _lastFullAnalysis = '';
+  let _suggestedProductName = '';
   const savedProducts = JSON.parse(localStorage.getItem('dga_saved_products') || '[]');
 
   /* ── Parser del bloque estructurado de Nomenclatura ── */
@@ -1682,6 +1690,10 @@
         funcion:       get('FUNCION'),
         rgi:           get('RGI'),
         restricciones: get('RESTRICCIONES'),
+        gravamen:      get('GRAVAMEN'),
+        itbis:         get('ITBIS'),
+        isc:           get('ISC'),
+        otrosCobros:   get('OTROS_COBROS'),
       },
       cleanAnswer
     };
@@ -1790,22 +1802,26 @@
 
   /* ── Tarjeta compacta de Nomenclatura — solo lo esencial técnico ── */
   function _renderNomenclaturaCard(nd, supData, fullAnalysis, bodyEl) {
-    // Extraer gravamen / ITBIS / ISC de los checks del supervisor
-    let gravamen = '', itbis = '', isc = '';
+    // 1. Extraer impuestos: primero de DATOS_CLASIFICACION, fallback a supervisor checks
+    let gravamen = nd.gravamen || '', itbis = nd.itbis || '', isc = nd.isc || '', otrosCobros = nd.otrosCobros || '';
     if (supData && supData.checks) {
       for (const c of supData.checks) {
         const lbl = (c.label || '').toUpperCase();
-        const val = (c.val  || '').replace(/^OK\s*[—\-–]+\s*/i, '').replace(/^OK\s*/i, '').trim();
-        if (lbl === 'GRAVAMEN') gravamen = val;
-        else if (lbl === 'ITBIS') itbis = val;
-        else if (lbl === 'ISC')   isc   = val;
+        const val = (c.val || '').replace(/^OK\s*[—\-–]+\s*/i, '').replace(/^OK\s*/i, '').trim();
+        if (!gravamen    && lbl === 'GRAVAMEN')     gravamen    = val;
+        if (!itbis       && lbl === 'ITBIS')        itbis       = val;
+        if (!isc         && lbl === 'ISC')          isc         = val;
+        if (!otrosCobros && lbl === 'OTROS_COBROS') otrosCobros = val;
       }
     }
-    gravamen = gravamen || '—';
-    itbis    = itbis    || '—';
-    isc      = isc      || 'N/A';
+    gravamen    = gravamen    || 'Pendiente';
+    itbis       = itbis       || 'Pendiente';
+    isc         = isc         || 'NO APLICA';
+    otrosCobros = otrosCobros || 'Ver análisis';
 
+    // 2. Datos clave
     const code  = nd.subpartidaNac || nd.subpartida || nd.partida || '—';
+    const prodName = (nd.identificacion || _lastQuery || '').split('.')[0].substring(0, 80).trim();
     const cap   = (nd.capitulo  || '').substring(0, 100);
     const mat   = (nd.materia   || '').substring(0, 90);
     const fun   = (nd.funcion   || '').substring(0, 90);
@@ -1813,6 +1829,9 @@
     const rest  = (nd.restricciones && nd.restricciones.toUpperCase() !== 'NINGUNA') ? nd.restricciones : 'Ninguna';
     const auditVal = (nd.auditoria || 'APROBADA').toUpperCase();
     const auditColor = auditVal.includes('RECHAZADA') ? '#f87171' : auditVal.includes('CONDICIONADA') ? '#fde68a' : '#6ee7b7';
+
+    // Guardar nombre sugerido para auto-fill al guardar
+    _suggestedProductName = prodName;
 
     const detailsBlock = fullAnalysis ? `
       <details class="nom-details">
@@ -1822,27 +1841,27 @@
 
     bodyEl.innerHTML = `
       <div class="nom-card">
+        <div class="nom-prod-name">${_esc(prodName)}</div>
         <div class="nom-code-box">
           <span class="nom-code-label">Código Arancelario RD</span>
           <span class="nom-code">${_esc(code)}</span>
           <span class="nom-capitulo">${_esc(cap)}</span>
         </div>
-        <table class="nom-table">
-          <tr>
-            <th>Material</th><th>Función técnica</th><th>RGI</th>
-          </tr>
-          <tr>
-            <td>${_esc(mat)}</td>
-            <td>${_esc(fun)}</td>
-            <td>${_esc(rgi)}</td>
-          </tr>
-        </table>
         <table class="nom-table nom-impuestos">
-          <tr><th>Gravamen</th><th>ITBIS</th><th>ISC</th></tr>
+          <tr><th>Gravamen</th><th>ITBIS</th><th>ISC</th><th>Otros</th></tr>
           <tr>
             <td class="nom-imp-val-grav">${_esc(gravamen)}</td>
             <td class="nom-imp-val-itbis">${_esc(itbis)}</td>
             <td class="nom-imp-val-isc">${_esc(isc)}</td>
+            <td class="nom-imp-val-otros">${_esc(otrosCobros)}</td>
+          </tr>
+        </table>
+        <table class="nom-table">
+          <tr><th>Material</th><th>Función técnica</th><th>RGI</th></tr>
+          <tr>
+            <td>${_esc(mat)}</td>
+            <td>${_esc(fun)}</td>
+            <td>${_esc(rgi)}</td>
           </tr>
         </table>
         <div style="font-size:0.7rem;color:#64748b;padding:4px 2px;margin-bottom:6px;">
@@ -1990,7 +2009,7 @@
       markLastHistoryConforme();
       /* Mostrar sección de guardar con nombre del producto */
       document.getElementById('confSaveSection').style.display = 'block';
-      document.getElementById('productNameInput').value = _lastQuery;
+      document.getElementById('productNameInput').value = _suggestedProductName || _lastQuery;
       document.getElementById('saveOkMsg').style.display = 'none';
       document.getElementById('confSaveSection').scrollIntoView({behavior: 'smooth', block: 'start'});
     } else {
@@ -2008,6 +2027,32 @@
   function saveProduct() {
     const name = document.getElementById('productNameInput').value.trim();
     if (!name) { alert('Ingrese el nombre del producto o ítem.'); return; }
+
+    /* ── Validar nombre vs investigación merceológica ── */
+    if (_lastNomenclaturaData && _suggestedProductName) {
+      const suggested = _suggestedProductName.toLowerCase();
+      const userInput = name.toLowerCase();
+      /* Si el usuario cambió el nombre, verificar coherencia */
+      if (userInput !== suggested) {
+        const nd = _lastNomenclaturaData;
+        const keywords = [
+          nd.identificacion, nd.materia, nd.funcion,
+          nd.capitulo, nd.partida, nd.subpartida
+        ].filter(Boolean).join(' ').toLowerCase();
+        const userWords = userInput.split(/\s+/).filter(w => w.length > 2);
+        const matchCount = userWords.filter(w => keywords.includes(w) || suggested.includes(w)).length;
+        const matchRatio = userWords.length > 0 ? matchCount / userWords.length : 0;
+        if (matchRatio < 0.3) {
+          const ok = confirm(
+            '⚠️ El nombre "' + name + '" no parece corresponder con la investigación merceológica realizada.\n\n' +
+            'Producto identificado: ' + _suggestedProductName + '\n\n' +
+            '¿Desea guardarlo de todas formas?'
+          );
+          if (!ok) return;
+        }
+      }
+    }
+
     savedProducts.unshift({
       product: name,
       query: _lastQuery,
