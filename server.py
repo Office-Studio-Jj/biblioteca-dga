@@ -467,8 +467,8 @@ def consultar():
         notebook_id = data.get("notebook_id", "")
         archivo     = None
 
-    if not question:
-        return jsonify({"error": "Escribe una pregunta"}), 400
+    if not question and not archivo:
+        return jsonify({"error": "Escribe una pregunta o adjunta una foto del producto"}), 400
     if not notebook_id:
         return jsonify({"error": "Selecciona un cuaderno"}), 400
 
@@ -482,7 +482,7 @@ def consultar():
     if _rate_limited(f"consulta:{ip}", 'consulta'):
         return jsonify({"error": "Demasiadas consultas. Espera un momento."}), 429
 
-    # Si hay archivo adjunto, extraer texto y añadirlo a la pregunta
+    # Si hay archivo adjunto, extraer texto / analizar imagen y añadirlo a la pregunta
     if archivo:
         try:
             import tempfile, os as _os
@@ -493,9 +493,17 @@ def consultar():
             texto_archivo = _extraer_texto_archivo(tmp_path, ext)
             _os.unlink(tmp_path)
             if texto_archivo:
-                question = question + "\n\n[Ficha técnica adjunta]:\n" + texto_archivo[:3000]
+                if not question:
+                    # Solo foto, sin texto: usar la descripción del producto como pregunta
+                    question = ("Clasifica arancelariamente el siguiente producto identificado "
+                                "desde una imagen:\n\n" + texto_archivo[:3000])
+                    print(f"[CONSULTAR] Consulta generada desde imagen: {question[:120]}")
+                else:
+                    question = question + "\n\n[Ficha técnica adjunta]:\n" + texto_archivo[:3000]
         except Exception as ex:
-            pass  # Si falla la extracción, continúa solo con la pregunta
+            print(f"[CONSULTAR] Error procesando archivo: {ex}")
+            if not question:
+                return jsonify({"error": "No se pudo analizar la imagen. Intenta con otra foto o escribe tu consulta."}), 400
 
     try:
         answer = ask_notebooklm(question, notebook_id)
@@ -511,7 +519,6 @@ def _extraer_texto_archivo(path, ext):
     """Extrae texto de PDF o imagen para incluir en la consulta."""
     try:
         if ext == ".pdf":
-            # Intentar con PyPDF2 o pdfplumber
             try:
                 import pdfplumber
                 with pdfplumber.open(path) as pdf:
@@ -525,20 +532,65 @@ def _extraer_texto_archivo(path, ext):
                     return "\n".join(page.extract_text() or "" for page in reader.pages[:5]).strip()
             except ImportError:
                 pass
-            return "[PDF adjunto — no se pudo extraer texto. Instala pdfplumber: pip install pdfplumber]"
-        elif ext in (".jpg", ".jpeg", ".png"):
-            # Intentar OCR con pytesseract
-            try:
-                from PIL import Image
-                import pytesseract
-                img = Image.open(path)
-                return pytesseract.image_to_string(img, lang="spa+eng").strip()
-            except ImportError:
-                pass
-            return "[Imagen adjunta — no se pudo extraer texto. Instala pytesseract para OCR]"
+            return "[PDF adjunto — no se pudo extraer texto]"
+        elif ext in (".jpg", ".jpeg", ".png", ".heic", ".webp"):
+            # Usar Gemini Vision para analizar la imagen
+            desc = _identificar_producto_imagen(path)
+            if desc:
+                return desc
+            return "[Imagen adjunta — producto no identificado]"
     except Exception as e:
         return f"[Error al leer archivo: {e}]"
     return ""
+
+
+def _identificar_producto_imagen(image_path):
+    """Usa Gemini Vision para identificar un producto desde una foto.
+    Devuelve una descripción merceológica del producto para clasificación."""
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        return None
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+
+        # Subir imagen a Gemini File API
+        print(f"[VISION] Subiendo imagen para análisis: {image_path}")
+        img_file = genai.upload_file(image_path)
+        # Esperar a que esté activa
+        for _ in range(10):
+            status = genai.get_file(img_file.name)
+            if status.state.name == "ACTIVE":
+                break
+            time.sleep(1)
+
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        prompt = (
+            "Eres un experto en merceología aduanera y clasificación arancelaria. "
+            "Analiza esta imagen e identifica el producto con la mayor precisión técnica posible.\n\n"
+            "Responde EXACTAMENTE con este formato:\n"
+            "PRODUCTO: [nombre técnico completo del producto]\n"
+            "MATERIAL: [material constitutivo principal visible]\n"
+            "FUNCION: [función técnica o uso evidente del producto]\n"
+            "DESCRIPCION: [descripción técnica detallada de 2-3 líneas para clasificación arancelaria, "
+            "incluyendo estado físico, acabado, presentación comercial]\n\n"
+            "Si no puedes identificar el producto con certeza, describe lo que ves y sugiere "
+            "las posibilidades más probables."
+        )
+        response = model.generate_content([img_file, prompt])
+        desc = response.text.strip()
+        print(f"[VISION] Producto identificado: {desc[:150]}")
+
+        # Limpiar archivo subido
+        try:
+            genai.delete_file(img_file.name)
+        except Exception:
+            pass
+
+        return desc
+    except Exception as e:
+        print(f"[VISION] Error analizando imagen: {e}")
+        return None
 
 @app.route("/estado")
 @login_required
@@ -1359,10 +1411,21 @@ def ask_notebooklm(question, notebook_id):
             print(f"[GEMINI_NOANS] Sin respuesta de Gemini. stderr={stderr[:300]}")
         except subprocess.TimeoutExpired:
             print("[GEMINI_LOG] Timeout en Gemini (2 min)")
+            # En cloud: devolver error inmediato (NotebookLM browser no funciona)
+            if _IS_CLOUD:
+                return ("El servidor tardó más de 2 minutos procesando tu consulta. "
+                        "Esto puede ocurrir cuando el sistema está analizando documentos complejos. "
+                        "Por favor intenta de nuevo — la segunda consulta suele ser más rápida.")
         except Exception as e:
             print(f"[GEMINI_LOG] Excepción: {e}")
 
-    # ── Ruta 2: NotebookLM con navegador (solo funciona en local/Windows) ─
+    # ── En cloud: si Gemini no respondió, NO intentar NotebookLM (no funciona) ─
+    if _IS_CLOUD:
+        print("[ASK] Cloud sin respuesta de Gemini — retornando error al usuario")
+        return ("No se pudo obtener respuesta del sistema de IA. "
+                "Verifica que tu consulta sea clara y concisa, e intenta de nuevo en unos segundos.")
+
+    # ── Ruta 2: NotebookLM con navegador (SOLO local/Windows) ────────────
     print(f"[ASK] Usando NotebookLM (navegador) para notebook_id={notebook_id}")
     cmd = [PYTHON, "scripts/ask_question.py", "--question", question, "--notebook-id", notebook_id]
     env = os.environ.copy()

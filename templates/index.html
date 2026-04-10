@@ -797,7 +797,7 @@
       <div class="label">2. Escribe tu consulta</div>
       <div class="card">
         <div class="sel-tag" id="selTag"></div>
-        <textarea id="qInput" placeholder="Escribe tu pregunta..." rows="3"></textarea>
+        <textarea id="qInput" placeholder="Escribe tu pregunta o toma una foto..." rows="3" oninput="_updateSendBtn()"></textarea>
 
         <!-- Adjuntar ficha técnica -->
         <div class="attach-zone" id="attachZone">
@@ -1588,6 +1588,12 @@
     if (name === 'historial') renderHistory();
   }
 
+  function _updateSendBtn() {
+    const hasText = document.getElementById('qInput').value.trim().length > 0;
+    const hasFile = !!_attachedFile;
+    document.getElementById('btnSend').disabled = !selId || (!hasText && !hasFile);
+  }
+
   function selectNb(btn) {
     document.querySelectorAll('.nb-btn').forEach(b => b.classList.remove('sel'));
     btn.classList.add('sel');
@@ -1596,7 +1602,7 @@
     const tag = document.getElementById('selTag');
     tag.textContent = '📖 ' + selName;
     tag.classList.add('show');
-    document.getElementById('btnSend').disabled = false;
+    _updateSendBtn();
   }
 
   let _attachedFile = null;
@@ -1622,6 +1628,7 @@
     document.getElementById('attachName').textContent = icon + ' ' + file.name + ' (' + (file.size/1024).toFixed(0) + ' KB)';
     document.getElementById('attachRemove').style.display = 'block';
     document.getElementById('attachBtnsRow').style.display = 'none';
+    _updateSendBtn();
   }
 
   function removeFile(e) {
@@ -1633,6 +1640,7 @@
     document.getElementById('attachName').textContent = '';
     document.getElementById('attachRemove').style.display = 'none';
     document.getElementById('attachBtnsRow').style.display = 'flex';
+    _updateSendBtn();
   }
 
   /* ── Estado de conformidad / ficha técnica / productos guardados ── */
@@ -1867,7 +1875,8 @@
 
   async function send() {
     const q = document.getElementById('qInput').value.trim();
-    if (!q || !selId) return;
+    if (!selId) return;
+    if (!q && !_attachedFile) return;
     const btn  = document.getElementById('btnSend');
     const card = document.getElementById('respCard');
     const body = document.getElementById('respBody');
@@ -1877,7 +1886,10 @@
     btn.disabled = true;
     btn.textContent = 'Consultando...';
     card.classList.add('show');
-    body.innerHTML = '<div class="loading-row"><div class="spin"></div>Consultando + Supervisor Interno... (puede tardar unos segundos)</div>';
+    const loadMsg = _attachedFile && !q
+      ? 'Analizando imagen + Clasificación merceológica... (puede tardar hasta 1 min)'
+      : 'Consultando + Supervisor Interno... (puede tardar unos segundos)';
+    body.innerHTML = '<div class="loading-row"><div class="spin"></div>' + loadMsg + '</div>';
     nb.textContent = '';
 
     _lastQuery = q;
@@ -2431,11 +2443,8 @@
     const mL   = 13, mR = 13, mB = 14;
     const cW   = PW - mL - mR;                       // 184
     let y = mL;
-    let page1Only = true; // bandera: todo el informe formal va en página 1
-
     /* helpers --------------------------------------------------------- */
     const chk = (extra) => {
-      if (page1Only) return; // en modo página 1 no agregar páginas (comprimir in-situ)
       if (y + (extra || 6) > PH - mB) { doc.addPage(); y = mL; }
     };
 
