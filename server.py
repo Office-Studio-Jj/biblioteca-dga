@@ -270,6 +270,11 @@ def admin_or_master_required(f):
         return f(*args, **kwargs)
     return decorated
 
+# ── Guia de registro ───────────────────────────────────────────────────
+@app.route("/guia-registro")
+def guia_registro():
+    return render_template("guia_registro.html")
+
 # ── Registro ────────────────────────────────────────────────────────────
 @app.route("/registro", methods=["GET", "POST"])
 def registro():
