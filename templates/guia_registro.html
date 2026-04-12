@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Guia de Registro — Logistica de Puertos y Aduanas RD</title>
+  <meta name="theme-color" content="#1e3a5f">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      min-height: 100%; background: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #e2e8f0;
+    }
+    .wrap { max-width: 480px; margin: 0 auto; padding: 24px 18px 60px; }
+
+    .header { text-align: center; margin-bottom: 28px; }
+    .header .logo { font-size: 2.4rem; }
+    .header h1 { font-size: 1.1rem; color: #d4af37; font-weight: 700; margin: 4px 0; }
+    .header .sub { font-size: 0.75rem; color: #64748b; }
+
+    /* Progress bar */
+    .progress-bar { display: flex; gap: 6px; margin-bottom: 28px; }
+    .progress-dot {
+      flex: 1; height: 5px; border-radius: 3px;
+      background: #1e293b; transition: background 0.4s;
+    }
+    .progress-dot.active { background: #d4af37; }
+    .progress-dot.done { background: #4ade80; }
+
+    /* Step card */
+    .step {
+      display: none; animation: fadeIn 0.4s ease;
+    }
+    .step.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .step-number {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, #d4af37, #b8962e);
+      color: #0f172a; font-weight: 800; font-size: 0.9rem;
+      margin-bottom: 12px;
+    }
+    .step-title {
+      font-size: 1rem; font-weight: 700; color: #e2e8f0; margin-bottom: 6px;
+    }
+    .step-desc {
+      font-size: 0.82rem; color: #94a3b8; line-height: 1.5; margin-bottom: 18px;
+    }
+
+    /* Phone mockup */
+    .phone-mock {
+      background: #1e293b; border-radius: 20px; border: 2px solid #334155;
+      padding: 16px; margin-bottom: 20px; position: relative;
+      overflow: hidden;
+    }
+    .phone-mock .notch {
+      width: 80px; height: 6px; background: #334155; border-radius: 3px;
+      margin: 0 auto 14px;
+    }
+
+    /* Simulated screens inside phone */
+    .mock-screen { font-size: 0.78rem; }
+    .mock-url {
+      background: #0f172a; border-radius: 8px; padding: 7px 10px;
+      font-size: 0.68rem; color: #64748b; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .mock-url .lock { color: #4ade80; }
+    .mock-url .url-text { color: #94a3b8; }
+
+    .mock-title { text-align: center; font-size: 0.85rem; font-weight: 700; color: #d4af37; margin-bottom: 8px; }
+    .mock-subtitle { text-align: center; font-size: 0.65rem; color: #64748b; margin-bottom: 14px; }
+
+    .mock-card {
+      background: #0f172a; border-radius: 12px; padding: 12px; margin-bottom: 10px;
+    }
+    .mock-card-title {
+      font-size: 0.62rem; font-weight: 700; color: #d4af37;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
+    }
+
+    .mock-field {
+      background: #1e293b; border: 1.5px solid #334155; border-radius: 8px;
+      padding: 8px 10px; margin-bottom: 6px; font-size: 0.72rem; color: #64748b;
+    }
+    .mock-field.filled { border-color: #d4af37; color: #e2e8f0; }
+    .mock-field .label {
+      font-size: 0.55rem; color: #64748b; text-transform: uppercase;
+      letter-spacing: 0.5px; margin-bottom: 2px; font-weight: 700;
+    }
+
+    .mock-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+    .mock-btn {
+      width: 100%; background: linear-gradient(135deg, #d4af37, #b8962e);
+      color: #0f172a; border: none; border-radius: 10px;
+      padding: 10px; font-size: 0.78rem; font-weight: 700; margin-top: 6px;
+    }
+    .mock-btn.cyan {
+      background: linear-gradient(135deg, #0891b2, #0e7490);
+      color: #fff;
+    }
+
+    .mock-link {
+      text-align: center; font-size: 0.65rem; color: #64748b; margin-top: 10px;
+    }
+    .mock-link span { color: #22d3ee; font-weight: 600; }
+
+    .mock-badge {
+      display: inline-block; background: #164e63; border: 1px solid #0e7490;
+      color: #22d3ee; font-size: 0.62rem; font-weight: 600;
+      padding: 3px 10px; border-radius: 8px; margin-bottom: 10px;
+    }
+    .mock-online {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #064e3b; border: 1px solid #065f46;
+      color: #6ee7b7; font-size: 0.58rem; font-weight: 600;
+      padding: 3px 10px; border-radius: 12px; margin-bottom: 12px;
+    }
+    .mock-online .dot {
+      width: 5px; height: 5px; background: #4ade80; border-radius: 50%;
+    }
+
+    /* Highlight arrows and annotations */
+    .annotation {
+      position: relative; margin-top: -6px; margin-bottom: 14px;
+    }
+    .arrow-label {
+      display: flex; align-items: flex-start; gap: 8px;
+      background: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.3);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .arrow-label .arrow { font-size: 1.2rem; flex-shrink: 0; animation: bounce 1.5s infinite; }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+    .arrow-label .text { font-size: 0.72rem; color: #d4af37; line-height: 1.4; }
+
+    /* Tip boxes */
+    .tip {
+      background: #1a2332; border-left: 3px solid #22d3ee;
+      border-radius: 0 10px 10px 0; padding: 10px 14px;
+      margin-bottom: 18px;
+    }
+    .tip .tip-title { font-size: 0.68rem; font-weight: 700; color: #22d3ee; margin-bottom: 3px; }
+    .tip .tip-text { font-size: 0.72rem; color: #94a3b8; line-height: 1.4; }
+
+    /* Navigation buttons */
+    .nav-btns {
+      display: flex; gap: 10px; margin-top: 10px;
+    }
+    .btn-nav {
+      flex: 1; padding: 12px; border: none; border-radius: 12px;
+      font-size: 0.85rem; font-weight: 700; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-nav:active { opacity: 0.7; }
+    .btn-prev {
+      background: #1e293b; color: #94a3b8; border: 1px solid #334155;
+    }
+    .btn-next {
+      background: linear-gradient(135deg, #d4af37, #b8962e); color: #0f172a;
+    }
+    .btn-start {
+      background: linear-gradient(135deg, #0891b2, #0e7490); color: #fff;
+    }
+
+    /* Success check */
+    .success-icon {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: linear-gradient(135deg, #4ade80, #16a34a);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem; margin: 0 auto 14px;
+    }
+
+    /* Modal password */
+    .mock-modal-overlay {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.6); display: flex;
+      align-items: center; justify-content: center;
+      border-radius: 18px; z-index: 2;
+    }
+    .mock-modal {
+      background: #1e293b; border-radius: 14px; padding: 16px;
+      width: 85%; border: 1px solid #334155;
+    }
+    .mock-modal h4 {
+      font-size: 0.75rem; color: #d4af37; text-align: center; margin-bottom: 10px;
+    }
+    .mock-modal .mock-field { margin-bottom: 6px; }
+
+    .back-link {
+      text-align: center; margin-top: 18px;
+    }
+    .back-link a {
+      color: #64748b; font-size: 0.75rem; text-decoration: none;
+    }
+    .back-link a span { color: #d4af37; font-weight: 600; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="logo">📱</div>
+    <h1>Guia de Registro Paso a Paso</h1>
+    <div class="sub">Aprende a crear tu cuenta en 4 pasos sencillos</div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-bar">
+    <div class="progress-dot" id="dot0"></div>
+    <div class="progress-dot" id="dot1"></div>
+    <div class="progress-dot" id="dot2"></div>
+    <div class="progress-dot" id="dot3"></div>
+  </div>
+
+  <!-- ========== PASO 1 ========== -->
+  <div class="step active" id="step0">
+    <div class="step-number">1</div>
+    <div class="step-title">Abre la pagina de acceso</div>
+    <div class="step-desc">
+      Desde tu celular o computadora, abre el navegador y visita la direccion de la aplicacion.
+    </div>
+
+    <!-- Phone mockup: login invitado -->
+    <div class="phone-mock">
+      <div class="notch"></div>
+      <div class="mock-screen">
+        <div class="mock-url">
+          <span class="lock">🔒</span>
+          <span class="url-text">biblioteca-dga-production.up.railway.app/invitado</span>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:1.8rem;margin-bottom:4px;">🚢</div>
+          <div class="mock-title">Logistica de Puertos y Aduanas RD</div>
+          <div class="mock-subtitle">Sistema de consulta aduanera</div>
+          <div class="mock-online"><div class="dot"></div> Disponible 24/7</div>
+          <br>
+          <div class="mock-badge">👤 Acceso de Usuario</div>
+        </div>
+        <div class="mock-field">
+          <div class="label">Correo registrado</div>
+          tu@correo.com
+        </div>
+        <div class="mock-field">
+          <div class="label">Contrasena</div>
+          ••••••••
+        </div>
+        <div class="mock-btn cyan">Ingresar →</div>
+        <div class="mock-link" style="margin-top:12px;font-size:0.62rem;color:#334155;">— o si es tu primera vez —</div>
+        <div class="mock-link" style="margin-top:8px;">
+          No tienes cuenta? <span style="color:#22d3ee;font-weight:600;">Registrate aqui →</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <div class="arrow-label">
+        <span class="arrow">👆</span>
+        <span class="text">Toca donde dice <strong>"Registrate aqui"</strong> en la parte inferior de la pantalla para crear tu cuenta nueva.</span>
+      </div>
+    </div>
+
+    <div class="tip">
+      <div class="tip-title">💡 Consejo</div>
+      <div class="tip-text">Si usas Android, puedes instalar la app como acceso directo desde el menu del navegador: "Agregar a pantalla de inicio".</div>
+    </div>
+
+    <div class="nav-btns">
+      <button class="btn-nav btn-next" onclick="goStep(1)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- ========== PASO 2 ========== -->
+  <div class="step" id="step1">
+    <div class="step-number">2</div>
+    <div class="step-title">Completa tus datos personales</div>
+    <div class="step-desc">
+      Llena el formulario con tu informacion. Los campos con <span style="color:#f87171;">*</span> son obligatorios.
+    </div>
+
+    <!-- Phone mockup: registration form -->
+    <div class="phone-mock">
+      <div class="notch"></div>
+      <div class="mock-screen">
+        <div class="mock-url">
+          <span class="lock">🔒</span>
+          <span class="url-text">biblioteca-dga-.../registro</span>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:1.6rem;margin-bottom:4px;">🚢</div>
+          <div class="mock-title">Logistica de Puertos y Aduanas RD</div>
+          <div class="mock-subtitle">Crea tu cuenta de acceso</div>
+        </div>
+
+        <div class="mock-card">
+          <div class="mock-card-title">👤 Datos personales</div>
+          <div class="mock-field filled">
+            <div class="label">Nombre completo *</div>
+            Juan Perez Garcia
+          </div>
+          <div class="mock-field filled">
+            <div class="label">Correo electronico *</div>
+            juan.perez@correo.com
+          </div>
+          <div class="mock-field filled">
+            <div class="label">Numero de WhatsApp *</div>
+            (809) 555-1234
+          </div>
+          <div class="mock-field filled">
+            <div class="label">Profesion *</div>
+            Agente Aduanal
+          </div>
+          <div class="mock-field filled">
+            <div class="label">A que se dedica? *</div>
+            Despacho de mercancias en puerto
+          </div>
+        </div>
+
+        <div class="mock-card">
+          <div class="mock-card-title">📍 Direccion</div>
+          <div class="mock-field filled">
+            <div class="label">Pais *</div>
+            Republica Dominicana
+          </div>
+          <div class="mock-row">
+            <div class="mock-field filled">
+              <div class="label">Provincia *</div>
+              Santo Domingo
+            </div>
+            <div class="mock-field filled">
+              <div class="label">Municipio *</div>
+              Distrito Nacional
+            </div>
+          </div>
+          <div class="mock-row">
+            <div class="mock-field">
+              <div class="label">Calle / Av.</div>
+              (opcional)
+            </div>
+            <div class="mock-field">
+              <div class="label">Numero</div>
+              (opcional)
+            </div>
+          </div>
+        </div>
+
+        <div class="mock-btn">Registrarme y Acceder →</div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <div class="arrow-label">
+        <span class="arrow">✏️</span>
+        <span class="text">Llena cada campo con tus datos reales. El correo sera tu usuario para iniciar sesion en el futuro.</span>
+      </div>
+    </div>
+
+    <div class="tip">
+      <div class="tip-title">⚠️ Importante</div>
+      <div class="tip-text">Usa un correo que revises con frecuencia. Si olvidas tu contrasena, la recuperacion se enviara a ese correo.</div>
+    </div>
+
+    <div class="nav-btns">
+      <button class="btn-nav btn-prev" onclick="goStep(0)">← Atras</button>
+      <button class="btn-nav btn-next" onclick="goStep(2)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- ========== PASO 3 ========== -->
+  <div class="step" id="step2">
+    <div class="step-number">3</div>
+    <div class="step-title">Crea tu contrasena personal</div>
+    <div class="step-desc">
+      Despues de registrarte, la app te pedira crear una contrasena personal. Esto solo ocurre la primera vez.
+    </div>
+
+    <!-- Phone mockup: password modal -->
+    <div class="phone-mock" style="min-height: 280px;">
+      <div class="notch"></div>
+      <div class="mock-screen" style="opacity:0.3;">
+        <div style="text-align:center;font-size:1.4rem;margin-bottom:4px;">🚢</div>
+        <div style="text-align:center;font-size:0.7rem;color:#d4af37;font-weight:700;">Logistica de Puertos y Aduanas RD</div>
+        <div style="height:40px;"></div>
+        <div style="background:#1e293b;height:12px;border-radius:6px;margin-bottom:6px;width:80%;"></div>
+        <div style="background:#1e293b;height:12px;border-radius:6px;margin-bottom:6px;width:60%;"></div>
+      </div>
+      <div class="mock-modal-overlay">
+        <div class="mock-modal">
+          <div style="font-size:1.3rem;text-align:center;margin-bottom:6px;">🔒</div>
+          <h4>Crea tu contrasena personal</h4>
+          <div class="mock-field filled">
+            <div class="label">Nueva contrasena</div>
+            ••••••••
+          </div>
+          <div class="mock-field filled">
+            <div class="label">Confirmar contrasena</div>
+            ••••••••
+          </div>
+          <div class="mock-btn" style="font-size:0.72rem;padding:8px;">🔒 Guardar</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <div class="arrow-label">
+        <span class="arrow">🔐</span>
+        <span class="text">Escribe una contrasena de <strong>minimo 6 caracteres</strong>. Escribela dos veces para confirmar. Luego toca "Guardar".</span>
+      </div>
+    </div>
+
+    <div class="tip">
+      <div class="tip-title">🔑 Recuerda</div>
+      <div class="tip-text">Esta contrasena es personal y privada. La necesitaras cada vez que inicies sesion. Si la olvidas, podras recuperarla con tu correo.</div>
+    </div>
+
+    <div class="nav-btns">
+      <button class="btn-nav btn-prev" onclick="goStep(1)">← Atras</button>
+      <button class="btn-nav btn-next" onclick="goStep(3)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- ========== PASO 4 ========== -->
+  <div class="step" id="step3">
+    <div class="step-number">4</div>
+    <div class="step-title">Listo! Ya puedes consultar</div>
+    <div class="step-desc">
+      Tu cuenta esta creada. Ahora puedes seleccionar cualquier cuaderno y hacer tus consultas.
+    </div>
+
+    <!-- Phone mockup: app ready -->
+    <div class="phone-mock">
+      <div class="notch"></div>
+      <div class="mock-screen">
+        <div style="text-align:center;">
+          <div class="success-icon">✓</div>
+          <div style="font-size:0.85rem;font-weight:700;color:#4ade80;margin-bottom:4px;">Registro completado</div>
+          <div style="font-size:0.68rem;color:#94a3b8;margin-bottom:16px;">Bienvenido, Juan Perez</div>
+        </div>
+
+        <div class="mock-card">
+          <div class="mock-card-title">📚 Selecciona un cuaderno</div>
+          <div class="mock-field filled" style="border-color:#22d3ee;">
+            <span style="margin-right:4px;">📖</span> Nomenclaturas y clasificacion arancelaria
+          </div>
+          <div class="mock-field">
+            <span style="margin-right:4px;">⚖️</span> Legal y procedimientos DGA
+          </div>
+          <div class="mock-field">
+            <span style="margin-right:4px;">💰</span> Valoracion aduanera
+          </div>
+          <div class="mock-field">
+            <span style="margin-right:4px;">📋</span> Regimenes y subastas
+          </div>
+          <div class="mock-field">
+            <span style="margin-right:4px;">🔍</span> Aforo DGA
+          </div>
+          <div class="mock-field">
+            <span style="margin-right:4px;">🖥️</span> Procedimiento VUCERD
+          </div>
+          <div class="mock-field">
+            <span style="margin-right:4px;">🌐</span> Normas y origen
+          </div>
+        </div>
+
+        <div style="margin-top:10px;">
+          <div class="mock-field filled" style="border-color:#d4af37; text-align:center;">
+            Escribe tu consulta aqui...
+          </div>
+          <div class="mock-btn" style="font-size:0.72rem;padding:8px;">📤 Consultar</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <div class="arrow-label">
+        <span class="arrow">🎉</span>
+        <span class="text">Selecciona un cuaderno, escribe tu pregunta y toca <strong>"Consultar"</strong>. La respuesta se generara automaticamente.</span>
+      </div>
+    </div>
+
+    <div class="tip">
+      <div class="tip-title">📌 Para la proxima vez</div>
+      <div class="tip-text">Cuando vuelvas a entrar, ve a la misma direccion, ingresa tu correo y la contrasena que creaste. No necesitas registrarte de nuevo.</div>
+    </div>
+
+    <!-- Summary card -->
+    <div style="background:#1e293b;border-radius:14px;padding:16px;margin-top:14px;border:1px solid #334155;">
+      <div style="font-size:0.72rem;font-weight:700;color:#d4af37;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;text-align:center;">Resumen del proceso</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="width:24px;height:24px;border-radius:50%;background:#4ade80;color:#0f172a;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:800;flex-shrink:0;">1</div>
+        <div style="font-size:0.72rem;color:#94a3b8;">Abre <strong style="color:#e2e8f0;">/invitado</strong> en tu navegador</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="width:24px;height:24px;border-radius:50%;background:#4ade80;color:#0f172a;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:800;flex-shrink:0;">2</div>
+        <div style="font-size:0.72rem;color:#94a3b8;">Toca <strong style="color:#e2e8f0;">"Registrate aqui"</strong></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="width:24px;height:24px;border-radius:50%;background:#4ade80;color:#0f172a;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:800;flex-shrink:0;">3</div>
+        <div style="font-size:0.72rem;color:#94a3b8;">Llena el formulario y toca <strong style="color:#e2e8f0;">"Registrarme y Acceder"</strong></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:24px;height:24px;border-radius:50%;background:#4ade80;color:#0f172a;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:800;flex-shrink:0;">4</div>
+        <div style="font-size:0.72rem;color:#94a3b8;">Crea tu contrasena y <strong style="color:#e2e8f0;">comienza a consultar</strong></div>
+      </div>
+    </div>
+
+    <div class="nav-btns" style="margin-top:18px;">
+      <button class="btn-nav btn-prev" onclick="goStep(2)">← Atras</button>
+      <a href="/invitado" style="flex:1;text-decoration:none;">
+        <button class="btn-nav btn-start" style="width:100%;">Ir a registrarme ahora →</button>
+      </a>
+    </div>
+  </div>
+
+  <div class="back-link">
+    <a href="/invitado">← <span>Volver al inicio</span></a>
+  </div>
+
+</div>
+
+<script>
+  let current = 0;
+  const total = 4;
+
+  function goStep(n) {
+    if (n < 0 || n >= total) return;
+    document.getElementById('step' + current).classList.remove('active');
+    document.getElementById('step' + n).classList.add('active');
+    current = n;
+    updateDots();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function updateDots() {
+    for (let i = 0; i < total; i++) {
+      const dot = document.getElementById('dot' + i);
+      dot.classList.remove('active', 'done');
+      if (i === current) dot.classList.add('active');
+      else if (i < current) dot.classList.add('done');
+    }
+  }
+
+  updateDots();
+</script>
+</body>
+</html>

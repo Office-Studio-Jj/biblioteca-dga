@@ -32,8 +32,21 @@ except ImportError:
 # PROMPT DE VERIFICACION — codigo + cargos fiscales en una sola consulta
 # ══════════════════════════════════════════════════════════════════════════
 
-_SYSTEM_VERIFICACION = """Eres un verificador tecnico del Arancel de Aduanas de la Republica Dominicana.
-Tu funcion es verificar un codigo arancelario y sus cargos fiscales.
+_SYSTEM_VERIFICACION = """Eres un verificador tecnico del cuaderno de Nomenclaturas de la Biblioteca DGA.
+Tu funcion es verificar un codigo arancelario y sus cargos fiscales consultando TODAS las fuentes
+disponibles en el cuaderno, sin excepcion. NO te limites al Arancel PDF — consulta CADA documento.
+
+FUENTES QUE DEBES CONSULTAR (TODAS, sin omitir ninguna):
+1. Arancel de Aduanas de la Republica Dominicana (PDF) — codigos, designaciones, columna GRAV., columna EX. ITBIS
+2. Ley 11-92 (Codigo Tributario) — ITBIS (Art. 343 exenciones), Selectivo al Consumo (Titulo IV)
+3. Leyes sectoriales cargadas en el cuaderno — exenciones especiales, regimenes preferenciales
+4. Tablas de gravamenes y tasas — si existen como documentos separados
+5. Acuerdos comerciales (DR-CAFTA, CARICOM, EPA) — preferencias arancelarias
+6. Resoluciones DGA — modificaciones a tasas o exenciones
+7. CUALQUIER otro PDF o documento presente en el cuaderno de nomenclaturas
+
+REGLA: Si la respuesta sobre gravamen, ITBIS o selectivo puede obtenerse de CUALQUIER documento
+del cuaderno (no solo el Arancel), usa esa fuente. Indica de cual fuente obtuviste el dato.
 
 ESTRUCTURA DE LA TABLA DEL ARANCEL DE LA RD (como leer el libro):
 El Arancel impreso de la Republica Dominicana tiene estas columnas:
@@ -100,15 +113,20 @@ FORMATO DE RESPUESTA — EXCLUSIVAMENTE JSON, sin texto adicional:
   "descripcion_oficial": "descripcion exacta del arancel RD",
   "razon": "si no existe, explicar por que",
   "gravamen_ad_valorem": "XX%",
+  "gravamen_fuente": "nombre del documento de donde obtuviste el dato de gravamen",
   "gravamen_nota": "explicacion breve si aplica acuerdo comercial o condicion especial",
   "itbis": "18%" o "EXENTO",
   "itbis_base_legal": "Ley y articulo si es exento, o 'Tasa general Ley 11-92' si aplica 18%",
+  "itbis_fuente": "nombre del documento de donde obtuviste el dato de ITBIS",
   "selectivo": "NO APLICA" o "XX% — base legal",
-  "otros_cargos": "NINGUNO" o "descripcion del cargo"
+  "selectivo_fuente": "fuente consultada para determinar selectivo",
+  "otros_cargos": "NINGUNO" o "descripcion del cargo",
+  "otros_fuente": "fuente consultada"
 }
 
 NO agregues texto antes ni despues del JSON.
-Si no puedes determinar un cargo con certeza, indica "VERIFICAR EN ARANCEL VIGENTE" en ese campo."""
+Si no puedes determinar un cargo con certeza, indica "VERIFICAR EN ARANCEL VIGENTE" en ese campo.
+SIEMPRE indica de que documento/fuente del cuaderno obtuviste cada dato."""
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -285,17 +303,30 @@ def _corregir_cargos_en_respuesta(respuesta: str, resultado: dict, codigo_final:
     if not gravamen:
         return respuesta
 
-    # ── Construir bloque de cargos verificados ──
+    # ── Construir bloque de cargos verificados con fuentes ──
+    grav_fuente = resultado.get("gravamen_fuente", "")
+    itbis_fuente = resultado.get("itbis_fuente", "")
+    selec_fuente = resultado.get("selectivo_fuente", "")
+    otros_fuente = resultado.get("otros_fuente", "")
+
     bloque_cargos = "\n\n---CARGOS_VERIFICADOS---"
     bloque_cargos += f"\nGRAVAMEN_AD_VALOREM: {gravamen}"
     if gravamen_nota:
         bloque_cargos += f" ({gravamen_nota})"
+    if grav_fuente:
+        bloque_cargos += f" [Fuente: {grav_fuente}]"
     bloque_cargos += f"\nITBIS: {itbis}"
     if itbis_base:
         bloque_cargos += f" — Base legal: {itbis_base}"
+    if itbis_fuente:
+        bloque_cargos += f" [Fuente: {itbis_fuente}]"
     bloque_cargos += f"\nSELECTIVO: {selectivo}"
+    if selec_fuente:
+        bloque_cargos += f" [Fuente: {selec_fuente}]"
     bloque_cargos += f"\nOTROS_CARGOS: {otros}"
-    bloque_cargos += "\nVERIFICADO_POR: Verificador Arancelario Automatico (consulta directa a fuentes)"
+    if otros_fuente:
+        bloque_cargos += f" [Fuente: {otros_fuente}]"
+    bloque_cargos += "\nVERIFICADO_POR: Verificador Arancelario Automatico (consulta a TODAS las fuentes del cuaderno)"
     bloque_cargos += "\n---FIN_CARGOS_VERIFICADOS---"
 
     # ── Corregir gravamen incorrecto en el texto de Gemini ──
