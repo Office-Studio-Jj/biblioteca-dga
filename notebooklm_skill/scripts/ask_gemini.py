@@ -648,39 +648,23 @@ def ask_gemini(question, notebook_id):
     print("[GEMINI] question=" + question[:80])
 
     model = genai.GenerativeModel(
-        model_name="gemini-2.5-flash",
+        model_name="gemini-2.0-flash",
         system_instruction=system_prompt
     )
 
-    # ── Para nomenclatura: obtener Arancel PDF como contexto real ──
-    arancel_file = None
-    if notebook_id == "biblioteca-de-nomenclaturas":
-        arancel_file = _obtener_arancel_gemini(api_key)
-
-    # Refuerzo critico para nomenclatura
+    # Refuerzo critico para nomenclatura (sin PDF — usa conocimiento del prompt)
     refuerzo = ""
     if notebook_id == "biblioteca-de-nomenclaturas":
-        if arancel_file:
-            # CON Arancel PDF: decirle a Gemini que lo use
-            refuerzo = (
-                "\n\nRECORDATORIO CRITICO — TIENES EL ARANCEL PDF ADJUNTO:"
-                "\n1. BUSCA el codigo arancelario DIRECTAMENTE en el documento PDF adjunto."
-                "\n2. LEE la columna GRAV. del Arancel para obtener el gravamen REAL en porcentaje."
-                "\n3. LEE la columna EX. ITBIS: si esta EN BLANCO = ITBIS 18%. Si tiene marca = EXENTO."
-                "\n4. El codigo DEBE existir en el PDF adjunto. Si no lo encuentras, NO lo recomiendes."
-                "\n5. Formato EXACTO: XXXX.XX.XX (8 digitos). NUNCA 10 digitos."
-                "\n6. CITA la descripcion EXACTA que aparece en el Arancel junto al codigo.\n"
-            )
-        else:
-            # SIN Arancel PDF: modo conservador
-            refuerzo = (
-                "\n\nRECORDATORIO CRITICO PARA ESTA CONSULTA:"
-                "\n1. Arancel RD usa EXACTAMENTE 8 digitos (XXXX.XX.XX). NUNCA 10."
-                "\n2. NO ADIVINES la extension nacional. Cita la DESCRIPCION OFICIAL."
-                "\n3. Si no conoces la descripcion oficial exacta, usa SOLO 6 digitos."
-                "\n4. VAPERS: SIEMPRE 8543.40.11 o 8543.40.12."
-                "\n5. NO EXISTEN: 9018.90.91, 8543.70.70, 8543.40.00.\n"
-            )
+        refuerzo = (
+            "\n\nRECORDATORIO CRITICO PARA ESTA CONSULTA:"
+            "\n1. Arancel RD usa EXACTAMENTE 8 digitos (XXXX.XX.XX). NUNCA 10."
+            "\n2. NO ADIVINES la extension nacional. Cita la DESCRIPCION OFICIAL."
+            "\n3. Si no conoces la descripcion oficial exacta, usa SOLO 6 digitos."
+            "\n4. VAPERS: SIEMPRE 8543.40.11 o 8543.40.12."
+            "\n5. NO EXISTEN: 9018.90.91, 8543.70.70, 8543.40.00."
+            "\n6. Consulta tu conocimiento del Arancel 7ma Enmienda de la RD."
+            "\n7. Lee la columna GRAV. para el gravamen y EX. ITBIS para exenciones.\n"
+        )
 
     full_prompt = (
         "Contexto: Pregunta de un profesional de aduanas/comercio exterior "
@@ -689,32 +673,35 @@ def ask_gemini(question, notebook_id):
     )
 
     try:
-        # ── Generar respuesta: con o sin Arancel PDF ──
-        if arancel_file:
-            print("[GEMINI] Consultando CON Arancel PDF como contexto...")
-            response = model.generate_content([arancel_file, full_prompt])
-        else:
-            response = model.generate_content(full_prompt)
+        # ── Generar respuesta SIN PDF adjunto (rapido: 15-25s) ──
+        print("[GEMINI] Consultando Gemini (sin PDF adjunto — modo rapido)...")
+        t0 = time.time()
+        response = model.generate_content(full_prompt)
         answer = response.text.strip()
-        print("[GEMINI] Borrador recibido (" + str(len(answer)) + " chars)")
+        t1 = time.time()
+        print(f"[GEMINI] Borrador recibido ({len(answer)} chars) en {t1-t0:.1f}s")
 
-        # ── VERIFICADOR ARANCELARIO AUTOMATICO (nomenclatura) ──────────────
-        # Cache-first: si el codigo ya esta en el cache del Arancel, NO hacer
-        # segunda llamada a Gemini (ahorra 10-20s). Solo verificar si el codigo
-        # NO esta en cache o si no se pudo extraer del borrador.
+        # ── VERIFICACION CACHE-FIRST (nomenclatura) ──────────────────────
+        # 1. Extraer codigo del borrador
+        # 2. Si existe en cache del Arancel (666 codigos) → CONFIRMADO, listo
+        # 3. Si NO existe en cache → verificar con Gemini + Arancel PDF
         if notebook_id == "biblioteca-de-nomenclaturas":
             _m_cod = re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', answer)
             _cod_borrador = _m_cod.group(1) if _m_cod else None
             _en_cache = _codigo_en_cache(_cod_borrador) if _cod_borrador else False
 
             if _en_cache:
-                print(f"[GEMINI] Codigo {_cod_borrador} confirmado en cache Arancel — "
-                      f"omitiendo 2da llamada Gemini (optimizacion 30s)")
-            else:
-                print("[GEMINI] Activando Verificador Arancelario (codigo no en cache)...")
-                answer, _corregido = _pre_verificar(answer, question, api_key, arancel_file=arancel_file)
-                if _corregido:
-                    print("[GEMINI] Verificador corrigio codigo y/o cargos antes del supervisor")
+                print(f"[GEMINI] Codigo {_cod_borrador} CONFIRMADO en cache Arancel — "
+                      f"sin verificacion adicional ({time.time()-t0:.1f}s total)")
+            elif _cod_borrador:
+                # Codigo no en cache — verificar con Arancel PDF (mas lento pero necesario)
+                print(f"[GEMINI] Codigo {_cod_borrador} NO en cache — verificando con Arancel PDF...")
+                arancel_file = _obtener_arancel_gemini(api_key)
+                if arancel_file:
+                    answer, _corregido = _pre_verificar(answer, question, api_key, arancel_file=arancel_file)
+                    if _corregido:
+                        print("[GEMINI] Verificador corrigio codigo y/o cargos")
+                print(f"[GEMINI] Verificacion completada ({time.time()-t0:.1f}s total)")
 
         # ── SUPERVISOR GENERAL INTERNO — controla TODOS los cuadernos ──
         print("[GEMINI] Enviando borrador al Supervisor General Interno...")
