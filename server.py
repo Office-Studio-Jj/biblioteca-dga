@@ -563,19 +563,56 @@ def _extraer_texto_archivo(path, ext):
     return ""
 
 
+def _comprimir_imagen(image_path, max_size_kb=500, max_dim=1024):
+    """Comprime imagen automáticamente para acelerar upload a Gemini Vision.
+    Reduce a max 1024px y JPEG calidad 80. Retorna path del archivo comprimido."""
+    try:
+        from PIL import Image
+        size_kb = os.path.getsize(image_path) / 1024
+        if size_kb <= max_size_kb:
+            print(f"[VISION] Imagen ya es pequeña ({size_kb:.0f}KB) — sin comprimir")
+            return image_path
+
+        img = Image.open(image_path)
+        # Convertir RGBA/P a RGB para JPEG
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        # Redimensionar si excede max_dim
+        w, h = img.size
+        if max(w, h) > max_dim:
+            ratio = max_dim / max(w, h)
+            img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+        # Guardar como JPEG comprimido
+        import tempfile
+        compressed = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        img.save(compressed.name, "JPEG", quality=80, optimize=True)
+        new_size = os.path.getsize(compressed.name) / 1024
+        print(f"[VISION] Imagen comprimida: {size_kb:.0f}KB → {new_size:.0f}KB "
+              f"({img.size[0]}x{img.size[1]})")
+        return compressed.name
+    except Exception as e:
+        print(f"[VISION] Error comprimiendo imagen ({e}) — usando original")
+        return image_path
+
+
 def _identificar_producto_imagen(image_path):
     """Usa Gemini Vision para identificar un producto desde una foto.
     Devuelve una descripción merceológica del producto para clasificación."""
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         return None
+    compressed_path = None
     try:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
 
+        # Comprimir imagen automáticamente (2MB → ~200KB, acelera upload)
+        compressed_path = _comprimir_imagen(image_path)
+        upload_path = compressed_path
+
         # Subir imagen a Gemini File API
-        print(f"[VISION] Subiendo imagen para análisis: {image_path}")
-        img_file = genai.upload_file(image_path)
+        print(f"[VISION] Subiendo imagen para análisis: {upload_path}")
+        img_file = genai.upload_file(upload_path)
         # Esperar a que esté activa
         for _ in range(10):
             status = genai.get_file(img_file.name)
@@ -584,7 +621,7 @@ def _identificar_producto_imagen(image_path):
             time.sleep(1)
 
         model = genai.GenerativeModel(
-            "gemini-2.5-flash",
+            "gemini-2.0-flash",
             generation_config={"max_output_tokens": 1024}
         )
         prompt = (
@@ -607,15 +644,28 @@ def _identificar_producto_imagen(image_path):
         desc = response.text.strip()
         print(f"[VISION] Producto identificado: {desc[:150]}")
 
-        # Limpiar archivo subido
+        # Limpiar archivo subido en Gemini
         try:
             genai.delete_file(img_file.name)
         except Exception:
             pass
 
+        # Limpiar archivo comprimido temporal
+        if compressed_path and compressed_path != image_path:
+            try:
+                os.unlink(compressed_path)
+            except Exception:
+                pass
+
         return desc
     except Exception as e:
         print(f"[VISION] Error analizando imagen: {e}")
+        # Limpiar archivo comprimido temporal en caso de error
+        if compressed_path and compressed_path != image_path:
+            try:
+                os.unlink(compressed_path)
+            except Exception:
+                pass
         return None
 
 @app.route("/estado")
