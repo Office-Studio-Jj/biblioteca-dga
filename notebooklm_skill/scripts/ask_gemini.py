@@ -672,13 +672,10 @@ def ask_gemini(question, notebook_id):
         t0 = time.time()
         answer = None
 
-        # gemini-2.5-flash con pensamiento DESACTIVADO = respuesta directa (15-30s)
-        # En vez de 60-90s con pensamiento activado
-        print("[GEMINI] Consultando gemini-2.5-flash (sin thinking)...")
+        print("[GEMINI] Consultando gemini-2.5-flash...")
         model = genai.GenerativeModel(
             model_name="gemini-2.5-flash",
-            system_instruction=system_prompt,
-            generation_config={"thinking_config": {"thinking_budget": 0}}
+            system_instruction=system_prompt
         )
         response = model.generate_content(full_prompt)
         answer = response.text.strip()
