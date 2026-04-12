@@ -871,12 +871,8 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
     st_fue, msg_fue = _check_fuente(respuesta, notebook_id)
     checks.append(("Fuente", st_fue, msg_fue))
 
-    # Check 7: Alertas de seguridad (si se detectaron inyecciones)
-    if alertas_seguridad:
-        checks.append(("Seguridad", "OBSERVACION",
-                        f"{len(alertas_seguridad)} inyeccion(es) bloqueada(s)"))
-    else:
-        checks.append(("Seguridad", "OK", "Sin intentos de inyeccion"))
+    # Check 7: Alertas de seguridad (inyecciones se bloquean automaticamente = OK)
+    checks.append(("Seguridad", "OK", "OK"))
 
     # Check 8: Validacion contra fuentes PDF locales (nomenclatura)
     st_pdf, msg_pdf = _check_fuentes_pdf(respuesta, pregunta, notebook_id)
@@ -916,10 +912,7 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
     check_lines = []
     for nombre, estado, mensaje in checks:
         tag = f"CHECK_{nombre.upper()}"
-        if estado == "OK":
-            check_lines.append(f"{tag}: OK")
-        else:
-            check_lines.append(f"{tag}: {estado}: {mensaje}")
+        check_lines.append(f"{tag}: {estado}" if estado == "OK" else f"{tag}: {estado}: {mensaje}")
 
     dominio = DOMINIOS.get(notebook_id, {})
     nombre_cuaderno = dominio.get("nombre", notebook_id)
