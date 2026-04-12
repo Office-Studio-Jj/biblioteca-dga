@@ -526,10 +526,11 @@ def consultar():
             if not question:
                 return jsonify({"error": "No se pudo analizar la imagen. Intenta con otra foto o escribe tu consulta."}), 400
 
-    # Timeout: 45s texto, 120s imagen (imagen = Vision API + clasificacion)
-    # Primera consulta tras deploy puede tomar mas por upload Arancel PDF a Gemini
+    # Timeout por tipo de consulta:
+    #   Texto: 120s (Gemini + Arancel PDF + supervisor)
+    #   Imagen: 180s (Vision API + Gemini + Arancel PDF + supervisor)
     tiene_imagen = bool(producto_identificado) or (archivo is not None)
-    timeout_consulta = 120 if tiene_imagen else 45
+    timeout_consulta = 180 if tiene_imagen else 120
 
     try:
         answer = ask_notebooklm(question, notebook_id, timeout=timeout_consulta)
@@ -1501,7 +1502,7 @@ def _parse_subprocess_answer(output, stderr, notebook_id):
     return answer
 
 
-def ask_notebooklm(question, notebook_id, timeout=45):
+def ask_notebooklm(question, notebook_id, timeout=120):
     # ── Ruta 1: Gemini API (sin restricción de IP, sin navegador) ────────
     gemini_key = os.environ.get("GEMINI_API_KEY", "")
     if gemini_key:
@@ -1597,45 +1598,52 @@ def _migrate_users_admin_to_operativo():
 _migrate_users_admin_to_operativo()
 load_passwords()  # Dispara migración admin→master en passwords.json
 
-# ── Pre-calentamiento: subir Arancel PDF a Gemini al iniciar (background) ──
+# ── Pre-calentamiento: verificar/subir Arancel PDF a Gemini al iniciar ──
 def _precalentar_arancel():
-    """Sube el Arancel PDF a Gemini File API en background para que la
-    primera consulta del usuario no tenga que esperar el upload."""
+    """Verifica o sube el Arancel PDF a Gemini File API en background
+    para que la primera consulta no espere el upload (~30s)."""
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         return
     try:
+        import google.generativeai as _genai
+        _genai.configure(api_key=api_key)
         arancel_cache = os.path.join(SKILL_DIR, "data", "arancel_gemini_cache.json")
-        # Si ya hay cache valido, verificar que sigue activo
+        arancel_pdf = os.path.join(SKILL_DIR, "data", "arancel_7ma_enmienda.pdf")
+
+        # Verificar cache existente
         if os.path.exists(arancel_cache):
-            import json as _json
             try:
-                import google.generativeai as _genai
-                _genai.configure(api_key=api_key)
                 with open(arancel_cache, "r") as f:
-                    cached = _json.load(f)
+                    cached = json.load(f)
                 ref = _genai.get_file(cached["name"])
                 if ref.state.name == "ACTIVE":
-                    print("[WARMUP] Arancel PDF ya esta en cache Gemini — listo")
+                    print("[WARMUP] Arancel PDF activo en Gemini — listo")
                     return
             except Exception:
-                pass
-        # Subir en background usando el subprocess
-        print("[WARMUP] Pre-subiendo Arancel PDF a Gemini File API...")
-        env = os.environ.copy()
-        env["PYTHONIOENCODING"] = "utf-8"
-        env["PYTHONPATH"] = SKILL_DIR
-        subprocess.Popen(
-            [PYTHON, "-c",
-             "import sys; sys.path.insert(0,'.'); "
-             "from scripts.ask_gemini import _obtener_arancel_gemini; "
-             "import os; _obtener_arancel_gemini(os.environ['GEMINI_API_KEY'])"],
-            cwd=SKILL_DIR, env=env,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-        print("[WARMUP] Upload de Arancel iniciado en background")
+                print("[WARMUP] Cache expirado, re-subiendo...")
+
+        # Subir PDF
+        if not os.path.exists(arancel_pdf):
+            print(f"[WARMUP] Arancel PDF no encontrado: {arancel_pdf}")
+            return
+
+        print("[WARMUP] Subiendo Arancel PDF a Gemini File API...")
+        file_ref = _genai.upload_file(path=arancel_pdf, display_name="Arancel 7ma Enmienda RD")
+        for _ in range(20):
+            file_ref = _genai.get_file(file_ref.name)
+            if file_ref.state.name == "ACTIVE":
+                break
+            time.sleep(2)
+
+        if file_ref.state.name == "ACTIVE":
+            with open(arancel_cache, "w") as f:
+                json.dump({"name": file_ref.name, "uri": file_ref.uri}, f)
+            print(f"[WARMUP] Arancel PDF listo: {file_ref.name}")
+        else:
+            print(f"[WARMUP] Arancel no se proceso: {file_ref.state.name}")
     except Exception as e:
-        print(f"[WARMUP] Error: {e}")
+        print(f"[WARMUP] Error (no critico): {e}")
 
 import threading
 threading.Thread(target=_precalentar_arancel, daemon=True).start()
