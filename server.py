@@ -1429,11 +1429,14 @@ def ask_notebooklm(question, notebook_id, timeout=180):
             )
             output = result.stdout or ""
             stderr = result.stderr or ""
-            print(f"[GEMINI_LOG] rc={result.returncode} stdout={output[:200]} stderr={stderr[:200]}")
+            print(f"[GEMINI_LOG] rc={result.returncode} stdout_len={len(output)} stderr_len={len(stderr)}")
+            print(f"[GEMINI_LOG] stdout_tail={output[-500:]}" if len(output) > 200 else f"[GEMINI_LOG] stdout={output}")
+            if result.returncode != 0:
+                print(f"[GEMINI_LOG] STDERR: {stderr[-500:]}")
             answer = _parse_subprocess_answer(output, stderr, notebook_id)
             if answer:
                 return answer + _DISCLAIMER
-            print(f"[GEMINI_NOANS] Sin respuesta de Gemini. stderr={stderr[:300]}")
+            print(f"[GEMINI_NOANS] Sin respuesta. rc={result.returncode} stderr={stderr[-500:]}")
         except subprocess.TimeoutExpired:
             print(f"[GEMINI_LOG] Timeout en Gemini ({timeout}s)")
             # En cloud: devolver error inmediato (NotebookLM browser no funciona)

@@ -50,12 +50,25 @@ _CODIGOS_PDF: Dict[str, str] = {}
 _REGLAS_RGI: List[str] = []
 
 
+_FUENTES_CARGADAS = False
+
+# PDFs que se excluyen de la carga automatica por ser muy grandes
+# El Arancel 7ma enmienda (633 pags, 6MB) ya lo usa Gemini via File API
+_PDFS_EXCLUIDOS = {"Arancel 7ma enmienda de la republica dominicana.pdf"}
+
+
 def _cargar_fuentes_pdf():
     """
-    Extrae texto de todos los PDFs en fuentes_nomenclatura/ al iniciar.
-    Ejecuta UNA VEZ al importar el modulo. Sin IA — solo extraccion de texto.
+    Extrae texto de PDFs ligeros en fuentes_nomenclatura/.
+    Excluye el Arancel grande (633 pags) que Gemini ya usa via File API.
+    Se ejecuta LAZY — solo cuando se necesita, no al importar.
     """
-    global _FUENTES_TEXTO, _CODIGOS_PDF, _REGLAS_RGI
+    global _FUENTES_TEXTO, _CODIGOS_PDF, _REGLAS_RGI, _FUENTES_CARGADAS
+
+    if _FUENTES_CARGADAS:
+        return
+
+    _FUENTES_CARGADAS = True
 
     if not _PDFPLUMBER_DISPONIBLE:
         print("[SUPERVISOR_INTERNO] Sin pdfplumber — fuentes PDF no cargadas")
@@ -65,12 +78,13 @@ def _cargar_fuentes_pdf():
         print(f"[SUPERVISOR_INTERNO] Directorio no encontrado: {_FUENTES_DIR}")
         return
 
-    archivos = [f for f in os.listdir(_FUENTES_DIR) if f.lower().endswith('.pdf')]
+    archivos = [f for f in os.listdir(_FUENTES_DIR)
+                if f.lower().endswith('.pdf') and f not in _PDFS_EXCLUIDOS]
     if not archivos:
-        print("[SUPERVISOR_INTERNO] Sin PDFs en fuentes_nomenclatura/")
+        print("[SUPERVISOR_INTERNO] Sin PDFs ligeros en fuentes_nomenclatura/")
         return
 
-    print(f"[SUPERVISOR_INTERNO] Cargando {len(archivos)} fuentes PDF...")
+    print(f"[SUPERVISOR_INTERNO] Cargando {len(archivos)} fuentes PDF (ligeras)...")
     total_paginas = 0
 
     for archivo in archivos:
@@ -79,9 +93,12 @@ def _cargar_fuentes_pdf():
             with pdfplumber.open(ruta) as pdf:
                 textos_pagina = []
                 for pagina in pdf.pages:
-                    texto = pagina.extract_text()
-                    if texto:
-                        textos_pagina.append(texto)
+                    try:
+                        texto = pagina.extract_text()
+                        if texto:
+                            textos_pagina.append(texto)
+                    except Exception:
+                        pass
                 texto_completo = "\n".join(textos_pagina)
                 _FUENTES_TEXTO[archivo] = texto_completo
                 total_paginas += len(pdf.pages)
@@ -89,7 +106,7 @@ def _cargar_fuentes_pdf():
         except Exception as e:
             print(f"  [ERROR] {archivo}: {e}")
 
-    print(f"[SUPERVISOR_INTERNO] {len(_FUENTES_TEXTO)} PDFs cargados ({total_paginas} paginas total)")
+    print(f"[SUPERVISOR_INTERNO] {len(_FUENTES_TEXTO)} PDFs cargados ({total_paginas} paginas)")
 
     # Indexar codigos arancelarios encontrados en los PDFs
     _indexar_codigos_desde_pdfs()
@@ -139,14 +156,8 @@ def buscar_en_fuentes(termino: str, max_resultados: int = 5) -> List[Dict[str, s
     """
     Busca un termino en TODAS las fuentes PDF cargadas.
     Retorna lista de coincidencias con contexto.
-
-    Args:
-        termino: palabra o frase a buscar
-        max_resultados: limite de resultados
-
-    Returns:
-        Lista de dicts: {"fuente": archivo, "contexto": linea con contexto}
     """
+    _cargar_fuentes_pdf()  # Lazy load
     resultados = []
     termino_lower = termino.lower()
 
@@ -171,13 +182,8 @@ def verificar_codigo_en_fuentes(codigo: str) -> Tuple[bool, str]:
     """
     Verifica si un codigo arancelario existe en las fuentes PDF locales.
     100% Python, 0% IA.
-
-    Args:
-        codigo: codigo de 8 digitos (XXXX.XX.XX)
-
-    Returns:
-        (existe, mensaje)
     """
+    _cargar_fuentes_pdf()  # Lazy load
     # Buscar codigo exacto en el indice
     if codigo in _CODIGOS_PDF:
         return True, f"{codigo} ENCONTRADO en fuentes: {_CODIGOS_PDF[codigo]}"
@@ -737,6 +743,8 @@ def _check_fuentes_pdf(respuesta: str, pregunta: str, notebook_id: str) -> Tuple
     if notebook_id != "biblioteca-de-nomenclaturas":
         return "OK", "Check PDF: solo aplica a nomenclaturas"
 
+    _cargar_fuentes_pdf()  # Lazy load
+
     if not _FUENTES_TEXTO:
         return "OBSERVACION", "Fuentes PDF no cargadas — verificacion limitada"
 
@@ -943,6 +951,4 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
 # ══════════════════════════════════════════════════════════════════════════
 _INTEGRITY_HASH_AT_LOAD = _calcular_hash_integridad()
 print(f"[SUPERVISOR_INTERNO] Modulo cargado. Integridad: {_INTEGRITY_HASH_AT_LOAD[:16]}...")
-
-# Cargar fuentes PDF al iniciar — una sola vez
-_cargar_fuentes_pdf()
+# Fuentes PDF se cargan LAZY — solo cuando se necesitan (no al importar)
