@@ -3649,14 +3649,51 @@
     const fab = document.createElement('button');
     fab.id = 'tutorFab';
     fab.onclick = _tutorStart;
-    fab.textContent = '🎓';
+    fab.innerHTML = '🎓<span style="display:block;font-size:0.55rem;font-weight:700;letter-spacing:0.5px;margin-top:1px;color:#d4af37;">Ayuda</span>';
     Object.assign(fab.style, {
-      position: 'fixed', bottom: '20px', right: '20px', width: '52px', height: '52px',
+      position: 'fixed', bottom: '20px', right: '20px', width: '56px', height: '56px',
       borderRadius: '50%', border: '2px solid #d4af37', background: '#1f1a0a',
-      fontSize: '1.5rem', cursor: 'pointer', zIndex: '9000',
-      boxShadow: '0 4px 20px rgba(212,175,55,0.3)'
+      fontSize: '1.3rem', cursor: 'pointer', zIndex: '9000',
+      boxShadow: '0 4px 20px rgba(212,175,55,0.3)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      lineHeight: '1', padding: '0', transition: 'bottom 0.3s ease'
     });
     document.body.appendChild(fab);
+
+    // Reposicionar FAB cuando hay contenido que tapa
+    function _tutorReposFab() {
+      const fab = document.getElementById('tutorFab');
+      if (!fab || _tutorOn) return;
+      const conf = document.getElementById('conformitySection');
+      const resp = document.getElementById('respCard');
+      // Si la seccion de conformidad es visible, subir el FAB
+      if (conf && conf.offsetParent !== null) {
+        const confRect = conf.getBoundingClientRect();
+        const fabRect = fab.getBoundingClientRect();
+        if (fabRect.bottom > confRect.top && fabRect.top < confRect.bottom) {
+          fab.style.bottom = (window.innerHeight - confRect.top + 12) + 'px';
+          return;
+        }
+      }
+      // Si la respuesta es visible y el FAB tapa, subir
+      if (resp && resp.classList.contains('show')) {
+        const respRect = resp.getBoundingClientRect();
+        const fabRect = fab.getBoundingClientRect();
+        if (fabRect.top < respRect.bottom && fabRect.bottom > respRect.top) {
+          fab.style.bottom = (window.innerHeight - respRect.top + 12) + 'px';
+          return;
+        }
+      }
+      fab.style.bottom = '20px';
+    }
+    // Observar cambios en conformidad y respuesta
+    const _fabObserver = new MutationObserver(_tutorReposFab);
+    const _confEl = document.getElementById('conformitySection');
+    const _respEl = document.getElementById('respCard');
+    if (_confEl) _fabObserver.observe(_confEl, { attributes: true, attributeFilter: ['style'] });
+    if (_respEl) _fabObserver.observe(_respEl, { attributes: true, attributeFilter: ['class'] });
+    window.addEventListener('scroll', _tutorReposFab, { passive: true });
+    window.addEventListener('resize', _tutorReposFab, { passive: true });
 
     // Overlay
     const ov = document.createElement('div');

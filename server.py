@@ -516,8 +516,12 @@ def consultar():
             if not question:
                 return jsonify({"error": "No se pudo analizar la imagen. Intenta con otra foto o escribe tu consulta."}), 400
 
+    # Timeout mas largo si hay imagen (Vision API + Gemini + Verificador + Supervisor)
+    tiene_imagen = bool(producto_identificado) or (archivo is not None)
+    timeout_consulta = 300 if tiene_imagen else 180
+
     try:
-        answer = ask_notebooklm(question, notebook_id)
+        answer = ask_notebooklm(question, notebook_id, timeout=timeout_consulta)
         resp = {"answer": answer}
         if producto_identificado:
             resp["producto_identificado"] = producto_identificado
@@ -578,7 +582,10 @@ def _identificar_producto_imagen(image_path):
                 break
             time.sleep(1)
 
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        model = genai.GenerativeModel(
+            "gemini-2.5-flash",
+            generation_config={"max_output_tokens": 1024}
+        )
         prompt = (
             "Eres un experto en merceología aduanera y clasificación arancelaria. "
             "Analiza esta imagen e identifica el producto con la mayor precisión técnica posible.\n\n"
@@ -591,7 +598,11 @@ def _identificar_producto_imagen(image_path):
             "Si no puedes identificar el producto con certeza, describe lo que ves y sugiere "
             "las posibilidades más probables."
         )
-        response = model.generate_content([img_file, prompt])
+        print(f"[VISION] Enviando imagen a Gemini Vision...")
+        response = model.generate_content(
+            [img_file, prompt],
+            request_options={"timeout": 60}
+        )
         desc = response.text.strip()
         print(f"[VISION] Producto identificado: {desc[:150]}")
 
@@ -1401,11 +1412,11 @@ def _parse_subprocess_answer(output, stderr, notebook_id):
     return answer
 
 
-def ask_notebooklm(question, notebook_id):
+def ask_notebooklm(question, notebook_id, timeout=180):
     # ── Ruta 1: Gemini API (sin restricción de IP, sin navegador) ────────
     gemini_key = os.environ.get("GEMINI_API_KEY", "")
     if gemini_key:
-        print(f"[ASK] Usando Gemini API para notebook_id={notebook_id}")
+        print(f"[ASK] Usando Gemini API para notebook_id={notebook_id} (timeout={timeout}s)")
         cmd = [PYTHON, "scripts/ask_gemini.py", "--question", question, "--notebook-id", notebook_id]
         env = os.environ.copy()
         env["PYTHONIOENCODING"] = "utf-8"
@@ -1414,7 +1425,7 @@ def ask_notebooklm(question, notebook_id):
             result = subprocess.run(
                 cmd, cwd=SKILL_DIR,
                 capture_output=True, text=True, encoding="utf-8",
-                env=env, timeout=120
+                env=env, timeout=timeout
             )
             output = result.stdout or ""
             stderr = result.stderr or ""
@@ -1424,11 +1435,11 @@ def ask_notebooklm(question, notebook_id):
                 return answer + _DISCLAIMER
             print(f"[GEMINI_NOANS] Sin respuesta de Gemini. stderr={stderr[:300]}")
         except subprocess.TimeoutExpired:
-            print("[GEMINI_LOG] Timeout en Gemini (2 min)")
+            print(f"[GEMINI_LOG] Timeout en Gemini ({timeout}s)")
             # En cloud: devolver error inmediato (NotebookLM browser no funciona)
             if _IS_CLOUD:
-                return ("El servidor tardó más de 2 minutos procesando tu consulta. "
-                        "Esto puede ocurrir cuando el sistema está analizando documentos complejos. "
+                return ("El servidor tardó demasiado procesando tu consulta. "
+                        "Esto puede ocurrir con imágenes grandes o documentos complejos. "
                         "Por favor intenta de nuevo — la segunda consulta suele ser más rápida.")
         except Exception as e:
             print(f"[GEMINI_LOG] Excepción: {e}")
