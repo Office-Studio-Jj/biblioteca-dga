@@ -249,7 +249,7 @@
     .label {
       font-size: 0.65rem;
       font-weight: 700;
-      color: #475569;
+      color: #94a3b8;
       text-transform: uppercase;
       letter-spacing: 1.2px;
       margin-bottom: 8px;
@@ -689,13 +689,13 @@
     }
     .attach-btn {
       flex: 1; padding: 8px 6px; border-radius: 10px;
-      border: 1.5px dashed #334155; background: transparent;
-      color: #94a3b8; font-size: 0.75rem; font-weight: 600;
+      border: 1.5px dashed #4b5563; background: rgba(30,41,59,0.5);
+      color: #cbd5e1; font-size: 0.75rem; font-weight: 600;
       cursor: pointer; transition: border-color 0.2s, color 0.2s;
     }
     .attach-btn:active { opacity: 0.7; }
-    .attach-btn-gal { border-color: #3b2f5f; color: #c4b5fd; }
-    .attach-btn-cam { border-color: #1e3a5f; color: #93c5fd; }
+    .attach-btn-gal { border-color: #6d5aad; color: #d8ccfd; }
+    .attach-btn-cam { border-color: #3b6fa0; color: #b3d9fd; }
     .attach-zone.has-file .attach-btn { display: none; }
     .attach-name { padding: 4px 14px 2px; }
     .attach-remove { padding: 2px 14px 8px; font-size: 0.7rem; color: #f87171; cursor: pointer; }
@@ -730,9 +730,14 @@
       border-top: 1px solid #1e293b; vertical-align: top;
       line-height: 1.4;
     }
-    .nom-impuestos th { text-align: center; }
-    .nom-impuestos td { text-align: center; font-weight: 700; font-size: 0.82rem; }
-    .nom-imp-val-grav { color: #fde68a; }
+    .nom-impuestos th { text-align: center; font-size: 0.55rem; padding: 5px 4px; }
+    .nom-impuestos td { text-align: center; font-weight: 700; font-size: 0.72rem; padding: 6px 4px; word-break: keep-all; white-space: normal; min-width: 0; }
+    .nom-impuestos { table-layout: fixed; }
+    .nom-impuestos col:nth-child(1) { width: 30%; }
+    .nom-impuestos col:nth-child(2) { width: 25%; }
+    .nom-impuestos col:nth-child(3) { width: 22%; }
+    .nom-impuestos col:nth-child(4) { width: 23%; }
+    .nom-imp-val-grav { color: #fde68a; font-size: 0.68rem; }
     .nom-imp-val-itbis { color: #6ee7b7; }
     .nom-imp-val-isc { color: #93c5fd; }
     .nom-imp-val-otros { color: #c4b5fd; }
@@ -1865,6 +1870,7 @@
           <span class="nom-capitulo">${_esc(cap)}</span>
         </div>
         <table class="nom-table nom-impuestos">
+          <colgroup><col><col><col><col></colgroup>
           <tr><th>Gravamen</th><th>ITBIS</th><th>ISC</th><th>Otros</th></tr>
           <tr>
             <td class="nom-imp-val-grav">${_esc(gravamen)}</td>
@@ -3664,26 +3670,13 @@
     function _tutorReposFab() {
       const fab = document.getElementById('tutorFab');
       if (!fab || _tutorOn) return;
-      const conf = document.getElementById('conformitySection');
       const resp = document.getElementById('respCard');
-      // Si la seccion de conformidad es visible, subir el FAB
-      if (conf && conf.offsetParent !== null) {
-        const confRect = conf.getBoundingClientRect();
-        const fabRect = fab.getBoundingClientRect();
-        if (fabRect.bottom > confRect.top && fabRect.top < confRect.bottom) {
-          fab.style.bottom = (window.innerHeight - confRect.top + 12) + 'px';
-          return;
-        }
-      }
-      // Si la respuesta es visible y el FAB tapa, subir
+      // Si hay respuesta visible, ocultar FAB para no tapar contenido
       if (resp && resp.classList.contains('show')) {
-        const respRect = resp.getBoundingClientRect();
-        const fabRect = fab.getBoundingClientRect();
-        if (fabRect.top < respRect.bottom && fabRect.bottom > respRect.top) {
-          fab.style.bottom = (window.innerHeight - respRect.top + 12) + 'px';
-          return;
-        }
+        fab.style.display = 'none';
+        return;
       }
+      fab.style.display = 'flex';
       fab.style.bottom = '20px';
     }
     // Observar cambios en conformidad y respuesta

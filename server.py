@@ -516,9 +516,10 @@ def consultar():
             if not question:
                 return jsonify({"error": "No se pudo analizar la imagen. Intenta con otra foto o escribe tu consulta."}), 400
 
-    # Timeout mas largo si hay imagen (Vision API + Gemini + Verificador + Supervisor)
+    # Timeout optimizado: 45s texto, 60s imagen (objetivo: respuesta en <30s)
+    # Pipeline: Gemini (1 llamada) + cache-first + supervisor Python
     tiene_imagen = bool(producto_identificado) or (archivo is not None)
-    timeout_consulta = 300 if tiene_imagen else 180
+    timeout_consulta = 60 if tiene_imagen else 45
 
     try:
         answer = ask_notebooklm(question, notebook_id, timeout=timeout_consulta)
@@ -1412,7 +1413,7 @@ def _parse_subprocess_answer(output, stderr, notebook_id):
     return answer
 
 
-def ask_notebooklm(question, notebook_id, timeout=180):
+def ask_notebooklm(question, notebook_id, timeout=45):
     # ── Ruta 1: Gemini API (sin restricción de IP, sin navegador) ────────
     gemini_key = os.environ.get("GEMINI_API_KEY", "")
     if gemini_key:

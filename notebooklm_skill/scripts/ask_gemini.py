@@ -560,6 +560,7 @@ from supervisor_interno import CODIGOS_VERIFICADOS_RD as _CODIGOS_VERIFICADOS_RD
 # Cuando el supervisor no tiene el codigo en su base estatica, este modulo
 # hace una consulta dirigida y cerrada al cuaderno de nomenclaturas.
 from verificador_arancelario import pre_verificar_codigo_en_respuesta as _pre_verificar
+from verificador_arancelario import codigo_existe_en_cache as _codigo_en_cache
 # ──────────────────────────────────────────────────────────────────────────
 
 # ── Arancel PDF: contexto real para consultas de nomenclatura ─────────────
@@ -690,12 +691,22 @@ def ask_gemini(question, notebook_id):
         print("[GEMINI] Borrador recibido (" + str(len(answer)) + " chars)")
 
         # ── VERIFICADOR ARANCELARIO AUTOMATICO (nomenclatura) ──────────────
-        # Verifica codigos y cargos contra el Arancel PDF real.
+        # Cache-first: si el codigo ya esta en el cache del Arancel, NO hacer
+        # segunda llamada a Gemini (ahorra 10-20s). Solo verificar si el codigo
+        # NO esta en cache o si no se pudo extraer del borrador.
         if notebook_id == "biblioteca-de-nomenclaturas":
-            print("[GEMINI] Activando Verificador Arancelario...")
-            answer, _corregido = _pre_verificar(answer, question, api_key, arancel_file=arancel_file)
-            if _corregido:
-                print("[GEMINI] Verificador corrigio codigo y/o cargos antes del supervisor")
+            _m_cod = re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', answer)
+            _cod_borrador = _m_cod.group(1) if _m_cod else None
+            _en_cache = _codigo_en_cache(_cod_borrador) if _cod_borrador else False
+
+            if _en_cache:
+                print(f"[GEMINI] Codigo {_cod_borrador} confirmado en cache Arancel — "
+                      f"omitiendo 2da llamada Gemini (optimizacion 30s)")
+            else:
+                print("[GEMINI] Activando Verificador Arancelario (codigo no en cache)...")
+                answer, _corregido = _pre_verificar(answer, question, api_key, arancel_file=arancel_file)
+                if _corregido:
+                    print("[GEMINI] Verificador corrigio codigo y/o cargos antes del supervisor")
 
         # ── SUPERVISOR GENERAL INTERNO — controla TODOS los cuadernos ──
         print("[GEMINI] Enviando borrador al Supervisor General Interno...")

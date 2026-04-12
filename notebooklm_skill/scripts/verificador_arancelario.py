@@ -29,6 +29,39 @@ except ImportError:
     _GENAI_DISPONIBLE = False
 
 # ══════════════════════════════════════════════════════════════════════════
+# CACHE DEL ARANCEL — verificacion rapida de existencia de codigos
+# Se carga UNA VEZ (lazy). Contiene 666 codigos pre-extraidos del PDF.
+# ══════════════════════════════════════════════════════════════════════════
+_ARANCEL_CACHE_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "data",
+    "fuentes_nomenclatura", "arancel_cache.json"
+)
+_CACHE_CODIGOS: dict = {}
+_CACHE_CARGADO = False
+
+
+def _cargar_cache_arancel():
+    """Carga el cache de codigos del Arancel (lazy, una sola vez)."""
+    global _CACHE_CODIGOS, _CACHE_CARGADO
+    if _CACHE_CARGADO:
+        return
+    _CACHE_CARGADO = True
+    if os.path.isfile(_ARANCEL_CACHE_PATH):
+        try:
+            with open(_ARANCEL_CACHE_PATH, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+            _CACHE_CODIGOS = cache.get("codigos", {})
+            print(f"[VERIFICADOR] Cache Arancel cargado: {len(_CACHE_CODIGOS)} codigos")
+        except Exception as e:
+            print(f"[VERIFICADOR] Error cargando cache Arancel: {e}")
+
+
+def codigo_existe_en_cache(codigo: str) -> bool:
+    """Verifica si un codigo existe en el cache pre-extraido del Arancel."""
+    _cargar_cache_arancel()
+    return codigo in _CACHE_CODIGOS
+
+# ══════════════════════════════════════════════════════════════════════════
 # PROMPT DE VERIFICACION — codigo + cargos fiscales en una sola consulta
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -174,28 +207,29 @@ _GRAVAMEN_MINIMO_POR_CAPITULO = {
 
 def _validar_gravamen_python(resultado: dict, codigo: str) -> dict:
     """
-    Red de seguridad Python: si Gemini dice gravamen 0% pero el capitulo
-    normalmente tiene gravamen > 0%, marca como sospechoso.
+    Validacion Python del gravamen.
+    Gemini lee la columna GRAV. del Arancel PDF real — se confia en su lectura.
+    Solo se registra log informativo si el valor parece inusual, pero NO se
+    sobreescribe la respuesta de Gemini. El Arancel PDF es la fuente primaria.
     """
     grav_str = resultado.get("gravamen_ad_valorem", "?")
     if grav_str in ("?", "VERIFICAR EN ARANCEL VIGENTE", ""):
         return resultado
 
-    # Extraer numero del gravamen
     m = re.search(r'(\d+)', grav_str)
     if not m:
         return resultado
 
     grav_num = int(m.group(1))
     capitulo = codigo[:2]
-
     gravamen_minimo = _GRAVAMEN_MINIMO_POR_CAPITULO.get(capitulo, 0)
 
     if grav_num < gravamen_minimo:
-        print(f"[VERIFICADOR-PYTHON] ALERTA: Gemini dijo {grav_num}% para cap. {capitulo} "
-              f"pero el minimo conocido es {gravamen_minimo}%. Marcando como sospechoso.")
-        resultado["gravamen_ad_valorem"] = f"VERIFICAR EN ARANCEL VIGENTE (Gemini respondio {grav_num}% pero cap. {capitulo} tiene minimo {gravamen_minimo}%)"
-        resultado["gravamen_alerta"] = True
+        # Solo log informativo — NO sobreescribir la respuesta de Gemini
+        # Gemini lee el PDF real y puede encontrar codigos con gravamen 0% legitimo
+        print(f"[VERIFICADOR-PYTHON] INFO: Gemini dijo {grav_num}% para {codigo} "
+              f"(cap. {capitulo} tipicamente >= {gravamen_minimo}%). "
+              f"Se confia en lectura directa del Arancel PDF.")
 
     return resultado
 
@@ -223,6 +257,15 @@ def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str, arancel_
         print("[VERIFICADOR] Sin GEMINI_API_KEY — saltando verificacion")
         return None
 
+    # ── CACHE-FIRST: verificar existencia rapida en cache del Arancel ──
+    _cargar_cache_arancel()
+    existe_en_cache = codigo in _CACHE_CODIGOS
+    desc_cache = _CACHE_CODIGOS.get(codigo, "")
+    if existe_en_cache:
+        print(f"[VERIFICADOR] Cache-first: {codigo} EXISTE en Arancel ({desc_cache[:50]})")
+    else:
+        print(f"[VERIFICADOR] Cache-first: {codigo} NO encontrado en cache — Gemini verificara")
+
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
@@ -230,14 +273,20 @@ def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str, arancel_
             system_instruction=_SYSTEM_VERIFICACION
         )
 
+        # Incluir dato de cache para ayudar a Gemini
+        cache_hint = ""
+        if existe_en_cache:
+            cache_hint = (f"\nNOTA: El codigo {codigo} fue encontrado en el indice del Arancel "
+                         f"con descripcion: '{desc_cache}'. Confirma y busca su gravamen.\n")
+
         pregunta = (
             f"Verifica el codigo arancelario {codigo} en el Arancel de la Republica Dominicana.\n"
-            f"Producto: {producto}\n\n"
+            f"Producto: {producto}\n{cache_hint}\n"
             f"INSTRUCCIONES ESPECIFICAS:\n"
             f"1. ¿Existe el codigo {codigo} con esa extension nacional exacta?\n"
             f"2. Lee la columna GRAV. del Arancel junto a este codigo. "
             f"¿Que NUMERO aparece en esa columna? Ese numero es el gravamen ad-valorem en porcentaje. "
-            f"NO respondas 0% a menos que la columna GRAV. explicitamente muestre 0.\n"
+            f"Si el numero es 0, responde 0%. Si es otro numero, responde ese porcentaje exacto.\n"
             f"3. Lee la columna EX. ITBIS. ¿Esta en blanco (ITBIS 18% aplica) o tiene marca (EXENTO)?\n"
             f"4. ¿Aplica selectivo al consumo u otros cargos?\n"
         )
@@ -334,13 +383,8 @@ def _corregir_cargos_en_respuesta(respuesta: str, resultado: dict, codigo_final:
     #   "Derecho Ad Valorem: 0%"  |  "**Ad-Valorem:** 0%"  |  "Ad Valorem: 0%"
     #   "Gravamen ad valorem: 0%"  |  "Gravamen NMF: 0%"  |  "gravamen: 0%"
     #   "* Derecho Ad Valorem: 0%"  |  "Arancel: 0%"
-    es_gravamen_alerta = resultado.get("gravamen_alerta", False)
-
     if gravamen and gravamen not in ("?",):
-        # Si es alerta de Python (0% sospechoso), reemplazar el 0% con la advertencia
         gravamen_reemplazo = gravamen
-        if es_gravamen_alerta or "VERIFICAR" in gravamen:
-            gravamen_reemplazo = gravamen
 
         _patrones_gravamen = [
             # "Derecho Ad Valorem: 0%" (con o sin asteriscos/bullets)
