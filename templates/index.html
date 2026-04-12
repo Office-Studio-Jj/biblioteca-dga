@@ -3586,6 +3586,292 @@
       if (document.getElementById('tab-info')?.classList.contains('active')) { cargarUsuarios(); cargarHistorial(); }
     }, 500);
   }
+
+  /* ══════════════════════════════════════════════════════
+     ASISTENTE VIRTUAL - Tutorial interactivo para usuarios
+     ══════════════════════════════════════════════════════ */
+
+  const _TUTOR_STEPS = [
+    {
+      target: '#nbGrid',
+      childSelector: '[data-id="biblioteca-de-nomenclaturas"]',
+      title: '📖 Paso 1: Selecciona el cuaderno',
+      body: 'Toca el cuaderno <strong>"Nomenclaturas"</strong> para clasificar productos. Este cuaderno te da el codigo arancelario, impuestos y permisos.',
+      action: 'highlight-child'
+    },
+    {
+      target: '#qInput',
+      title: '✏️ Paso 2: Escribe tu consulta',
+      body: 'Tienes <strong>4 formas</strong> de consultar un producto. La primera es <strong>escribir una descripcion</strong>. Ejemplo: <em>"Ventanas de aluminio con vidrio templado"</em>',
+    },
+    {
+      target: '.attach-btn-gal',
+      title: '🖼️ Paso 3: O sube una imagen',
+      body: 'Si tienes una <strong>foto del producto</strong> en tu galeria, toca aqui para subirla. El sistema la analiza automaticamente con inteligencia artificial.',
+    },
+    {
+      target: '.attach-btn-cam',
+      title: '📸 Paso 4: O toma una foto',
+      body: 'Toca aqui para abrir la <strong>camara</strong> y fotografiar el producto directamente. Ideal cuando tienes la mercancia frente a ti.',
+    },
+    {
+      target: '.attach-btn',
+      title: '📎 Paso 5: O adjunta un PDF',
+      body: 'Si tienes una <strong>ficha tecnica en PDF</strong>, subela aqui. El sistema extrae la informacion tecnica y la usa para clasificar.',
+    },
+    {
+      target: '#btnSend',
+      title: '🚀 Paso 6: Enviar consulta',
+      body: 'Cuando estes listo, presiona <strong>"Consultar"</strong>. El sistema analiza tu pregunta usando el Arancel oficial de la RD y el protocolo merceologico de 8 fases.',
+    },
+    {
+      target: '#respCard',
+      title: '📋 Paso 7: Tu resultado',
+      body: 'Aqui aparecera una <strong>tarjeta con el codigo arancelario</strong> (XXXX.XX.XX), los impuestos (Gravamen, ITBIS, ISC), permisos VUCERD, y el analisis completo del protocolo.',
+      virtual: true
+    },
+    {
+      target: '#conformitySection',
+      title: '✅ Paso 8: Confirmar o refinar',
+      body: 'Si estas <strong>conforme</strong>, puedes guardar la consulta y descargar un informe PDF. Si <strong>no</strong>, puedes adjuntar una ficha tecnica o repetir la busqueda en otro cuaderno.',
+      virtual: true
+    }
+  ];
+
+  let _tutorIdx = 0;
+  let _tutorOn = false;
+  let _tutorPointer = null;
+
+  function _tutorInit() {
+    // Crear FAB si no existe
+    if (document.getElementById('tutorFab')) return;
+
+    const fab = document.createElement('button');
+    fab.id = 'tutorFab';
+    fab.onclick = _tutorStart;
+    fab.textContent = '🎓';
+    Object.assign(fab.style, {
+      position: 'fixed', bottom: '20px', right: '20px', width: '52px', height: '52px',
+      borderRadius: '50%', border: '2px solid #d4af37', background: '#1f1a0a',
+      fontSize: '1.5rem', cursor: 'pointer', zIndex: '9000',
+      boxShadow: '0 4px 20px rgba(212,175,55,0.3)'
+    });
+    document.body.appendChild(fab);
+
+    // Overlay
+    const ov = document.createElement('div');
+    ov.id = 'tutorOverlay';
+    Object.assign(ov.style, {
+      position: 'fixed', inset: '0', zIndex: '9500', display: 'none', pointerEvents: 'none'
+    });
+    ov.innerHTML = `
+      <div id="tutorBackdrop" style="position:absolute;inset:0;background:rgba(0,0,0,0.55);"></div>
+      <div id="tutorTooltip" style="
+        position:absolute; z-index:9700; background:#1e293b; border:2px solid #d4af37;
+        border-radius:16px; padding:16px 18px; max-width:320px; width:calc(100% - 40px);
+        box-shadow:0 8px 30px rgba(0,0,0,0.5); display:none;
+      "></div>
+    `;
+    document.body.appendChild(ov);
+
+    // Estilos del tutorial
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes tutorFabPulse {
+        0%,100% { box-shadow: 0 4px 20px rgba(212,175,55,0.3); }
+        50% { box-shadow: 0 4px 30px rgba(212,175,55,0.6); }
+      }
+      #tutorFab { animation: tutorFabPulse 2s infinite; }
+      .tutor-hl {
+        position: relative; z-index: 9600 !important;
+        animation: tutorGlow 1.5s infinite !important;
+      }
+      @keyframes tutorGlow {
+        0%,100% { box-shadow: 0 0 0 4px rgba(212,175,55,0.4); }
+        50% { box-shadow: 0 0 0 8px rgba(212,175,55,0.2); }
+      }
+      .tutor-ptr {
+        position: absolute; z-index: 9650; font-size: 1.8rem;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        animation: tutorBounce 1s infinite; pointer-events: none;
+      }
+      @keyframes tutorBounce {
+        0%,100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+      }
+      .tutor-tt-title {
+        font-size: 0.9rem; font-weight: 700; color: #d4af37;
+        margin-bottom: 6px;
+      }
+      .tutor-tt-body {
+        font-size: 0.8rem; color: #e2e8f0; line-height: 1.5; margin-bottom: 14px;
+      }
+      .tutor-tt-footer {
+        display: flex; gap: 8px; align-items: center;
+      }
+      .tutor-tt-prog {
+        font-size: 0.7rem; color: #64748b; flex: 1;
+      }
+      .tutor-btn-n {
+        padding: 8px 16px; border-radius: 10px; border: none;
+        font-size: 0.8rem; font-weight: 700; cursor: pointer;
+        background: linear-gradient(135deg, #d4af37, #b8962e); color: #0f172a;
+      }
+      .tutor-btn-p {
+        padding: 8px 12px; border-radius: 10px; border: none;
+        font-size: 0.8rem; font-weight: 600; cursor: pointer;
+        background: #334155; color: #94a3b8;
+      }
+      .tutor-btn-s {
+        background: none; border: none; color: #64748b;
+        font-size: 0.72rem; cursor: pointer; padding: 4px;
+      }
+    `;
+    document.body.appendChild(style);
+  }
+
+  function _tutorStart() {
+    _tutorIdx = 0;
+    _tutorOn = true;
+    // Asegurar que estamos en tab Consulta
+    const consultaTab = document.querySelector('.tab');
+    if (consultaTab) showTab('consulta', consultaTab);
+
+    const ov = document.getElementById('tutorOverlay');
+    ov.style.display = 'block';
+    ov.style.pointerEvents = 'auto';
+    document.getElementById('tutorFab').style.display = 'none';
+    setTimeout(() => _tutorShow(), 300);
+  }
+
+  function _tutorShow() {
+    const step = _TUTOR_STEPS[_tutorIdx];
+
+    // Limpiar highlights anteriores
+    document.querySelectorAll('.tutor-hl').forEach(e => e.classList.remove('tutor-hl'));
+    if (_tutorPointer) { _tutorPointer.remove(); _tutorPointer = null; }
+
+    // Encontrar elemento target
+    let el;
+    if (step.action === 'highlight-child' && step.childSelector) {
+      el = document.querySelector(step.childSelector);
+    } else {
+      el = document.querySelector(step.target);
+    }
+
+    // Para pasos virtuales (elementos que no estan visibles aun)
+    if (!el || step.virtual) {
+      _tutorShowVirtual(step);
+      return;
+    }
+
+    // Highlight
+    el.classList.add('tutor-hl');
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Puntero
+    _tutorPointer = document.createElement('div');
+    _tutorPointer.className = 'tutor-ptr';
+    _tutorPointer.textContent = '👇';
+    document.body.appendChild(_tutorPointer);
+
+    setTimeout(() => {
+      const rect = el.getBoundingClientRect();
+      _tutorPointer.style.left = (rect.left + rect.width / 2 - 14) + 'px';
+      _tutorPointer.style.top = (rect.top + window.scrollY - 36) + 'px';
+      _tutorRenderTooltip(step, rect);
+    }, 400);
+  }
+
+  function _tutorShowVirtual(step) {
+    // Para pasos donde el elemento no esta visible, mostrar tooltip centrado
+    const tooltip = document.getElementById('tutorTooltip');
+    const isLast = _tutorIdx === _TUTOR_STEPS.length - 1;
+    const isFirst = _tutorIdx === 0;
+    tooltip.innerHTML = `
+      <div class="tutor-tt-title">${step.title}</div>
+      <div class="tutor-tt-body">${step.body}</div>
+      <div class="tutor-tt-footer">
+        <span class="tutor-tt-prog">Paso ${_tutorIdx + 1} de ${_TUTOR_STEPS.length}</span>
+        ${!isFirst ? '<button class="tutor-btn-p" onclick="_tutorPrev()">Anterior</button>' : '<button class="tutor-btn-s" onclick="_tutorEnd()">Saltar</button>'}
+        <button class="tutor-btn-n" onclick="_tutorNext()">${isLast ? 'Comenzar!' : 'Siguiente →'}</button>
+      </div>
+    `;
+    tooltip.style.top = '50%';
+    tooltip.style.left = '50%';
+    tooltip.style.transform = 'translate(-50%, -50%)';
+    tooltip.style.bottom = 'auto';
+    tooltip.style.display = 'block';
+  }
+
+  function _tutorRenderTooltip(step, rect) {
+    const tooltip = document.getElementById('tutorTooltip');
+    const isLast = _tutorIdx === _TUTOR_STEPS.length - 1;
+    const isFirst = _tutorIdx === 0;
+
+    tooltip.innerHTML = `
+      <div class="tutor-tt-title">${step.title}</div>
+      <div class="tutor-tt-body">${step.body}</div>
+      <div class="tutor-tt-footer">
+        <span class="tutor-tt-prog">Paso ${_tutorIdx + 1} de ${_TUTOR_STEPS.length}</span>
+        ${!isFirst ? '<button class="tutor-btn-p" onclick="_tutorPrev()">Anterior</button>' : '<button class="tutor-btn-s" onclick="_tutorEnd()">Saltar</button>'}
+        <button class="tutor-btn-n" onclick="_tutorNext()">${isLast ? 'Comenzar!' : 'Siguiente →'}</button>
+      </div>
+    `;
+
+    // Posicionar debajo del elemento
+    const spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceBelow > 200) {
+      tooltip.style.top = (rect.bottom + window.scrollY + 14) + 'px';
+      tooltip.style.bottom = 'auto';
+    } else {
+      tooltip.style.top = 'auto';
+      tooltip.style.bottom = (window.innerHeight - rect.top + 14) + 'px';
+    }
+    tooltip.style.left = '50%';
+    tooltip.style.transform = 'translateX(-50%)';
+    tooltip.style.display = 'block';
+  }
+
+  function _tutorNext() {
+    if (_tutorIdx < _TUTOR_STEPS.length - 1) {
+      _tutorIdx++;
+      _tutorShow();
+    } else {
+      _tutorEnd();
+    }
+  }
+
+  function _tutorPrev() {
+    if (_tutorIdx > 0) {
+      _tutorIdx--;
+      _tutorShow();
+    }
+  }
+
+  function _tutorEnd() {
+    _tutorOn = false;
+    const ov = document.getElementById('tutorOverlay');
+    if (ov) { ov.style.display = 'none'; ov.style.pointerEvents = 'none'; }
+    document.querySelectorAll('.tutor-hl').forEach(e => e.classList.remove('tutor-hl'));
+    if (_tutorPointer) { _tutorPointer.remove(); _tutorPointer = null; }
+    const tt = document.getElementById('tutorTooltip');
+    if (tt) tt.style.display = 'none';
+    const fab = document.getElementById('tutorFab');
+    if (fab) fab.style.display = 'block';
+    localStorage.setItem('dga_tutor_consulta_done', '1');
+  }
+
+  // Inicializar tutorial al cargar
+  document.addEventListener('DOMContentLoaded', () => {
+    _tutorInit();
+    // Auto-mostrar si es primera vez como invitado
+    const role = '{{ role }}';
+    const tutorDone = localStorage.getItem('dga_tutor_consulta_done');
+    if (role === 'invitado' && !tutorDone) {
+      setTimeout(_tutorStart, 1200);
+    }
+  });
 </script>
 </body>
 </html>

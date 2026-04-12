@@ -153,7 +153,7 @@
   </div>
 
   <div class="cuadernos-info">
-    <div class="cuadernos-title">7 cuadernos disponibles</div>
+    <div class="cuadernos-title">8 cuadernos disponibles</div>
     <div class="cuaderno-row"><span class="cuaderno-ico">📖</span> Nomenclaturas y clasificación arancelaria</div>
     <div class="cuaderno-row"><span class="cuaderno-ico">⚖️</span> Legal y procedimientos DGA</div>
     <div class="cuaderno-row"><span class="cuaderno-ico">💰</span> Valoración aduanera</div>
@@ -161,15 +161,179 @@
     <div class="cuaderno-row"><span class="cuaderno-ico">🔍</span> Aforo DGA</div>
     <div class="cuaderno-row"><span class="cuaderno-ico">🖥️</span> Procedimiento VUCERD</div>
     <div class="cuaderno-row"><span class="cuaderno-ico">🌐</span> Normas y origen</div>
+    <div class="cuaderno-row"><span class="cuaderno-ico">🗺️</span> Guía Maestra: comercio exterior</div>
   </div>
 
   <div class="footer">🔒 Acceso protegido · Logistica de Puertos y Aduanas RD</div>
 </div>
 
+<!-- Asistente Virtual -->
+<button class="tutor-fab" id="tutorFab" onclick="iniciarAsistente()">🎓</button>
+<div class="tutor-overlay" id="tutorOverlay" style="display:none">
+  <div class="tutor-backdrop" onclick="cerrarAsistente()"></div>
+  <div class="tutor-panel" id="tutorPanel"></div>
+</div>
+
+<style>
+  .tutor-fab {
+    position: fixed; bottom: 20px; right: 20px; width: 52px; height: 52px;
+    border-radius: 50%; border: 2px solid #22d3ee; background: #164e63;
+    font-size: 1.5rem; cursor: pointer; z-index: 9000;
+    box-shadow: 0 4px 20px rgba(34,211,238,0.3);
+    animation: tutorPulse 2s infinite;
+  }
+  @keyframes tutorPulse {
+    0%,100% { box-shadow: 0 4px 20px rgba(34,211,238,0.3); }
+    50% { box-shadow: 0 4px 30px rgba(34,211,238,0.6); }
+  }
+  .tutor-overlay {
+    position: fixed; inset: 0; z-index: 9500;
+  }
+  .tutor-backdrop {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.6);
+  }
+  .tutor-panel {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: #1e293b; border-top: 2px solid #22d3ee;
+    border-radius: 20px 20px 0 0; padding: 24px 20px 32px;
+    max-height: 70vh; overflow-y: auto; z-index: 9600;
+  }
+  .tutor-title {
+    font-size: 1rem; font-weight: 700; color: #22d3ee;
+    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  .tutor-step {
+    background: #0f172a; border: 1px solid #334155; border-radius: 14px;
+    padding: 14px 16px; margin-bottom: 12px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tutor-step:active { border-color: #22d3ee; }
+  .tutor-step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: #22d3ee; color: #0f172a; font-size: 0.75rem;
+    font-weight: 700; margin-right: 10px; flex-shrink: 0;
+  }
+  .tutor-step-title {
+    font-size: 0.85rem; font-weight: 600; color: #e2e8f0;
+    display: flex; align-items: center;
+  }
+  .tutor-step-desc {
+    font-size: 0.75rem; color: #94a3b8; margin-top: 6px; padding-left: 34px;
+  }
+  .tutor-arrow {
+    display: inline-block; margin-left: 6px; color: #22d3ee;
+    animation: arrowBounce 1s infinite;
+  }
+  @keyframes arrowBounce {
+    0%,100% { transform: translateX(0); }
+    50% { transform: translateX(6px); }
+  }
+  .tutor-highlight {
+    animation: highlightPulse 1.5s infinite;
+    border-color: #22d3ee !important;
+    box-shadow: 0 0 0 4px rgba(34,211,238,0.3) !important;
+    position: relative;
+    z-index: 9100;
+  }
+  @keyframes highlightPulse {
+    0%,100% { box-shadow: 0 0 0 4px rgba(34,211,238,0.3); }
+    50% { box-shadow: 0 0 0 8px rgba(34,211,238,0.15); }
+  }
+  .tutor-btn-close {
+    width: 100%; background: #334155; color: #94a3b8; border: none;
+    border-radius: 12px; padding: 12px; font-size: 0.85rem;
+    font-weight: 600; cursor: pointer; margin-top: 8px;
+  }
+</style>
+
 <script>
   function togglePwd() {
     const f = document.getElementById('pwd');
     f.type = f.type === 'password' ? 'text' : 'password';
+  }
+
+  // Asistente Virtual - Login
+  const _tutorShown = localStorage.getItem('dga_tutor_login_shown');
+
+  function iniciarAsistente() {
+    const ov = document.getElementById('tutorOverlay');
+    ov.style.display = 'block';
+    document.getElementById('tutorPanel').innerHTML = `
+      <div class="tutor-title">🎓 Asistente Virtual</div>
+      <p style="font-size:0.8rem;color:#94a3b8;margin-bottom:18px;">
+        Bienvenido al sistema de consulta aduanera. Te guio paso a paso:
+      </p>
+
+      <div class="tutor-step" onclick="tutorIrRegistro()">
+        <div class="tutor-step-title">
+          <span class="tutor-step-num">1</span>
+          Primera vez? Crea tu cuenta
+          <span class="tutor-arrow">→</span>
+        </div>
+        <div class="tutor-step-desc">
+          Toca aqui para ir al formulario de registro. Solo necesitas tu nombre, correo, WhatsApp y datos basicos.
+        </div>
+      </div>
+
+      <div class="tutor-step" onclick="tutorMostrarLogin()">
+        <div class="tutor-step-title">
+          <span class="tutor-step-num">2</span>
+          Ya tienes cuenta? Inicia sesion
+          <span class="tutor-arrow">→</span>
+        </div>
+        <div class="tutor-step-desc">
+          Ingresa tu correo registrado y la contrasena <strong>Puertos2024</strong> (la primera vez). Luego podras cambiarla.
+        </div>
+      </div>
+
+      <div class="tutor-step" onclick="tutorMostrarCuadernos()">
+        <div class="tutor-step-title">
+          <span class="tutor-step-num">3</span>
+          Que puedo consultar?
+        </div>
+        <div class="tutor-step-desc">
+          Tienes acceso a 8 cuadernos especializados: nomenclaturas, legal, valoracion, regimenes, aforo, VUCERD, normas de origen, y guia maestra de comercio exterior.
+        </div>
+      </div>
+
+      <button class="tutor-btn-close" onclick="cerrarAsistente()">Entendido, cerrar</button>
+    `;
+  }
+
+  function cerrarAsistente() {
+    document.getElementById('tutorOverlay').style.display = 'none';
+    document.querySelectorAll('.tutor-highlight').forEach(el => el.classList.remove('tutor-highlight'));
+    localStorage.setItem('dga_tutor_login_shown', '1');
+  }
+
+  function tutorIrRegistro() {
+    window.location.href = '/registro?tutor=1';
+  }
+
+  function tutorMostrarLogin() {
+    cerrarAsistente();
+    const correoInput = document.querySelector('input[name="correo"]');
+    if (correoInput) {
+      correoInput.classList.add('tutor-highlight');
+      correoInput.focus();
+      setTimeout(() => correoInput.classList.remove('tutor-highlight'), 4000);
+    }
+  }
+
+  function tutorMostrarCuadernos() {
+    cerrarAsistente();
+    const info = document.querySelector('.cuadernos-info');
+    if (info) {
+      info.classList.add('tutor-highlight');
+      info.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => info.classList.remove('tutor-highlight'), 4000);
+    }
+  }
+
+  // Auto-mostrar asistente la primera vez
+  if (!_tutorShown) {
+    setTimeout(iniciarAsistente, 1500);
   }
 </script>
 </body>

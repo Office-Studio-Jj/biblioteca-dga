@@ -139,5 +139,243 @@
     ¿Ya tienes cuenta? <a href="/login">Inicia sesión aquí</a>
   </div>
 </div>
+
+<!-- Asistente Virtual - Registro -->
+<button class="tutor-fab" id="tutorFab" onclick="iniciarTutorRegistro()">🎓</button>
+<div class="tutor-overlay" id="tutorOverlay" style="display:none">
+  <div class="tutor-backdrop" id="tutorBackdrop"></div>
+  <div class="tutor-tooltip" id="tutorTooltip"></div>
+</div>
+
+<style>
+  .tutor-fab {
+    position: fixed; bottom: 20px; right: 20px; width: 52px; height: 52px;
+    border-radius: 50%; border: 2px solid #d4af37; background: #1f1a0a;
+    font-size: 1.5rem; cursor: pointer; z-index: 9000;
+    box-shadow: 0 4px 20px rgba(212,175,55,0.3);
+    animation: tutorPulse 2s infinite;
+  }
+  @keyframes tutorPulse {
+    0%,100% { box-shadow: 0 4px 20px rgba(212,175,55,0.3); }
+    50% { box-shadow: 0 4px 30px rgba(212,175,55,0.6); }
+  }
+  .tutor-overlay {
+    position: fixed; inset: 0; z-index: 9500; pointer-events: none;
+  }
+  .tutor-overlay.active { pointer-events: auto; }
+  .tutor-backdrop {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.55);
+    transition: opacity 0.3s;
+  }
+  .tutor-tooltip {
+    position: absolute; z-index: 9700;
+    background: #1e293b; border: 2px solid #d4af37;
+    border-radius: 16px; padding: 16px 18px;
+    max-width: 320px; width: calc(100% - 40px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  }
+  .tutor-tooltip-title {
+    font-size: 0.9rem; font-weight: 700; color: #d4af37;
+    margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
+  }
+  .tutor-tooltip-body {
+    font-size: 0.8rem; color: #e2e8f0; line-height: 1.5; margin-bottom: 14px;
+  }
+  .tutor-tooltip-footer {
+    display: flex; gap: 8px; align-items: center;
+  }
+  .tutor-tooltip-footer .tutor-progress {
+    font-size: 0.7rem; color: #64748b; flex: 1;
+  }
+  .tutor-btn {
+    padding: 8px 16px; border-radius: 10px; border: none;
+    font-size: 0.8rem; font-weight: 700; cursor: pointer;
+  }
+  .tutor-btn-next {
+    background: linear-gradient(135deg, #d4af37, #b8962e);
+    color: #0f172a;
+  }
+  .tutor-btn-prev {
+    background: #334155; color: #94a3b8;
+  }
+  .tutor-btn-skip {
+    background: none; border: none; color: #64748b;
+    font-size: 0.72rem; cursor: pointer; padding: 4px;
+  }
+  .tutor-highlight {
+    position: relative; z-index: 9600 !important;
+    animation: highlightGlow 1.5s infinite !important;
+  }
+  @keyframes highlightGlow {
+    0%,100% { box-shadow: 0 0 0 4px rgba(212,175,55,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(212,175,55,0.2); }
+  }
+  .tutor-pointer {
+    position: absolute; z-index: 9650;
+    font-size: 1.8rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    animation: pointerBounce 1s infinite;
+    pointer-events: none;
+  }
+  @keyframes pointerBounce {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+</style>
+
+<script>
+  const _tutorSteps = [
+    {
+      target: 'input[name="nombre"]',
+      title: '👤 Paso 1: Tu nombre',
+      body: 'Escribe tu <strong>nombre completo</strong> tal como aparece en tus documentos. Ejemplo: Juan Perez Garcia.',
+      position: 'below'
+    },
+    {
+      target: 'input[name="correo"]',
+      title: '📧 Paso 2: Correo electronico',
+      body: 'Ingresa un correo <strong>valido</strong> que uses frecuentemente. Este sera tu usuario para iniciar sesion.',
+      position: 'below'
+    },
+    {
+      target: 'input[name="whatsapp"]',
+      title: '📱 Paso 3: WhatsApp',
+      body: 'Tu numero de WhatsApp con codigo de area. Ejemplo: <strong>(809) 555-1234</strong>. Se usara para comunicaciones importantes.',
+      position: 'below'
+    },
+    {
+      target: 'input[name="profesion"]',
+      title: '💼 Paso 4: Profesion',
+      body: 'Indica tu profesion relacionada con comercio exterior. Ejemplo: <strong>Agente Aduanal</strong>, Importador, Abogado, etc.',
+      position: 'below'
+    },
+    {
+      target: 'input[name="dedicacion"]',
+      title: '🎯 Paso 5: Actividad',
+      body: 'Describe brevemente a que te dedicas. Ejemplo: <strong>Importacion de equipos electronicos</strong>.',
+      position: 'below'
+    },
+    {
+      target: 'input[name="provincia"]',
+      title: '📍 Paso 6: Ubicacion',
+      body: 'Completa tu <strong>provincia y municipio</strong>. El pais ya esta pre-llenado como Republica Dominicana.',
+      position: 'below'
+    },
+    {
+      target: '.btn-reg',
+      title: '🚀 Paso 7: Crear cuenta',
+      body: 'Cuando todo este listo, presiona este boton. Se creara tu cuenta y entraras <strong>automaticamente</strong> a la app. La contrasena inicial es <strong>Puertos2024</strong> y podras cambiarla.',
+      position: 'above'
+    }
+  ];
+
+  let _tutorStep = 0;
+  let _tutorActive = false;
+  let _pointerEl = null;
+
+  function iniciarTutorRegistro() {
+    _tutorStep = 0;
+    _tutorActive = true;
+    document.getElementById('tutorOverlay').style.display = 'block';
+    document.getElementById('tutorOverlay').classList.add('active');
+    document.getElementById('tutorFab').style.display = 'none';
+    _mostrarPaso();
+  }
+
+  function _mostrarPaso() {
+    const step = _tutorSteps[_tutorStep];
+    const el = document.querySelector(step.target);
+    if (!el) return;
+
+    // Limpiar highlights anteriores
+    document.querySelectorAll('.tutor-highlight').forEach(e => e.classList.remove('tutor-highlight'));
+    if (_pointerEl) { _pointerEl.remove(); _pointerEl = null; }
+
+    // Highlight del elemento actual
+    el.classList.add('tutor-highlight');
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Crear flecha apuntando al campo
+    _pointerEl = document.createElement('div');
+    _pointerEl.className = 'tutor-pointer';
+    _pointerEl.textContent = '👇';
+    document.body.appendChild(_pointerEl);
+
+    setTimeout(() => {
+      const rect = el.getBoundingClientRect();
+      _pointerEl.style.left = (rect.left + rect.width / 2 - 14) + 'px';
+      if (step.position === 'above') {
+        _pointerEl.style.top = (rect.top + window.scrollY - 40) + 'px';
+      } else {
+        _pointerEl.style.top = (rect.top + window.scrollY - 36) + 'px';
+      }
+
+      // Tooltip
+      const tooltip = document.getElementById('tutorTooltip');
+      const isLast = _tutorStep === _tutorSteps.length - 1;
+      const isFirst = _tutorStep === 0;
+
+      tooltip.innerHTML = `
+        <div class="tutor-tooltip-title">${step.title}</div>
+        <div class="tutor-tooltip-body">${step.body}</div>
+        <div class="tutor-tooltip-footer">
+          <span class="tutor-progress">Paso ${_tutorStep + 1} de ${_tutorSteps.length}</span>
+          ${!isFirst ? '<button class="tutor-btn tutor-btn-prev" onclick="_tutorAnterior()">Anterior</button>' : '<button class="tutor-btn-skip" onclick="_tutorSalir()">Saltar guia</button>'}
+          <button class="tutor-btn tutor-btn-next" onclick="_tutorSiguiente()">
+            ${isLast ? 'Comenzar!' : 'Siguiente →'}
+          </button>
+        </div>
+      `;
+
+      // Posicionar tooltip
+      if (step.position === 'above') {
+        tooltip.style.bottom = (window.innerHeight - rect.top + window.scrollY + 10) + 'px';
+        tooltip.style.top = 'auto';
+      } else {
+        tooltip.style.top = (rect.bottom + window.scrollY + 14) + 'px';
+        tooltip.style.bottom = 'auto';
+      }
+      tooltip.style.left = '50%';
+      tooltip.style.transform = 'translateX(-50%)';
+      tooltip.style.display = 'block';
+    }, 400);
+  }
+
+  function _tutorSiguiente() {
+    if (_tutorStep < _tutorSteps.length - 1) {
+      _tutorStep++;
+      _mostrarPaso();
+    } else {
+      _tutorSalir();
+      // Focus en el primer campo
+      const nombre = document.querySelector('input[name="nombre"]');
+      if (nombre) nombre.focus();
+    }
+  }
+
+  function _tutorAnterior() {
+    if (_tutorStep > 0) {
+      _tutorStep--;
+      _mostrarPaso();
+    }
+  }
+
+  function _tutorSalir() {
+    _tutorActive = false;
+    document.getElementById('tutorOverlay').style.display = 'none';
+    document.getElementById('tutorOverlay').classList.remove('active');
+    document.getElementById('tutorFab').style.display = 'block';
+    document.querySelectorAll('.tutor-highlight').forEach(e => e.classList.remove('tutor-highlight'));
+    if (_pointerEl) { _pointerEl.remove(); _pointerEl = null; }
+    document.getElementById('tutorTooltip').style.display = 'none';
+    localStorage.setItem('dga_tutor_registro_done', '1');
+  }
+
+  // Auto-iniciar si viene del asistente de login O primera vez
+  const _fromTutor = new URLSearchParams(window.location.search).get('tutor');
+  const _tutorDone = localStorage.getItem('dga_tutor_registro_done');
+  if (_fromTutor === '1' || !_tutorDone) {
+    setTimeout(iniciarTutorRegistro, 800);
+  }
+</script>
 </body>
 </html>

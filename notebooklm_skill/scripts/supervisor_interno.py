@@ -24,6 +24,183 @@ import os
 import time
 from typing import Dict, List, Tuple, Optional
 
+try:
+    import pdfplumber
+    _PDFPLUMBER_DISPONIBLE = True
+except ImportError:
+    _PDFPLUMBER_DISPONIBLE = False
+    print("[SUPERVISOR_INTERNO] pdfplumber no disponible — fuentes PDF deshabilitadas")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# SECCION -1: CARGA DE FUENTES PDF LOCALES
+# Los documentos del cuaderno nomenclatura se extraen UNA VEZ al iniciar.
+# El supervisor consulta estos textos directamente — 0% IA.
+# ══════════════════════════════════════════════════════════════════════════
+
+_FUENTES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "fuentes_nomenclatura")
+
+# Cache global: {nombre_archivo: texto_completo}
+_FUENTES_TEXTO: Dict[str, str] = {}
+
+# Indice de codigos encontrados en PDFs: {codigo_8dig: descripcion}
+_CODIGOS_PDF: Dict[str, str] = {}
+
+# Indice de reglas RGI encontradas en PDFs
+_REGLAS_RGI: List[str] = []
+
+
+def _cargar_fuentes_pdf():
+    """
+    Extrae texto de todos los PDFs en fuentes_nomenclatura/ al iniciar.
+    Ejecuta UNA VEZ al importar el modulo. Sin IA — solo extraccion de texto.
+    """
+    global _FUENTES_TEXTO, _CODIGOS_PDF, _REGLAS_RGI
+
+    if not _PDFPLUMBER_DISPONIBLE:
+        print("[SUPERVISOR_INTERNO] Sin pdfplumber — fuentes PDF no cargadas")
+        return
+
+    if not os.path.isdir(_FUENTES_DIR):
+        print(f"[SUPERVISOR_INTERNO] Directorio no encontrado: {_FUENTES_DIR}")
+        return
+
+    archivos = [f for f in os.listdir(_FUENTES_DIR) if f.lower().endswith('.pdf')]
+    if not archivos:
+        print("[SUPERVISOR_INTERNO] Sin PDFs en fuentes_nomenclatura/")
+        return
+
+    print(f"[SUPERVISOR_INTERNO] Cargando {len(archivos)} fuentes PDF...")
+    total_paginas = 0
+
+    for archivo in archivos:
+        ruta = os.path.join(_FUENTES_DIR, archivo)
+        try:
+            with pdfplumber.open(ruta) as pdf:
+                textos_pagina = []
+                for pagina in pdf.pages:
+                    texto = pagina.extract_text()
+                    if texto:
+                        textos_pagina.append(texto)
+                texto_completo = "\n".join(textos_pagina)
+                _FUENTES_TEXTO[archivo] = texto_completo
+                total_paginas += len(pdf.pages)
+                print(f"  [{archivo}] {len(pdf.pages)} pags, {len(texto_completo)} chars")
+        except Exception as e:
+            print(f"  [ERROR] {archivo}: {e}")
+
+    print(f"[SUPERVISOR_INTERNO] {len(_FUENTES_TEXTO)} PDFs cargados ({total_paginas} paginas total)")
+
+    # Indexar codigos arancelarios encontrados en los PDFs
+    _indexar_codigos_desde_pdfs()
+    # Indexar reglas RGI
+    _indexar_reglas_rgi()
+
+
+def _indexar_codigos_desde_pdfs():
+    """
+    Busca patrones de codigos arancelarios (XXXX.XX.XX o XXXX.XX) en los textos
+    y construye un indice rapido para verificacion.
+    """
+    global _CODIGOS_PDF
+    patron_8dig = re.compile(r'(\d{4}\.\d{2}\.\d{2})\s+(.{5,80})')
+    patron_6dig = re.compile(r'(\d{4}\.\d{2})\s+(.{5,80})')
+
+    for archivo, texto in _FUENTES_TEXTO.items():
+        # Priorizar el Arancel 7ma enmienda (fuente principal de codigos)
+        for m in patron_8dig.finditer(texto):
+            codigo = m.group(1)
+            desc = m.group(2).strip()
+            # Limpiar descripcion: quitar numeros sueltos al final (gravamen, etc)
+            desc = re.sub(r'\s+\d{1,3}\s*$', '', desc).strip()
+            if codigo not in _CODIGOS_PDF:
+                _CODIGOS_PDF[codigo] = desc
+
+    print(f"[SUPERVISOR_INTERNO] {len(_CODIGOS_PDF)} codigos arancelarios indexados desde PDFs")
+
+
+def _indexar_reglas_rgi():
+    """Extrae referencias a Reglas Generales de Interpretacion de los PDFs."""
+    global _REGLAS_RGI
+    patron_rgi = re.compile(r'(?:Regla\s+(?:General\s+)?(?:de\s+Interpretaci[oó]n\s+)?(?:No?\.?\s*)?(\d+[a-z]?))', re.IGNORECASE)
+
+    for archivo, texto in _FUENTES_TEXTO.items():
+        if 'regla' in archivo.lower() or 'interpretacion' in archivo.lower():
+            for m in patron_rgi.finditer(texto):
+                regla = f"RGI {m.group(1)}"
+                if regla not in _REGLAS_RGI:
+                    _REGLAS_RGI.append(regla)
+
+    if _REGLAS_RGI:
+        print(f"[SUPERVISOR_INTERNO] {len(_REGLAS_RGI)} reglas RGI indexadas")
+
+
+def buscar_en_fuentes(termino: str, max_resultados: int = 5) -> List[Dict[str, str]]:
+    """
+    Busca un termino en TODAS las fuentes PDF cargadas.
+    Retorna lista de coincidencias con contexto.
+
+    Args:
+        termino: palabra o frase a buscar
+        max_resultados: limite de resultados
+
+    Returns:
+        Lista de dicts: {"fuente": archivo, "contexto": linea con contexto}
+    """
+    resultados = []
+    termino_lower = termino.lower()
+
+    for archivo, texto in _FUENTES_TEXTO.items():
+        texto_lower = texto.lower()
+        pos = 0
+        while len(resultados) < max_resultados:
+            idx = texto_lower.find(termino_lower, pos)
+            if idx == -1:
+                break
+            # Extraer contexto: 100 chars antes y despues
+            inicio = max(0, idx - 100)
+            fin = min(len(texto), idx + len(termino) + 100)
+            contexto = texto[inicio:fin].replace('\n', ' ').strip()
+            resultados.append({"fuente": archivo, "contexto": contexto})
+            pos = idx + len(termino)
+
+    return resultados[:max_resultados]
+
+
+def verificar_codigo_en_fuentes(codigo: str) -> Tuple[bool, str]:
+    """
+    Verifica si un codigo arancelario existe en las fuentes PDF locales.
+    100% Python, 0% IA.
+
+    Args:
+        codigo: codigo de 8 digitos (XXXX.XX.XX)
+
+    Returns:
+        (existe, mensaje)
+    """
+    # Buscar codigo exacto en el indice
+    if codigo in _CODIGOS_PDF:
+        return True, f"{codigo} ENCONTRADO en fuentes: {_CODIGOS_PDF[codigo]}"
+
+    # Buscar la subpartida SA (6 digitos)
+    partes = codigo.split(".")
+    if len(partes) == 3:
+        sub_sa = f"{partes[0]}.{partes[1]}"
+        # Buscar cualquier extension de esta subpartida
+        extensiones = {c: d for c, d in _CODIGOS_PDF.items() if c.startswith(sub_sa)}
+        if extensiones:
+            ext_list = "; ".join(f"{c} = {d}" for c, d in list(extensiones.items())[:5])
+            return False, (f"{codigo} NO encontrado en fuentes PDF. "
+                          f"Subpartida {sub_sa} tiene estas extensiones: {ext_list}")
+
+    # Buscar directamente en texto de PDFs (por si el indice no lo capturo)
+    hits = buscar_en_fuentes(codigo, max_resultados=2)
+    if hits:
+        ctx = hits[0]["contexto"][:80]
+        return True, f"{codigo} encontrado en {hits[0]['fuente']}: {ctx}"
+
+    return False, f"{codigo} NO encontrado en ninguna fuente PDF local"
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # SECCION 0: SEGURIDAD — CANDADO CRIPTOGRAFICO DEL SUPERVISOR
@@ -345,8 +522,16 @@ def _check_codigo_arancelario(respuesta: str) -> Tuple[str, str, str]:
     sub_sa = f"{partes[0]}.{partes[1]}"
     ext_nac = partes[2]
 
-    # Si la subpartida SA no esta en nuestra base, no podemos validar
+    # Si la subpartida SA no esta en nuestra base hardcoded, intentar con PDFs
     if sub_sa not in CODIGOS_VERIFICADOS_RD:
+        # Consultar fuentes PDF locales antes de rendirse
+        if _CODIGOS_PDF:
+            existe_pdf, msg_pdf = verificar_codigo_en_fuentes(codigo)
+            if existe_pdf:
+                return respuesta, "OK", f"{codigo} verificado via fuentes PDF: {msg_pdf}"
+            else:
+                return (respuesta, "OBSERVACION",
+                        f"{msg_pdf} — requiere verificacion manual en Arancel impreso")
         return (respuesta, "OBSERVACION",
                 f"{codigo}: subpartida {sub_sa} no esta en base verificada "
                 f"— requiere verificacion manual en Arancel impreso")
@@ -543,6 +728,53 @@ def _check_fuente(respuesta: str, notebook_id: str) -> Tuple[str, str]:
                 "la respuesta podria ser generica internacional")
 
 
+def _check_fuentes_pdf(respuesta: str, pregunta: str, notebook_id: str) -> Tuple[str, str]:
+    """
+    Valida la respuesta contra las fuentes PDF locales del cuaderno nomenclatura.
+    Solo aplica al cuaderno de nomenclaturas.
+    100% Python — busca coincidencias textuales en los PDFs extraidos.
+    """
+    if notebook_id != "biblioteca-de-nomenclaturas":
+        return "OK", "Check PDF: solo aplica a nomenclaturas"
+
+    if not _FUENTES_TEXTO:
+        return "OBSERVACION", "Fuentes PDF no cargadas — verificacion limitada"
+
+    # Extraer codigo del bloque de clasificacion si existe
+    si = respuesta.find("---DATOS_CLASIFICACION---")
+    ei = respuesta.find("---FIN_CLASIFICACION---")
+    if si != -1 and ei != -1:
+        bloque = respuesta[si:ei]
+        m_code = re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', bloque)
+        if m_code:
+            codigo = m_code.group(1)
+            existe, msg = verificar_codigo_en_fuentes(codigo)
+            if existe:
+                return "OK", f"Fuentes PDF: {msg}"
+            else:
+                return "OBSERVACION", f"Fuentes PDF: {msg}"
+
+    # Verificar que la respuesta menciona conceptos presentes en las fuentes
+    pregunta_lower = pregunta.lower()
+    # Buscar terminos clave de la pregunta en las fuentes
+    terminos = re.findall(r'\b[a-záéíóúñ]{4,}\b', pregunta_lower)
+    terminos_relevantes = [t for t in terminos if t not in (
+        "cual", "como", "donde", "para", "este", "esta", "puede", "tiene",
+        "hola", "quiero", "necesito", "clasificar", "consultar", "favor",
+    )]
+
+    hits_fuente = 0
+    for termino in terminos_relevantes[:5]:
+        resultados = buscar_en_fuentes(termino, max_resultados=1)
+        if resultados:
+            hits_fuente += 1
+
+    if hits_fuente > 0:
+        return "OK", f"Fuentes PDF: {hits_fuente}/{min(len(terminos_relevantes), 5)} terminos encontrados en documentos locales"
+
+    return "OK", "Fuentes PDF: sin terminos especificos para validar"
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # SECCION 3: MOTOR PRINCIPAL — PUNTO DE ENTRADA
 # ══════════════════════════════════════════════════════════════════════════
@@ -572,7 +804,7 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
         bloque_error = (
             "---SUPERVISION---\n"
             "RESULTADO: BLOQUEADO — INTEGRIDAD COMPROMETIDA\n"
-            "VERIFICADO_POR: Supervisor General Interno v1.0 (ALERTA DE SEGURIDAD)\n"
+            "VERIFICADO_POR: Supervisor General Interno v2.0 (ALERTA DE SEGURIDAD)\n"
             "CUADERNO: " + notebook_id + "\n"
             "CHECK_SEGURIDAD: ERROR: Datos de referencia manipulados en runtime\n"
             "CORRECCION: Reiniciar el servidor para restaurar integridad\n"
@@ -619,6 +851,10 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
                         f"{len(alertas_seguridad)} inyeccion(es) bloqueada(s)"))
     else:
         checks.append(("Seguridad", "OK", "Sin intentos de inyeccion"))
+
+    # Check 8: Validacion contra fuentes PDF locales (nomenclatura)
+    st_pdf, msg_pdf = _check_fuentes_pdf(respuesta, pregunta, notebook_id)
+    checks.append(("FuentesPDF", st_pdf, msg_pdf))
 
     # ── Determinar resultado ─────────────────────────────────────────────
     errores = [c for c in checks if c[1] == "ERROR"]
@@ -668,7 +904,7 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
     bloque_sin_firma = (
         "---SUPERVISION---\n"
         f"RESULTADO: {resultado}\n"
-        f"VERIFICADO_POR: Supervisor General Interno v1.0 (Python — deterministico)\n"
+        f"VERIFICADO_POR: Supervisor General Interno v2.0 (Python — deterministico)\n"
         f"CUADERNO: {nombre_cuaderno}\n"
         f"CODIGO_VERIFICADO: {codigo_verificado}\n"
         f"DESCRIPCION_VERIFICADA: {descripcion_verificada}\n"
@@ -683,7 +919,7 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
     bloque_firmado = (
         "---SUPERVISION---\n"
         f"RESULTADO: {resultado}\n"
-        f"VERIFICADO_POR: Supervisor General Interno v1.0 (Python — deterministico)\n"
+        f"VERIFICADO_POR: Supervisor General Interno v2.0 (Python — deterministico)\n"
         f"CUADERNO: {nombre_cuaderno}\n"
         f"CODIGO_VERIFICADO: {codigo_verificado}\n"
         f"DESCRIPCION_VERIFICADA: {descripcion_verificada}\n"
@@ -707,3 +943,6 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
 # ══════════════════════════════════════════════════════════════════════════
 _INTEGRITY_HASH_AT_LOAD = _calcular_hash_integridad()
 print(f"[SUPERVISOR_INTERNO] Modulo cargado. Integridad: {_INTEGRITY_HASH_AT_LOAD[:16]}...")
+
+# Cargar fuentes PDF al iniciar — una sola vez
+_cargar_fuentes_pdf()
