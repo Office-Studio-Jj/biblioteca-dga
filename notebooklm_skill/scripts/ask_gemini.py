@@ -672,40 +672,18 @@ def ask_gemini(question, notebook_id):
         t0 = time.time()
         answer = None
 
-        # Intento 1: gemini-2.0-flash (rapido, 5-15s)
-        try:
-            print("[GEMINI] Intento 1: gemini-2.0-flash (rapido)...")
-            model_fast = genai.GenerativeModel(
-                model_name="gemini-2.0-flash",
-                system_instruction=system_prompt
-            )
-            response = model_fast.generate_content(full_prompt)
-            answer = response.text.strip()
-            if len(answer) < 50:
-                print(f"[GEMINI] Respuesta muy corta ({len(answer)} chars) — intentando modelo pensante")
-                answer = None
-            else:
-                print(f"[GEMINI] Borrador rapido recibido ({len(answer)} chars) en {time.time()-t0:.1f}s")
-        except Exception as e:
-            print(f"[GEMINI] gemini-2.0-flash fallo: {e}")
-
-        # Intento 2: gemini-2.5-flash (pensante, 30-60s) — solo si el rapido fallo
-        if not answer:
-            try:
-                print("[GEMINI] Intento 2: gemini-2.5-flash (pensante)...")
-                model_think = genai.GenerativeModel(
-                    model_name="gemini-2.5-flash",
-                    system_instruction=system_prompt
-                )
-                response = model_think.generate_content(full_prompt)
-                answer = response.text.strip()
-                print(f"[GEMINI] Borrador pensante recibido ({len(answer)} chars) en {time.time()-t0:.1f}s")
-            except Exception as e:
-                print(f"[GEMINI] gemini-2.5-flash tambien fallo: {e}")
-                raise
-
+        # gemini-2.5-flash con pensamiento DESACTIVADO = respuesta directa (15-30s)
+        # En vez de 60-90s con pensamiento activado
+        print("[GEMINI] Consultando gemini-2.5-flash (sin thinking)...")
+        model = genai.GenerativeModel(
+            model_name="gemini-2.5-flash",
+            system_instruction=system_prompt,
+            generation_config={"thinking_config": {"thinking_budget": 0}}
+        )
+        response = model.generate_content(full_prompt)
+        answer = response.text.strip()
         t1 = time.time()
-        print(f"[GEMINI] Borrador final: {len(answer)} chars en {t1-t0:.1f}s")
+        print(f"[GEMINI] Borrador recibido ({len(answer)} chars) en {t1-t0:.1f}s")
 
         # ── VERIFICACION CACHE-FIRST (nomenclatura) ──────────────────────
         # 1. Extraer codigo del borrador
