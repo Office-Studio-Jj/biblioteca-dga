@@ -526,10 +526,10 @@ def consultar():
             if not question:
                 return jsonify({"error": "No se pudo analizar la imagen. Intenta con otra foto o escribe tu consulta."}), 400
 
-    # Timeout optimizado: 45s texto, 60s imagen (objetivo: respuesta en <30s)
-    # Pipeline: Gemini (1 llamada) + cache-first + supervisor Python
+    # Timeout: 45s texto, 120s imagen (imagen = Vision API + clasificacion)
+    # Primera consulta tras deploy puede tomar mas por upload Arancel PDF a Gemini
     tiene_imagen = bool(producto_identificado) or (archivo is not None)
-    timeout_consulta = 60 if tiene_imagen else 45
+    timeout_consulta = 120 if tiene_imagen else 45
 
     try:
         answer = ask_notebooklm(question, notebook_id, timeout=timeout_consulta)
@@ -1596,6 +1596,49 @@ def _migrate_users_admin_to_operativo():
 # Ejecutar migraciones al importar el módulo
 _migrate_users_admin_to_operativo()
 load_passwords()  # Dispara migración admin→master en passwords.json
+
+# ── Pre-calentamiento: subir Arancel PDF a Gemini al iniciar (background) ──
+def _precalentar_arancel():
+    """Sube el Arancel PDF a Gemini File API en background para que la
+    primera consulta del usuario no tenga que esperar el upload."""
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        return
+    try:
+        arancel_cache = os.path.join(SKILL_DIR, "data", "arancel_gemini_cache.json")
+        # Si ya hay cache valido, verificar que sigue activo
+        if os.path.exists(arancel_cache):
+            import json as _json
+            try:
+                import google.generativeai as _genai
+                _genai.configure(api_key=api_key)
+                with open(arancel_cache, "r") as f:
+                    cached = _json.load(f)
+                ref = _genai.get_file(cached["name"])
+                if ref.state.name == "ACTIVE":
+                    print("[WARMUP] Arancel PDF ya esta en cache Gemini — listo")
+                    return
+            except Exception:
+                pass
+        # Subir en background usando el subprocess
+        print("[WARMUP] Pre-subiendo Arancel PDF a Gemini File API...")
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+        env["PYTHONPATH"] = SKILL_DIR
+        subprocess.Popen(
+            [PYTHON, "-c",
+             "import sys; sys.path.insert(0,'.'); "
+             "from scripts.ask_gemini import _obtener_arancel_gemini; "
+             "import os; _obtener_arancel_gemini(os.environ['GEMINI_API_KEY'])"],
+            cwd=SKILL_DIR, env=env,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        print("[WARMUP] Upload de Arancel iniciado en background")
+    except Exception as e:
+        print(f"[WARMUP] Error: {e}")
+
+import threading
+threading.Thread(target=_precalentar_arancel, daemon=True).start()
 
 # ── Arranque ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":

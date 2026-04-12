@@ -609,11 +609,11 @@ def _obtener_arancel_gemini(api_key):
             display_name="Arancel 7ma Enmienda RD"
         )
 
-        # Esperar procesamiento del PDF
+        # Esperar procesamiento del PDF (max ~30s)
         intentos = 0
-        while file_ref.state.name == "PROCESSING" and intentos < 30:
-            print(f"[ARANCEL] Procesando PDF... ({intentos * 3}s)")
-            time.sleep(3)
+        while file_ref.state.name == "PROCESSING" and intentos < 15:
+            print(f"[ARANCEL] Procesando PDF... ({intentos * 2}s)")
+            time.sleep(2)
             file_ref = genai.get_file(file_ref.name)
             intentos += 1
 
