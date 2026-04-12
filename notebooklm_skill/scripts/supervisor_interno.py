@@ -52,15 +52,16 @@ _REGLAS_RGI: List[str] = []
 
 _FUENTES_CARGADAS = False
 
-# PDFs que se excluyen de la carga automatica por ser muy grandes
-# El Arancel 7ma enmienda (633 pags, 6MB) ya lo usa Gemini via File API
-_PDFS_EXCLUIDOS = {"Arancel 7ma enmienda de la republica dominicana.pdf"}
+# Cache pre-extraido del Arancel (JSON ligero en vez de parsear 633 pags cada vez)
+_ARANCEL_CACHE = os.path.join(_FUENTES_DIR, "arancel_cache.json")
 
 
 def _cargar_fuentes_pdf():
     """
-    Extrae texto de PDFs ligeros en fuentes_nomenclatura/.
-    Excluye el Arancel grande (633 pags) que Gemini ya usa via File API.
+    Carga fuentes del cuaderno nomenclatura:
+    1. Arancel 7ma enmienda: desde cache JSON pre-extraido (0.05s vs 100s del PDF)
+    2. Demas PDFs: extraccion directa con pdfplumber (11 PDFs ligeros, ~5s)
+
     Se ejecuta LAZY — solo cuando se necesita, no al importar.
     """
     global _FUENTES_TEXTO, _CODIGOS_PDF, _REGLAS_RGI, _FUENTES_CARGADAS
@@ -70,21 +71,36 @@ def _cargar_fuentes_pdf():
 
     _FUENTES_CARGADAS = True
 
+    # ── PASO 1: Cargar Arancel desde cache JSON (instantaneo) ──
+    if os.path.isfile(_ARANCEL_CACHE):
+        try:
+            with open(_ARANCEL_CACHE, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+            codigos_arancel = cache.get("codigos", {})
+            _CODIGOS_PDF.update(codigos_arancel)
+            print(f"[SUPERVISOR_INTERNO] Arancel cache: {len(codigos_arancel)} codigos "
+                  f"({cache.get('paginas', '?')} pags pre-extraidas)")
+        except Exception as e:
+            print(f"[SUPERVISOR_INTERNO] Error cargando cache Arancel: {e}")
+    else:
+        print(f"[SUPERVISOR_INTERNO] Cache Arancel no encontrado: {_ARANCEL_CACHE}")
+
+    # ── PASO 2: Cargar demas PDFs con pdfplumber ──
     if not _PDFPLUMBER_DISPONIBLE:
-        print("[SUPERVISOR_INTERNO] Sin pdfplumber — fuentes PDF no cargadas")
+        print("[SUPERVISOR_INTERNO] Sin pdfplumber — fuentes PDF adicionales no cargadas")
         return
 
     if not os.path.isdir(_FUENTES_DIR):
-        print(f"[SUPERVISOR_INTERNO] Directorio no encontrado: {_FUENTES_DIR}")
         return
 
+    # Cargar todos los PDFs EXCEPTO el Arancel grande (ya cargado desde cache)
     archivos = [f for f in os.listdir(_FUENTES_DIR)
-                if f.lower().endswith('.pdf') and f not in _PDFS_EXCLUIDOS]
+                if f.lower().endswith('.pdf')
+                and 'arancel 7ma' not in f.lower()]
     if not archivos:
-        print("[SUPERVISOR_INTERNO] Sin PDFs ligeros en fuentes_nomenclatura/")
         return
 
-    print(f"[SUPERVISOR_INTERNO] Cargando {len(archivos)} fuentes PDF (ligeras)...")
+    print(f"[SUPERVISOR_INTERNO] Cargando {len(archivos)} fuentes PDF complementarias...")
     total_paginas = 0
 
     for archivo in archivos:
@@ -102,13 +118,13 @@ def _cargar_fuentes_pdf():
                 texto_completo = "\n".join(textos_pagina)
                 _FUENTES_TEXTO[archivo] = texto_completo
                 total_paginas += len(pdf.pages)
-                print(f"  [{archivo}] {len(pdf.pages)} pags, {len(texto_completo)} chars")
         except Exception as e:
             print(f"  [ERROR] {archivo}: {e}")
 
-    print(f"[SUPERVISOR_INTERNO] {len(_FUENTES_TEXTO)} PDFs cargados ({total_paginas} paginas)")
+    print(f"[SUPERVISOR_INTERNO] {len(_FUENTES_TEXTO)} PDFs + Arancel cache cargados "
+          f"({total_paginas} pags directas + {len(_CODIGOS_PDF)} codigos Arancel)")
 
-    # Indexar codigos arancelarios encontrados en los PDFs
+    # Indexar codigos adicionales de los PDFs complementarios
     _indexar_codigos_desde_pdfs()
     # Indexar reglas RGI
     _indexar_reglas_rgi()
