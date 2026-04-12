@@ -505,12 +505,22 @@ def consultar():
                 if _m:
                     producto_identificado = _m.group(1).strip()
                 if not question:
-                    # Solo foto, sin texto: usar la descripción del producto como pregunta
-                    question = ("Clasifica arancelariamente el siguiente producto identificado "
-                                "desde una imagen:\n\n" + texto_archivo[:3000])
-                    print(f"[CONSULTAR] Consulta generada desde imagen: {question[:120]}")
+                    # Solo foto, sin texto: ejecutar protocolo merceologico completo
+                    question = (
+                        "INSTRUCCION OBLIGATORIA: El usuario envio una imagen de un producto. "
+                        "Gemini Vision ya lo identifico. DEBES clasificarlo arancelariamente "
+                        "aplicando el PROTOCOLO DE INVESTIGACION MERCEOLOGICA completo (8 fases). "
+                        "NUNCA pidas mas informacion al usuario. NUNCA digas que necesitas descripcion. "
+                        "Trabaja con la identificacion proporcionada:\n\n"
+                        + texto_archivo[:3000]
+                    )
+                    print(f"[CONSULTAR] Consulta imagen+protocolo: {question[:120]}")
                 else:
-                    question = question + "\n\n[Ficha técnica adjunta]:\n" + texto_archivo[:3000]
+                    question = (
+                        question + "\n\n[Producto identificado desde imagen adjunta — "
+                        "clasificar obligatoriamente, NO pedir mas info]:\n"
+                        + texto_archivo[:3000]
+                    )
         except Exception as ex:
             print(f"[CONSULTAR] Error procesando archivo: {ex}")
             if not question:
@@ -625,24 +635,52 @@ def _identificar_producto_imagen(image_path):
             generation_config={"max_output_tokens": 1024}
         )
         prompt = (
-            "Eres un experto en merceología aduanera y clasificación arancelaria. "
-            "Analiza esta imagen e identifica el producto con la mayor precisión técnica posible.\n\n"
-            "Responde EXACTAMENTE con este formato:\n"
-            "PRODUCTO: [nombre técnico completo del producto]\n"
-            "MATERIAL: [material constitutivo principal visible]\n"
-            "FUNCION: [función técnica o uso evidente del producto]\n"
-            "DESCRIPCION: [descripción técnica detallada de 2-3 líneas para clasificación arancelaria, "
-            "incluyendo estado físico, acabado, presentación comercial]\n\n"
-            "Si no puedes identificar el producto con certeza, describe lo que ves y sugiere "
-            "las posibilidades más probables."
+            "INSTRUCCION OBLIGATORIA: Eres un perito merceólogo aduanero. "
+            "Tu UNICA tarea es identificar el PRODUCTO FISICO visible en la imagen.\n\n"
+            "REGLAS ESTRICTAS:\n"
+            "1. SIEMPRE identifica el producto. NUNCA digas que no puedes identificarlo.\n"
+            "2. NUNCA pidas mas informacion al usuario. Trabaja con lo que ves.\n"
+            "3. Si la imagen muestra un documento, libro, etiqueta o empaque, "
+            "ignora el texto/titulo y enfocate en el OBJETO FISICO visible.\n"
+            "4. Si solo ves un documento/libro, identifica ESE objeto (ej: 'libro impreso').\n"
+            "5. Describe lo que VES, no lo que lees en la imagen.\n\n"
+            "PROTOCOLO MERCEOLOGICO — responde EXACTAMENTE asi:\n"
+            "PRODUCTO: [nombre tecnico del objeto fisico visible]\n"
+            "MATERIAL: [material constitutivo principal que se observa]\n"
+            "FUNCION: [funcion tecnica o uso del producto]\n"
+            "ESTADO: [Producto Acabado / Accesorio / Componente / Materia Prima]\n"
+            "DESCRIPCION: [descripcion tecnica de 2-3 lineas: naturaleza, "
+            "estado fisico, acabado superficial, presentacion comercial]\n\n"
+            "EJEMPLO para un tornillo:\n"
+            "PRODUCTO: Tornillo autorroscante de cabeza hexagonal\n"
+            "MATERIAL: Acero al carbono con recubrimiento galvanizado\n"
+            "FUNCION: Elemento de fijacion mecanica para union de piezas\n"
+            "ESTADO: Producto Acabado\n"
+            "DESCRIPCION: Tornillo metalico de acero galvanizado, cabeza hexagonal, "
+            "rosca autorroscante, estado solido, acabado brillante, presentacion unitaria."
         )
         print(f"[VISION] Enviando imagen a Gemini Vision...")
         response = model.generate_content(
             [img_file, prompt],
-            request_options={"timeout": 60}
+            request_options={"timeout": 30}
         )
         desc = response.text.strip()
         print(f"[VISION] Producto identificado: {desc[:150]}")
+
+        # Validar que Vision no pidio mas info ni se nego a identificar
+        _rechazos = ["no puedo identificar", "necesito que", "proporcione",
+                     "describa el producto", "no me permite identificar",
+                     "no es posible determinar"]
+        if any(r in desc.lower() for r in _rechazos):
+            print("[VISION] Vision intento rechazar — forzando re-identificacion")
+            response2 = model.generate_content(
+                [img_file, "Describe el objeto fisico visible en esta imagen. "
+                 "Responde: PRODUCTO: [que es] MATERIAL: [de que esta hecho] "
+                 "FUNCION: [para que sirve] DESCRIPCION: [descripcion tecnica breve]"],
+                request_options={"timeout": 20}
+            )
+            desc = response2.text.strip()
+            print(f"[VISION] Re-identificacion: {desc[:150]}")
 
         # Limpiar archivo subido en Gemini
         try:
