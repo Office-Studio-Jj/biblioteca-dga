@@ -647,12 +647,7 @@ def ask_gemini(question, notebook_id):
     print("[GEMINI] notebook_id=" + notebook_id)
     print("[GEMINI] question=" + question[:80])
 
-    model = genai.GenerativeModel(
-        model_name="gemini-2.5-flash",
-        system_instruction=system_prompt
-    )
-
-    # Refuerzo critico para nomenclatura (sin PDF — usa conocimiento del prompt)
+    # Refuerzo critico para nomenclatura
     refuerzo = ""
     if notebook_id == "biblioteca-de-nomenclaturas":
         refuerzo = (
@@ -673,13 +668,44 @@ def ask_gemini(question, notebook_id):
     )
 
     try:
-        # ── Generar respuesta SIN PDF adjunto (rapido: 15-25s) ──
-        print("[GEMINI] Consultando Gemini (sin PDF adjunto — modo rapido)...")
+        # ── Estrategia: modelo rapido primero, fallback a pensante ──
         t0 = time.time()
-        response = model.generate_content(full_prompt)
-        answer = response.text.strip()
+        answer = None
+
+        # Intento 1: gemini-2.0-flash (rapido, 5-15s)
+        try:
+            print("[GEMINI] Intento 1: gemini-2.0-flash (rapido)...")
+            model_fast = genai.GenerativeModel(
+                model_name="gemini-2.0-flash",
+                system_instruction=system_prompt
+            )
+            response = model_fast.generate_content(full_prompt)
+            answer = response.text.strip()
+            if len(answer) < 50:
+                print(f"[GEMINI] Respuesta muy corta ({len(answer)} chars) — intentando modelo pensante")
+                answer = None
+            else:
+                print(f"[GEMINI] Borrador rapido recibido ({len(answer)} chars) en {time.time()-t0:.1f}s")
+        except Exception as e:
+            print(f"[GEMINI] gemini-2.0-flash fallo: {e}")
+
+        # Intento 2: gemini-2.5-flash (pensante, 30-60s) — solo si el rapido fallo
+        if not answer:
+            try:
+                print("[GEMINI] Intento 2: gemini-2.5-flash (pensante)...")
+                model_think = genai.GenerativeModel(
+                    model_name="gemini-2.5-flash",
+                    system_instruction=system_prompt
+                )
+                response = model_think.generate_content(full_prompt)
+                answer = response.text.strip()
+                print(f"[GEMINI] Borrador pensante recibido ({len(answer)} chars) en {time.time()-t0:.1f}s")
+            except Exception as e:
+                print(f"[GEMINI] gemini-2.5-flash tambien fallo: {e}")
+                raise
+
         t1 = time.time()
-        print(f"[GEMINI] Borrador recibido ({len(answer)} chars) en {t1-t0:.1f}s")
+        print(f"[GEMINI] Borrador final: {len(answer)} chars en {t1-t0:.1f}s")
 
         # ── VERIFICACION CACHE-FIRST (nomenclatura) ──────────────────────
         # 1. Extraer codigo del borrador
