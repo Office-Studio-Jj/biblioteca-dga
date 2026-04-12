@@ -16,9 +16,10 @@ import json
 import time
 
 try:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 except ImportError:
-    print("[GEMINI] ERROR: google-generativeai no está instalado. Ejecuta: pip install google-generativeai")
+    print("[GEMINI] ERROR: google-genai no está instalado. Ejecuta: pip install google-genai")
     sys.exit(1)
 
 # ── Contextos especializados por cuaderno ──────────────────────────────────
@@ -597,15 +598,15 @@ def _obtener_arancel_gemini(api_key):
     Obtiene referencia al Arancel PDF en Gemini File API.
     Primer uso: sube el PDF (~5.8MB, toma ~10s). Usos siguientes: cache 48h.
     """
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
     # 1. Intentar cache local (evita re-subir)
     if os.path.exists(_ARANCEL_CACHE):
         try:
             with open(_ARANCEL_CACHE, "r", encoding="utf-8") as f:
                 cached = json.load(f)
-            file_ref = genai.get_file(cached["name"])
-            if file_ref.state.name == "ACTIVE":
+            file_ref = client.files.get(name=cached["name"])
+            if file_ref.state == "ACTIVE":
                 print(f"[ARANCEL] PDF en cache Gemini: {file_ref.name}")
                 return file_ref
             print("[ARANCEL] Cache expirado, re-subiendo...")
@@ -620,21 +621,21 @@ def _obtener_arancel_gemini(api_key):
     # 3. Subir a Gemini File API
     print("[ARANCEL] Subiendo Arancel 7ma Enmienda a Gemini File API...")
     try:
-        file_ref = genai.upload_file(
-            path=_ARANCEL_PDF,
-            display_name="Arancel 7ma Enmienda RD"
+        file_ref = client.files.upload(
+            file=_ARANCEL_PDF,
+            config=types.UploadFileConfig(display_name="Arancel 7ma Enmienda RD")
         )
 
         # Esperar procesamiento del PDF (max ~30s)
         intentos = 0
-        while file_ref.state.name == "PROCESSING" and intentos < 15:
+        while file_ref.state == "PROCESSING" and intentos < 15:
             print(f"[ARANCEL] Procesando PDF... ({intentos * 2}s)")
             time.sleep(2)
-            file_ref = genai.get_file(file_ref.name)
+            file_ref = client.files.get(name=file_ref.name)
             intentos += 1
 
-        if file_ref.state.name != "ACTIVE":
-            print(f"[ARANCEL] Error: estado final = {file_ref.state.name}")
+        if file_ref.state != "ACTIVE":
+            print(f"[ARANCEL] Error: estado final = {file_ref.state}")
             return None
 
         # Guardar cache para proximas consultas
@@ -656,7 +657,7 @@ def ask_gemini(question, notebook_id):
         print("[GEMINI] ERROR: GEMINI_API_KEY no esta configurada")
         return None
 
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
     system_prompt = DGA_CONTEXT.get(notebook_id, DEFAULT_CONTEXT)
     notebook_name = notebook_id.replace("-", " ").title()
 
@@ -688,12 +689,15 @@ def ask_gemini(question, notebook_id):
         t0 = time.time()
         answer = None
 
-        print("[GEMINI] Consultando gemini-2.5-flash...")
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=system_prompt
+        print("[GEMINI] Consultando gemini-2.5-flash (thinking OFF)...")
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=full_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
+            )
         )
-        response = model.generate_content(full_prompt)
         answer = response.text.strip()
         t1 = time.time()
         print(f"[GEMINI] Borrador recibido ({len(answer)} chars) en {t1-t0:.1f}s")

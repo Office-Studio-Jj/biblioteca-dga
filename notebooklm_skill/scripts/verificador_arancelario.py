@@ -23,7 +23,8 @@ import json
 import os
 
 try:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
     _GENAI_DISPONIBLE = True
 except ImportError:
     _GENAI_DISPONIBLE = False
@@ -250,7 +251,7 @@ def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str, arancel_
         dict completo con codigo + cargos verificados, o None si falla
     """
     if not _GENAI_DISPONIBLE:
-        print("[VERIFICADOR] google-generativeai no disponible — saltando verificacion")
+        print("[VERIFICADOR] google-genai no disponible — saltando verificacion")
         return None
 
     if not api_key:
@@ -267,10 +268,10 @@ def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str, arancel_
         print(f"[VERIFICADOR] Cache-first: {codigo} NO encontrado en cache — Gemini verificara")
 
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=_SYSTEM_VERIFICACION
+        client = genai.Client(api_key=api_key)
+        _config = types.GenerateContentConfig(
+            system_instruction=_SYSTEM_VERIFICACION,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
         )
 
         # Incluir dato de cache para ayudar a Gemini
@@ -294,9 +295,17 @@ def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str, arancel_
         print(f"[VERIFICADOR] Verificando codigo + cargos: {codigo} para: {producto[:60]}")
         if arancel_file:
             print("[VERIFICADOR] Verificando contra Arancel PDF real")
-            response = model.generate_content([arancel_file, pregunta])
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[arancel_file, pregunta],
+                config=_config
+            )
         else:
-            response = model.generate_content(pregunta)
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=pregunta,
+                config=_config
+            )
         texto = response.text.strip()
 
         # Extraer JSON — puede venir con backticks o texto adicional

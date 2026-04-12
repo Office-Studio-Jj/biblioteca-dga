@@ -614,8 +614,9 @@ def _identificar_producto_imagen(image_path):
         return None
     compressed_path = None
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
+        from google import genai as _genai_v
+        from google.genai import types as _types_v
+        _client = _genai_v.Client(api_key=api_key)
 
         # Comprimir imagen automáticamente (2MB → ~200KB, acelera upload)
         compressed_path = _comprimir_imagen(image_path)
@@ -623,18 +624,15 @@ def _identificar_producto_imagen(image_path):
 
         # Subir imagen a Gemini File API
         print(f"[VISION] Subiendo imagen para análisis: {upload_path}")
-        img_file = genai.upload_file(upload_path)
+        img_file = _client.files.upload(file=upload_path)
         # Esperar a que esté activa
         for _ in range(10):
-            status = genai.get_file(img_file.name)
-            if status.state.name == "ACTIVE":
+            status = _client.files.get(name=img_file.name)
+            if status.state == "ACTIVE":
                 break
             time.sleep(1)
 
-        model = genai.GenerativeModel(
-            "gemini-2.0-flash",
-            generation_config={"max_output_tokens": 1024}
-        )
+        _vision_config = _types_v.GenerateContentConfig(max_output_tokens=1024)
         prompt = (
             "INSTRUCCION OBLIGATORIA: Eres un perito merceólogo aduanero. "
             "Tu UNICA tarea es identificar el PRODUCTO FISICO visible en la imagen.\n\n"
@@ -661,9 +659,10 @@ def _identificar_producto_imagen(image_path):
             "rosca autorroscante, estado solido, acabado brillante, presentacion unitaria."
         )
         print(f"[VISION] Enviando imagen a Gemini Vision...")
-        response = model.generate_content(
-            [img_file, prompt],
-            request_options={"timeout": 30}
+        response = _client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[img_file, prompt],
+            config=_vision_config
         )
         desc = response.text.strip()
         print(f"[VISION] Producto identificado: {desc[:150]}")
@@ -674,18 +673,19 @@ def _identificar_producto_imagen(image_path):
                      "no es posible determinar"]
         if any(r in desc.lower() for r in _rechazos):
             print("[VISION] Vision intento rechazar — forzando re-identificacion")
-            response2 = model.generate_content(
-                [img_file, "Describe el objeto fisico visible en esta imagen. "
+            response2 = _client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=[img_file, "Describe el objeto fisico visible en esta imagen. "
                  "Responde: PRODUCTO: [que es] MATERIAL: [de que esta hecho] "
                  "FUNCION: [para que sirve] DESCRIPCION: [descripcion tecnica breve]"],
-                request_options={"timeout": 20}
+                config=_vision_config
             )
             desc = response2.text.strip()
             print(f"[VISION] Re-identificacion: {desc[:150]}")
 
         # Limpiar archivo subido en Gemini
         try:
-            genai.delete_file(img_file.name)
+            _client.files.delete(name=img_file.name)
         except Exception:
             pass
 
@@ -1606,8 +1606,9 @@ def _precalentar_arancel():
     if not api_key:
         return
     try:
-        import google.generativeai as _genai
-        _genai.configure(api_key=api_key)
+        from google import genai as _genai_w
+        from google.genai import types as _types_w
+        _client_w = _genai_w.Client(api_key=api_key)
         arancel_cache = os.path.join(SKILL_DIR, "data", "arancel_gemini_cache.json")
         arancel_pdf = os.path.join(SKILL_DIR, "data", "arancel_7ma_enmienda.pdf")
 
@@ -1616,8 +1617,8 @@ def _precalentar_arancel():
             try:
                 with open(arancel_cache, "r") as f:
                     cached = json.load(f)
-                ref = _genai.get_file(cached["name"])
-                if ref.state.name == "ACTIVE":
+                ref = _client_w.files.get(name=cached["name"])
+                if ref.state == "ACTIVE":
                     print("[WARMUP] Arancel PDF activo en Gemini — listo")
                     return
             except Exception:
@@ -1629,19 +1630,22 @@ def _precalentar_arancel():
             return
 
         print("[WARMUP] Subiendo Arancel PDF a Gemini File API...")
-        file_ref = _genai.upload_file(path=arancel_pdf, display_name="Arancel 7ma Enmienda RD")
+        file_ref = _client_w.files.upload(
+            file=arancel_pdf,
+            config=_types_w.UploadFileConfig(display_name="Arancel 7ma Enmienda RD")
+        )
         for _ in range(20):
-            file_ref = _genai.get_file(file_ref.name)
-            if file_ref.state.name == "ACTIVE":
+            file_ref = _client_w.files.get(name=file_ref.name)
+            if file_ref.state == "ACTIVE":
                 break
             time.sleep(2)
 
-        if file_ref.state.name == "ACTIVE":
+        if file_ref.state == "ACTIVE":
             with open(arancel_cache, "w") as f:
                 json.dump({"name": file_ref.name, "uri": file_ref.uri}, f)
             print(f"[WARMUP] Arancel PDF listo: {file_ref.name}")
         else:
-            print(f"[WARMUP] Arancel no se proceso: {file_ref.state.name}")
+            print(f"[WARMUP] Arancel no se proceso: {file_ref.state}")
     except Exception as e:
         print(f"[WARMUP] Error (no critico): {e}")
 
