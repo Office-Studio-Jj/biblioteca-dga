@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Biblioteca DGA — {{ rol_titulo }}</title>
+  <meta name="theme-color" content="#0f172a">
+  <meta property="og:title" content="Biblioteca DGA — {{ rol_titulo }}">
+  <meta property="og:description" content="App oficial de consulta aduanera de la Republica Dominicana. 8 cuadernos especializados con IA.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ ficha_url }}">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    body{background:#0f172a;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+    .wrap{max-width:480px;margin:0 auto;padding:0 0 40px}
+
+    /* Header tipo tienda */
+    .store-header{background:linear-gradient(180deg,#1a2744 0%,#0f172a 100%);padding:24px 20px 20px;position:relative}
+    .store-badge{display:flex;align-items:center;gap:4px;margin-bottom:18px}
+    .store-badge span{font-size:.6rem;color:#64748b;letter-spacing:.5px}
+    .store-badge .dot{width:4px;height:4px;border-radius:50%;background:#334155}
+
+    /* App info row */
+    .app-row{display:flex;gap:16px;align-items:flex-start}
+    .app-icon{width:80px;height:80px;border-radius:20px;background:#1e293b;border:2px solid #2a3a5a;display:flex;align-items:center;justify-content:center;font-size:2.6rem;flex-shrink:0}
+    .app-info{flex:1}
+    .app-name{font-size:1.15rem;font-weight:800;color:#fff;line-height:1.25;margin-bottom:2px}
+    .app-dev{font-size:.72rem;color:#60a5fa;margin-bottom:6px}
+    .app-meta{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .app-meta .tag{font-size:.6rem;color:#94a3b8;background:#1e293b;padding:3px 8px;border-radius:6px;border:1px solid #334155}
+    .app-meta .stars{font-size:.7rem;color:#d4af37}
+    .app-meta .rol-badge{font-size:.58rem;font-weight:700;padding:3px 10px;border-radius:6px;text-transform:uppercase;letter-spacing:.8px}
+    .badge-master{background:#7c3aed22;color:#a78bfa;border:1px solid #7c3aed55}
+    .badge-operativo{background:#2563eb22;color:#60a5fa;border:1px solid #2563eb55}
+    .badge-invitado{background:#d4af3722;color:#d4af37;border:1px solid #d4af3755}
+
+    /* Install button */
+    .install-section{padding:16px 20px}
+    .btn-install{display:block;width:100%;background:linear-gradient(135deg,#d4af37,#c9a030);color:#0f172a;border:none;border-radius:12px;padding:15px;font-size:1.05rem;font-weight:800;text-align:center;text-decoration:none;cursor:pointer;letter-spacing:.3px;box-shadow:0 4px 16px #d4af3733}
+    .btn-install:active{transform:scale(.98)}
+    .install-hint{font-size:.65rem;color:#475569;text-align:center;margin-top:8px}
+
+    /* Sections */
+    .section{padding:0 20px;margin-bottom:20px}
+    .section-title{font-size:.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #1e293b}
+
+    /* Screenshots mock */
+    .screenshots{display:flex;gap:10px;overflow-x:auto;padding:0 20px 4px;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
+    .screenshots::-webkit-scrollbar{display:none}
+    .ss-card{flex-shrink:0;width:140px;height:240px;border-radius:14px;background:#1e293b;border:1px solid #2a3a5a;padding:12px;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:space-between}
+    .ss-card .ss-icon{font-size:2rem;margin-bottom:8px}
+    .ss-card .ss-title{font-size:.75rem;font-weight:700;color:#e2e8f0;margin-bottom:4px}
+    .ss-card .ss-desc{font-size:.62rem;color:#64748b;line-height:1.4}
+    .ss-card .ss-footer{font-size:.55rem;color:#334155;text-align:right}
+
+    /* Features */
+    .feat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .feat-item{background:#1e293b;border-radius:12px;padding:12px;border:1px solid #2a3a5a}
+    .feat-item .fi-icon{font-size:1.4rem;margin-bottom:6px}
+    .feat-item .fi-title{font-size:.75rem;font-weight:700;color:#e2e8f0;margin-bottom:2px}
+    .feat-item .fi-desc{font-size:.6rem;color:#64748b;line-height:1.3}
+
+    /* Role access info */
+    .access-card{background:#1e293b;border-radius:14px;padding:16px;border:1px solid #2a3a5a}
+    .access-row{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px}
+    .access-row:last-child{margin-bottom:0}
+    .access-ico{font-size:1.2rem;min-width:28px;text-align:center;margin-top:2px}
+    .access-text{flex:1}
+    .access-text strong{font-size:.8rem;color:#e2e8f0;display:block;margin-bottom:1px}
+    .access-text span{font-size:.65rem;color:#64748b;line-height:1.4}
+
+    /* Install steps */
+    .steps-tabs{display:flex;gap:6px;margin-bottom:12px}
+    .stab{padding:6px 12px;border-radius:18px;border:1.5px solid #334155;background:#0f172a;color:#64748b;font-size:.68rem;font-weight:600;cursor:pointer;flex-shrink:0}
+    .stab.active{border-color:#d4af37;color:#d4af37;background:#16202f}
+    .sguide{display:none}.sguide.active{display:block}
+    .step{display:flex;gap:10px;align-items:flex-start;margin-bottom:12px}
+    .step-n{min-width:24px;height:24px;background:#d4af37;color:#0f172a;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:800;flex-shrink:0;margin-top:2px}
+    .step-t strong{display:block;font-size:.8rem;color:#e2e8f0;margin-bottom:1px}
+    .step-t span{font-size:.65rem;color:#64748b;line-height:1.35}
+
+    /* Share */
+    .share-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .btn-share{display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;border-radius:12px;border:none;font-size:.8rem;font-weight:700;cursor:pointer;text-decoration:none}
+    .btn-wa{background:#25d366;color:#fff}
+    .btn-email{background:#1e293b;border:1.5px solid #334155;color:#94a3b8}
+    .btn-telegram{background:#0088cc;color:#fff}
+    .btn-link{background:#1e293b;border:1.5px solid #334155;color:#94a3b8}
+
+    /* Footer */
+    .footer{padding:20px;text-align:center}
+    .footer-logo{font-size:1.8rem;margin-bottom:6px}
+    .footer-org{font-size:.7rem;font-weight:700;color:#d4af37;margin-bottom:2px}
+    .footer-sub{font-size:.58rem;color:#334155}
+    .footer-version{font-size:.52rem;color:#1e293b;margin-top:8px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Store Header -->
+  <div class="store-header">
+    <div class="store-badge">
+      <span>BIBLIOTECA DGA</span>
+      <div class="dot"></div>
+      <span>APP OFICIAL</span>
+      <div class="dot"></div>
+      <span>VERSION BETA</span>
+    </div>
+
+    <div class="app-row">
+      <div class="app-icon">🚢</div>
+      <div class="app-info">
+        <div class="app-name">Logistica de Puertos y Aduanas RD</div>
+        <div class="app-dev">Direccion General de Aduanas</div>
+        <div class="app-meta">
+          <span class="stars">★★★★★</span>
+          <span class="tag">8 cuadernos</span>
+          <span class="rol-badge badge-{{ rol }}">{{ rol_titulo }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Install Button -->
+  <div class="install-section">
+    <a class="btn-install" id="btnInstall" href="{{ app_url }}">
+      Instalar App
+    </a>
+    <div class="install-hint">Toca para abrir la app directamente en tu navegador</div>
+  </div>
+
+  <!-- Screenshots / Previews -->
+  <div style="margin-bottom:20px">
+    <div class="section-title" style="padding:0 20px;margin-bottom:12px">Que puedes hacer</div>
+    <div class="screenshots">
+      <div class="ss-card">
+        <div>
+          <div class="ss-icon">📋</div>
+          <div class="ss-title">Clasificar mercancias</div>
+          <div class="ss-desc">Protocolo merceologico de 8 fases con codigos arancelarios reales</div>
+        </div>
+        <div class="ss-footer">Nomenclatura</div>
+      </div>
+      <div class="ss-card">
+        <div>
+          <div class="ss-icon">📷</div>
+          <div class="ss-title">Clasificar por foto</div>
+          <div class="ss-desc">Envia una foto del producto y la IA lo clasifica automaticamente</div>
+        </div>
+        <div class="ss-footer">Vision IA</div>
+      </div>
+      <div class="ss-card">
+        <div>
+          <div class="ss-icon">⚖️</div>
+          <div class="ss-title">Consultar leyes</div>
+          <div class="ss-desc">Normativas, procedimientos y regulaciones de la DGA</div>
+        </div>
+        <div class="ss-footer">Legal DGA</div>
+      </div>
+      <div class="ss-card">
+        <div>
+          <div class="ss-icon">💰</div>
+          <div class="ss-title">Calcular impuestos</div>
+          <div class="ss-desc">Gravamen, ITBIS, ISC y cargas impositivas por partida</div>
+        </div>
+        <div class="ss-footer">Valoracion</div>
+      </div>
+      <div class="ss-card">
+        <div>
+          <div class="ss-icon">🔍</div>
+          <div class="ss-title">Aforo y VUCERD</div>
+          <div class="ss-desc">Procedimientos de aforo y ventanilla unica de comercio</div>
+        </div>
+        <div class="ss-footer">Operaciones</div>
+      </div>
+      {% if rol == 'master' %}
+      <div class="ss-card">
+        <div>
+          <div class="ss-icon">👥</div>
+          <div class="ss-title">Panel admin</div>
+          <div class="ss-desc">Gestionar usuarios, operativos, diagnosticos y configuracion</div>
+        </div>
+        <div class="ss-footer">Admin</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Features Grid -->
+  <div class="section">
+    <div class="section-title">Cuadernos especializados</div>
+    <div class="feat-grid">
+      <div class="feat-item"><div class="fi-icon">📋</div><div class="fi-title">Nomenclaturas</div><div class="fi-desc">Arancel 7ma Enmienda + 7,600+ codigos</div></div>
+      <div class="feat-item"><div class="fi-icon">⚖️</div><div class="fi-title">Legal DGA</div><div class="fi-desc">Leyes, resoluciones y procedimientos</div></div>
+      <div class="feat-item"><div class="fi-icon">💰</div><div class="fi-title">Valoracion</div><div class="fi-desc">Metodos y criterios de valoracion</div></div>
+      <div class="feat-item"><div class="fi-icon">📦</div><div class="fi-title">Regimenes</div><div class="fi-desc">Regimenes aduaneros y subastas</div></div>
+      <div class="feat-item"><div class="fi-icon">🔍</div><div class="fi-title">Aforo</div><div class="fi-desc">Procedimientos de aforo DGA</div></div>
+      <div class="feat-item"><div class="fi-icon">🪟</div><div class="fi-title">VUCERD</div><div class="fi-desc">Ventanilla unica de comercio</div></div>
+      <div class="feat-item"><div class="fi-icon">🌐</div><div class="fi-title">Normas y Origen</div><div class="fi-desc">Tratados y normas de origen</div></div>
+      <div class="feat-item"><div class="fi-icon">🧭</div><div class="fi-title">Comercio Exterior</div><div class="fi-desc">Guia maestra de recursos</div></div>
+    </div>
+  </div>
+
+  <!-- Access Info per Role -->
+  <div class="section">
+    <div class="section-title">Tu nivel de acceso: {{ rol_titulo }}</div>
+    <div class="access-card">
+      {% if rol == 'master' %}
+      <div class="access-row"><div class="access-ico">👑</div><div class="access-text"><strong>Acceso total al sistema</strong><span>Todos los cuadernos, panel de administracion, usuarios, diagnosticos, historial completo</span></div></div>
+      <div class="access-row"><div class="access-ico">👥</div><div class="access-text"><strong>Gestion de usuarios</strong><span>Crear operativos, aprobar invitados, bloquear accesos, asignar permisos</span></div></div>
+      <div class="access-row"><div class="access-ico">📊</div><div class="access-text"><strong>Diagnosticos y reportes</strong><span>Estado del sistema, historial de consultas, metricas de uso</span></div></div>
+      {% elif rol == 'operativo' %}
+      <div class="access-row"><div class="access-ico">📚</div><div class="access-text"><strong>Consultas a todos los cuadernos</strong><span>8 cuadernos especializados con IA avanzada</span></div></div>
+      <div class="access-row"><div class="access-ico">👥</div><div class="access-text"><strong>Gestion de invitados</strong><span>Ver solicitudes, aprobar registros, revisar historial</span></div></div>
+      <div class="access-row"><div class="access-ico">📷</div><div class="access-text"><strong>Clasificacion por imagen</strong><span>Envia foto de producto para clasificacion automatica</span></div></div>
+      {% else %}
+      <div class="access-row"><div class="access-ico">📚</div><div class="access-text"><strong>Consultas a los cuadernos</strong><span>Acceso a los 8 cuadernos especializados de la DGA</span></div></div>
+      <div class="access-row"><div class="access-ico">📷</div><div class="access-text"><strong>Clasificacion por imagen</strong><span>Envia foto de un producto y recibe clasificacion arancelaria</span></div></div>
+      <div class="access-row"><div class="access-ico">📜</div><div class="access-text"><strong>Historial de consultas</strong><span>Revisa tus consultas anteriores en cualquier momento</span></div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- How to install -->
+  <div class="section">
+    <div class="section-title">Como instalar en tu dispositivo</div>
+    <div class="steps-tabs">
+      <div class="stab active" onclick="showG('android',this)">Android</div>
+      <div class="stab" onclick="showG('ios',this)">iPhone</div>
+      <div class="stab" onclick="showG('pc',this)">PC</div>
+    </div>
+    <div class="sguide active" id="sg-android">
+      <div class="step"><div class="step-n">1</div><div class="step-t"><strong>Toca "Instalar App" arriba</strong><span>Se abre la app en Chrome automaticamente</span></div></div>
+      <div class="step"><div class="step-n">2</div><div class="step-t"><strong>Toca los 3 puntos ⋮ en Chrome</strong><span>Menu en la esquina superior derecha</span></div></div>
+      <div class="step"><div class="step-n">3</div><div class="step-t"><strong>Selecciona "Agregar a pantalla de inicio"</strong><span>La app aparece como icono en tu pantalla</span></div></div>
+    </div>
+    <div class="sguide" id="sg-ios">
+      <div class="step"><div class="step-n">1</div><div class="step-t"><strong>Abre este enlace en Safari</strong><span>En iPhone solo funciona desde Safari</span></div></div>
+      <div class="step"><div class="step-n">2</div><div class="step-t"><strong>Toca el icono Compartir (cuadro con flecha)</strong><span>Esta en la barra inferior del navegador</span></div></div>
+      <div class="step"><div class="step-n">3</div><div class="step-t"><strong>Selecciona "Agregar a inicio"</strong><span>Confirma con "Agregar" y aparece el icono</span></div></div>
+    </div>
+    <div class="sguide" id="sg-pc">
+      <div class="step"><div class="step-n">1</div><div class="step-t"><strong>Abre el enlace en Chrome o Edge</strong><span>Toca "Instalar App" arriba para abrir</span></div></div>
+      <div class="step"><div class="step-n">2</div><div class="step-t"><strong>Busca el icono de instalar en la barra</strong><span>Aparece un icono + a la derecha de la URL</span></div></div>
+      <div class="step"><div class="step-n">3</div><div class="step-t"><strong>Clic en "Instalar"</strong><span>Se abre como app independiente sin barra del navegador</span></div></div>
+    </div>
+  </div>
+
+  <!-- Share Section -->
+  <div class="section">
+    <div class="section-title">Compartir esta ficha</div>
+    <div class="share-grid">
+      <a class="btn-share btn-wa" id="shareWa" href="#">WhatsApp</a>
+      <a class="btn-share btn-email" id="shareEmail" href="#">Correo</a>
+      <a class="btn-share btn-telegram" id="shareTg" href="#">Telegram</a>
+      <button class="btn-share btn-link" id="shareLink" onclick="copyLink()">Copiar enlace</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-logo">🚢</div>
+    <div class="footer-org">Logistica de Puertos y Aduanas RD</div>
+    <div class="footer-sub">Direccion General de Aduanas — Republica Dominicana</div>
+    <div class="footer-sub" style="color:#475569;margin-top:6px">consultoria.puertos.aduanas@gmail.com</div>
+    <div class="footer-version">Version BETA · 2026</div>
+  </div>
+
+</div>
+
+<script>
+const APP_URL   = "{{ app_url }}";
+const FICHA_URL = "{{ ficha_url }}";
+const ROL       = "{{ rol_titulo }}";
+
+const MSG = '🚢 *Biblioteca DGA — ' + ROL + '*\n\n' +
+  'Te comparto la app de consulta aduanera de la Republica Dominicana.\n\n' +
+  '📲 Instalar: ' + FICHA_URL + '\n\n' +
+  '8 cuadernos especializados: Nomenclaturas, Legal, Valoracion, Regimenes, Aforo, VUCERD, Normas de Origen y Comercio Exterior.\n\n' +
+  'Powered by IA · Version BETA';
+
+document.getElementById('shareWa').href =
+  'https://wa.me/?text=' + encodeURIComponent(MSG);
+
+document.getElementById('shareEmail').href =
+  'mailto:?subject=' + encodeURIComponent('Biblioteca DGA — ' + ROL + ' — Instalar App') +
+  '&body=' + encodeURIComponent(MSG.replace(/\*/g, ''));
+
+document.getElementById('shareTg').href =
+  'https://t.me/share/url?url=' + encodeURIComponent(FICHA_URL) +
+  '&text=' + encodeURIComponent('🚢 Biblioteca DGA — ' + ROL + '\nApp de consulta aduanera RD');
+
+function copyLink() {
+  navigator.clipboard.writeText(FICHA_URL).then(() => {
+    const btn = document.getElementById('shareLink');
+    btn.textContent = 'Copiado';
+    setTimeout(() => btn.textContent = 'Copiar enlace', 2000);
+  });
+}
+
+function showG(name, el) {
+  document.querySelectorAll('.sguide').forEach(g => g.classList.remove('active'));
+  document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sg-' + name).classList.add('active');
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

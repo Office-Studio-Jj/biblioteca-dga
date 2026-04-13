@@ -1457,6 +1457,25 @@ def descargar_app():
     resp.headers["Content-Disposition"] = "attachment; filename=Logistica-Puertos-Aduanas-RD.html"
     return resp
 
+# ── Fichas de descarga por rol (compartir por WhatsApp/correo) ──────────
+_ROL_TITULOS = {
+    "master":    "Administrador Master",
+    "operativo": "Administrador Operativo",
+    "invitado":  "Invitado",
+}
+
+@app.route("/descargar/<rol>")
+def ficha_descarga(rol):
+    if rol not in _ROL_TITULOS:
+        return redirect(url_for("ficha_descarga", rol="invitado"))
+    app_url   = _get_public_url()
+    ficha_url = f"{app_url}/descargar/{rol}"
+    return render_template("ficha_descarga.html",
+                           rol=rol,
+                           rol_titulo=_ROL_TITULOS[rol],
+                           app_url=app_url,
+                           ficha_url=ficha_url)
+
 # ── Aviso profesional al final de cada respuesta ─────────────────────────
 _DISCLAIMER = (
     "\n\n---\n"
