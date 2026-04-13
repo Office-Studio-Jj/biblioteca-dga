@@ -586,7 +586,57 @@ from supervisor_interno import CODIGOS_VERIFICADOS_RD as _CODIGOS_VERIFICADOS_RD
 # hace una consulta dirigida y cerrada al cuaderno de nomenclaturas.
 from verificador_arancelario import pre_verificar_codigo_en_respuesta as _pre_verificar
 from verificador_arancelario import codigo_existe_en_cache as _codigo_en_cache
+from verificador_arancelario import _extraer_gravamen_de_cache, _CACHE_CODIGOS, _cargar_cache_arancel
 # ──────────────────────────────────────────────────────────────────────────
+
+
+def _corregir_gravamen_con_cache(answer: str, codigo: str) -> str:
+    """Corrige el gravamen en el borrador de Gemini usando el valor del cache.
+    Se usa cuando el codigo ya fue confirmado en cache (rapido, sin API extra)."""
+    _cargar_cache_arancel()
+    desc_cache = _CACHE_CODIGOS.get(codigo, "")
+    grav_cache = _extraer_gravamen_de_cache(desc_cache)
+    if grav_cache is None:
+        return answer
+
+    # Buscar el gravamen que Gemini puso en el borrador
+    grav_patterns = [
+        r'GRAVAMEN[:\s]*(\d+)\s*%',
+        r'Gravamen[^:]*:\s*(\d+)\s*%',
+        r'Ad[\s\-]*Valorem[^:]*:\s*(\d+)\s*%',
+        r'Derecho\s+Ad[\s\-]*Valorem[^:]*:\s*(\d+)\s*%',
+    ]
+    for pat in grav_patterns:
+        m = re.search(pat, answer, re.IGNORECASE)
+        if m:
+            grav_gemini = int(m.group(1))
+            if grav_gemini != grav_cache:
+                print(f"[GEMINI-CACHE] CORRECCION gravamen: Gemini={grav_gemini}% → Cache={grav_cache}% para {codigo}")
+                # Reemplazar en todos los formatos
+                for repl_pat in [
+                    r'((?:GRAVAMEN|Gravamen|gravamen)[^:]*:\s*)\d+(\s*%)',
+                    r'((?:Ad[\s\-]*Valorem|Derecho\s+Ad[\s\-]*Valorem)[^:]*:\s*)\d+(\s*%)',
+                ]:
+                    answer = re.sub(repl_pat, rf'\g<1>{grav_cache}\2', answer, flags=re.IGNORECASE)
+
+                # Agregar nota de correccion en el bloque de datos
+                nota_correccion = (
+                    f"\n\n---CARGOS_VERIFICADOS---"
+                    f"\nGRAVAMEN_AD_VALOREM: {grav_cache}% — NMF estandar"
+                    f" [CORREGIDO por cache Arancel: {grav_cache}% (Gemini dijo {grav_gemini}%)]"
+                    f"\nVERIFICADO_POR: Cache Arancel 7ma Enmienda (pdfplumber, 0% IA)"
+                    f"\n---FIN_CARGOS_VERIFICADOS---"
+                )
+                fin_clas = answer.find("---FIN_CLASIFICACION---")
+                if fin_clas != -1:
+                    answer = answer[:fin_clas] + nota_correccion + "\n" + answer[fin_clas:]
+                else:
+                    answer += nota_correccion
+            else:
+                print(f"[GEMINI-CACHE] OK: gravamen {grav_gemini}% coincide con cache para {codigo}")
+            break
+
+    return answer
 
 # ── Arancel PDF: contexto real para consultas de nomenclatura ─────────────
 _ARANCEL_PDF = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "arancel_7ma_enmienda.pdf")
@@ -704,7 +754,7 @@ def ask_gemini(question, notebook_id):
 
         # ── VERIFICACION CACHE-FIRST (nomenclatura) ──────────────────────
         # 1. Extraer codigo del borrador
-        # 2. Si existe en cache del Arancel (666 codigos) → CONFIRMADO, listo
+        # 2. Si existe en cache (7,616 codigos) → CONFIRMADO + validar gravamen
         # 3. Si NO existe en cache → verificar con Gemini + Arancel PDF
         if notebook_id == "biblioteca-de-nomenclaturas":
             _m_cod = re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', answer)
@@ -712,10 +762,12 @@ def ask_gemini(question, notebook_id):
             _en_cache = _codigo_en_cache(_cod_borrador) if _cod_borrador else False
 
             if _en_cache:
-                print(f"[GEMINI] Codigo {_cod_borrador} CONFIRMADO en cache Arancel — "
-                      f"sin verificacion adicional ({time.time()-t0:.1f}s total)")
+                print(f"[GEMINI] Codigo {_cod_borrador} CONFIRMADO en cache Arancel")
+                # Validar gravamen del borrador contra el cache
+                answer = _corregir_gravamen_con_cache(answer, _cod_borrador)
+                print(f"[GEMINI] Verificacion cache completada ({time.time()-t0:.1f}s total)")
             elif _cod_borrador:
-                # Codigo no en cache — verificar con Arancel PDF (mas lento pero necesario)
+                # Codigo no en cache — verificar con Gemini + Arancel PDF (mas lento pero necesario)
                 print(f"[GEMINI] Codigo {_cod_borrador} NO en cache — verificando con Arancel PDF...")
                 arancel_file = _obtener_arancel_gemini(api_key)
                 if arancel_file:

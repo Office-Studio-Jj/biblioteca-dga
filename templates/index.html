@@ -69,6 +69,9 @@
     .role-badge.operativo { background: #0a2218; color: #22c55e; border: 1px solid #166534; }
     .role-badge.invitado  { background: #1e2a3a; color: #93c5fd; border: 1px solid #1d4ed8; }
 
+    .corr-tab { background: #1e293b; color: #94a3b8; border: 1px solid #334155; transition: all .2s; }
+    .corr-tab-active { background: #d4af37 !important; color: #0f172a !important; border: none !important; }
+
     /* Anti-copy protection (operativo e invitado) */
     .nocopy { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
 
@@ -1246,6 +1249,119 @@
       <div style="text-align:center;color:#64748b;font-size:0.78rem;padding:16px 0;">Cargando cuadernos...</div>
     </div>
     {% endif %}
+
+    <!-- ── Centro de Correcciones (Master + Operativo) ── -->
+    <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px;padding:16px;margin-top:20px;margin-bottom:14px;border:1px solid #d4af3740;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div style="font-size:1rem;font-weight:800;color:#d4af37;">🔧 Centro de Correcciones</div>
+          <div style="font-size:0.7rem;color:#64748b;margin-top:2px;">Reportar y corregir errores desde aqui</div>
+        </div>
+        <button onclick="toggleCorreccionPanel()" id="btnToggleCorreccion"
+          style="background:#334155;border:none;color:#d4af37;border-radius:10px;padding:8px 14px;font-size:0.75rem;font-weight:700;cursor:pointer;">▼ Abrir</button>
+      </div>
+
+      <div id="correccionPanel" style="display:none;">
+        <!-- Tabs de corrección -->
+        <div style="display:flex;gap:6px;margin-bottom:12px;">
+          <button onclick="showCorreccionTab('reportar')" id="tabReportar" class="corr-tab corr-tab-active"
+            style="flex:1;padding:8px;border-radius:8px;font-size:0.72rem;font-weight:700;cursor:pointer;">📝 Reportar</button>
+          <button onclick="showCorreccionTab('buscar')" id="tabBuscar" class="corr-tab"
+            style="flex:1;padding:8px;border-radius:8px;font-size:0.72rem;font-weight:700;cursor:pointer;">🔍 Buscar</button>
+          {% if role == 'master' %}
+          <button onclick="showCorreccionTab('corregir')" id="tabCorregir" class="corr-tab"
+            style="flex:1;padding:8px;border-radius:8px;font-size:0.72rem;font-weight:700;cursor:pointer;">⚡ Corregir</button>
+          {% endif %}
+          <button onclick="showCorreccionTab('historial')" id="tabHistorialErr" class="corr-tab"
+            style="flex:1;padding:8px;border-radius:8px;font-size:0.72rem;font-weight:700;cursor:pointer;">📋 Log</button>
+        </div>
+
+        <!-- Tab: Reportar Error -->
+        <div id="corrTabReportar">
+          <div style="margin-bottom:8px;">
+            <label style="font-size:0.72rem;color:#94a3b8;">Tipo de error</label>
+            <select id="errTipo" style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.8rem;margin-top:4px;">
+              <option value="gravamen">Gravamen incorrecto</option>
+              <option value="codigo">Codigo arancelario incorrecto</option>
+              <option value="respuesta">Respuesta incorrecta/incompleta</option>
+              <option value="sistema">Error del sistema (no responde)</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+          <div style="margin-bottom:8px;">
+            <label style="font-size:0.72rem;color:#94a3b8;">Codigo arancelario (si aplica)</label>
+            <input type="text" id="errCodigo" placeholder="Ej: 8543.70.00"
+              style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;margin-top:4px;box-sizing:border-box;">
+          </div>
+          <div style="margin-bottom:8px;">
+            <label style="font-size:0.72rem;color:#94a3b8;">Valor que dio el sistema</label>
+            <input type="text" id="errValorActual" placeholder="Ej: 14%"
+              style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;margin-top:4px;box-sizing:border-box;">
+          </div>
+          <div style="margin-bottom:8px;">
+            <label style="font-size:0.72rem;color:#94a3b8;">Valor correcto (verificado en fisico)</label>
+            <input type="text" id="errValorCorrecto" placeholder="Ej: 0%"
+              style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;margin-top:4px;box-sizing:border-box;">
+          </div>
+          <div style="margin-bottom:10px;">
+            <label style="font-size:0.72rem;color:#94a3b8;">Descripcion del error</label>
+            <textarea id="errDescripcion" rows="3" placeholder="Describe que esta mal y como lo verificaste..."
+              style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;margin-top:4px;resize:vertical;box-sizing:border-box;"></textarea>
+          </div>
+          <button onclick="enviarReporteError()" style="width:100%;padding:12px;background:#d4af37;color:#0f172a;border:none;border-radius:10px;font-size:0.85rem;font-weight:800;cursor:pointer;">
+            📤 Enviar Reporte
+          </button>
+          <div id="errResultado" style="margin-top:8px;font-size:0.78rem;color:#22c55e;display:none;"></div>
+        </div>
+
+        <!-- Tab: Buscar en Cache -->
+        <div id="corrTabBuscar" style="display:none;">
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <input type="text" id="buscarCodigo" placeholder="Codigo: 8543.70.00"
+              style="flex:1;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;">
+            <button onclick="buscarEnCache()" style="padding:9px 16px;background:#d4af37;color:#0f172a;border:none;border-radius:10px;font-size:0.78rem;font-weight:800;cursor:pointer;">Buscar</button>
+          </div>
+          <div id="buscarResultado" style="font-size:0.78rem;color:#e2e8f0;"></div>
+          <div style="margin-top:12px;">
+            <button onclick="cargarEstadoCache()" style="width:100%;padding:10px;background:#334155;color:#d4af37;border:none;border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+              📊 Ver Estado del Cache
+            </button>
+          </div>
+          <div id="estadoCacheInfo" style="margin-top:8px;font-size:0.75rem;color:#94a3b8;"></div>
+        </div>
+
+        {% if role == 'master' %}
+        <!-- Tab: Corregir Gravamen (solo Master) -->
+        <div id="corrTabCorregir" style="display:none;">
+          <div style="background:#0f172a;border:1px solid #ef444440;border-radius:10px;padding:12px;margin-bottom:10px;">
+            <div style="font-size:0.72rem;color:#f87171;font-weight:700;margin-bottom:4px;">⚠️ Correccion directa del cache</div>
+            <div style="font-size:0.68rem;color:#64748b;">Solo usar cuando verificaste el valor en el Arancel fisico</div>
+          </div>
+          <div style="margin-bottom:8px;">
+            <label style="font-size:0.72rem;color:#94a3b8;">Codigo arancelario</label>
+            <input type="text" id="corrCodigo" placeholder="Ej: 8543.70.00"
+              style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;margin-top:4px;box-sizing:border-box;">
+          </div>
+          <div style="margin-bottom:10px;">
+            <label style="font-size:0.72rem;color:#94a3b8;">Gravamen correcto (%)</label>
+            <input type="number" id="corrGravamen" min="0" max="100" placeholder="Ej: 0"
+              style="width:100%;padding:9px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;font-size:0.82rem;margin-top:4px;box-sizing:border-box;">
+          </div>
+          <button onclick="aplicarCorreccionGravamen()" style="width:100%;padding:12px;background:#ef4444;color:#fff;border:none;border-radius:10px;font-size:0.85rem;font-weight:800;cursor:pointer;">
+            ⚡ Aplicar Correccion
+          </button>
+          <div id="corrResultado" style="margin-top:8px;font-size:0.78rem;display:none;"></div>
+        </div>
+        {% endif %}
+
+        <!-- Tab: Log de Errores -->
+        <div id="corrTabHistorialErr" style="display:none;">
+          <div id="logErrores" style="font-size:0.78rem;color:#e2e8f0;">
+            <div style="text-align:center;color:#64748b;padding:16px;">Cargando...</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
   </div>
   {% endif %}
@@ -3286,6 +3402,165 @@
       cargarCuadernosAdmin();
       location.reload();
     }
+  }
+
+  // ── Centro de Correcciones ──────────────────────────────────────────
+  function toggleCorreccionPanel() {
+    const p = document.getElementById('correccionPanel');
+    const b = document.getElementById('btnToggleCorreccion');
+    if (p.style.display === 'none') {
+      p.style.display = 'block';
+      b.textContent = '▲ Cerrar';
+      cargarLogErrores();
+    } else {
+      p.style.display = 'none';
+      b.textContent = '▼ Abrir';
+    }
+  }
+
+  function showCorreccionTab(tab) {
+    ['reportar','buscar','corregir','historialErr'].forEach(t => {
+      const el = document.getElementById('corrTab' + t.charAt(0).toUpperCase() + t.slice(1));
+      if (el) el.style.display = 'none';
+      const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+      if (btn) { btn.style.background = '#1e293b'; btn.style.color = '#94a3b8'; btn.style.border = '1px solid #334155'; }
+    });
+    const active = document.getElementById('corrTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if (active) active.style.display = 'block';
+    const activeBtn = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if (activeBtn) { activeBtn.style.background = '#d4af37'; activeBtn.style.color = '#0f172a'; activeBtn.style.border = 'none'; }
+    if (tab === 'historialErr') cargarLogErrores();
+  }
+
+  async function enviarReporteError() {
+    const tipo = document.getElementById('errTipo').value;
+    const codigo = document.getElementById('errCodigo').value.trim();
+    const valorActual = document.getElementById('errValorActual').value.trim();
+    const valorCorrecto = document.getElementById('errValorCorrecto').value.trim();
+    const descripcion = document.getElementById('errDescripcion').value.trim();
+    if (!descripcion) { alert('Describe el error encontrado'); return; }
+
+    // Limpiar gravamen: extraer solo numero
+    let gravCorr = valorCorrecto.replace(/[^0-9]/g, '');
+
+    const res = await fetch('/admin/reportar-error', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ tipo, codigo, descripcion, valor_actual: valorActual, valor_correcto: gravCorr || valorCorrecto })
+    });
+    const data = await res.json();
+    const el = document.getElementById('errResultado');
+    if (data.ok) {
+      el.style.color = '#22c55e';
+      el.textContent = data.correccion_automatica
+        ? '✅ Reporte enviado y correccion aplicada automaticamente (ID: ' + data.id + ')'
+        : '✅ Reporte enviado (ID: ' + data.id + ')';
+      el.style.display = 'block';
+      // Limpiar campos
+      document.getElementById('errCodigo').value = '';
+      document.getElementById('errValorActual').value = '';
+      document.getElementById('errValorCorrecto').value = '';
+      document.getElementById('errDescripcion').value = '';
+    } else {
+      el.style.color = '#f87171';
+      el.textContent = '❌ ' + (data.error || 'Error al enviar');
+      el.style.display = 'block';
+    }
+  }
+
+  async function buscarEnCache() {
+    const codigo = document.getElementById('buscarCodigo').value.trim();
+    if (!codigo) { alert('Escribe un codigo'); return; }
+    const res = await fetch('/admin/buscar-cache?codigo=' + encodeURIComponent(codigo));
+    const data = await res.json();
+    const el = document.getElementById('buscarResultado');
+    if (data.existe) {
+      el.innerHTML = '<div style="background:#0f172a;border:1px solid #22c55e40;border-radius:10px;padding:12px;margin-top:4px;">'
+        + '<div style="color:#22c55e;font-weight:700;">✅ ' + data.codigo + '</div>'
+        + '<div style="color:#94a3b8;margin-top:4px;">' + _esc(data.descripcion) + '</div>'
+        + '<div style="color:#d4af37;font-weight:700;margin-top:6px;">Gravamen: ' + data.gravamen + '%</div>'
+        + '</div>';
+    } else {
+      let sug = '';
+      if (data.sugerencias && Object.keys(data.sugerencias).length > 0) {
+        sug = '<div style="margin-top:8px;color:#94a3b8;">Codigos similares:</div>';
+        for (const [k, v] of Object.entries(data.sugerencias)) {
+          sug += '<div style="color:#64748b;font-size:0.72rem;margin-top:2px;">' + k + ': ' + _esc(v).substring(0,60) + '</div>';
+        }
+      }
+      el.innerHTML = '<div style="background:#0f172a;border:1px solid #ef444440;border-radius:10px;padding:12px;margin-top:4px;">'
+        + '<div style="color:#f87171;font-weight:700;">❌ ' + _esc(codigo) + ' no encontrado en cache</div>'
+        + sug + '</div>';
+    }
+  }
+
+  async function cargarEstadoCache() {
+    const res = await fetch('/admin/estado-cache');
+    const data = await res.json();
+    const el = document.getElementById('estadoCacheInfo');
+    if (data.error) { el.textContent = 'Error: ' + data.error; return; }
+    let tops = '';
+    if (data.top_capitulos) {
+      for (const [cap, count] of Object.entries(data.top_capitulos)) {
+        tops += 'Cap ' + cap + ': ' + count + ' | ';
+      }
+    }
+    el.innerHTML = '<div style="background:#0f172a;border-radius:10px;padding:12px;border:1px solid #334155;">'
+      + '<div style="color:#d4af37;font-weight:700;">📊 Estado del Cache Arancel</div>'
+      + '<div style="margin-top:6px;">Total codigos: <b style="color:#22c55e;">' + data.total_codigos + '</b></div>'
+      + '<div>Capitulos: <b style="color:#d4af37;">' + data.capitulos + '</b></div>'
+      + '<div>Fuente: ' + _esc(data.fuente || '?') + '</div>'
+      + '<div>Fecha: ' + (data.fecha || '?') + '</div>'
+      + '<div style="margin-top:6px;font-size:0.68rem;color:#64748b;">Top: ' + tops + '</div>'
+      + '</div>';
+  }
+
+  async function aplicarCorreccionGravamen() {
+    const codigo = document.getElementById('corrCodigo').value.trim();
+    const gravamen = document.getElementById('corrGravamen').value.trim();
+    if (!codigo || gravamen === '') { alert('Codigo y gravamen son requeridos'); return; }
+    if (!confirm('¿Corregir gravamen de ' + codigo + ' a ' + gravamen + '%? Solo si verificaste en el Arancel fisico.')) return;
+
+    const res = await fetch('/admin/corregir-gravamen', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ codigo, gravamen })
+    });
+    const data = await res.json();
+    const el = document.getElementById('corrResultado');
+    if (data.ok) {
+      el.style.color = '#22c55e';
+      el.textContent = '✅ ' + data.mensaje;
+    } else {
+      el.style.color = '#f87171';
+      el.textContent = '❌ ' + (data.error || 'Error');
+    }
+    el.style.display = 'block';
+  }
+
+  async function cargarLogErrores() {
+    const res = await fetch('/admin/errores');
+    const data = await res.json();
+    const el = document.getElementById('logErrores');
+    const errores = data.errores || [];
+    if (errores.length === 0) {
+      el.innerHTML = '<div style="text-align:center;color:#64748b;padding:16px;">Sin errores reportados</div>';
+      return;
+    }
+    let html = '';
+    for (const e of errores.slice(0, 20)) {
+      const estadoColor = e.estado === 'corregido' ? '#22c55e' : e.estado === 'pendiente' ? '#f59e0b' : '#94a3b8';
+      const estadoIcon = e.estado === 'corregido' ? '✅' : '⏳';
+      html += '<div style="background:#0f172a;border-radius:10px;padding:10px;margin-bottom:8px;border:1px solid #334155;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+        + '<span style="color:#d4af37;font-weight:700;font-size:0.75rem;">' + _esc(e.tipo) + (e.codigo ? ' — ' + _esc(e.codigo) : '') + '</span>'
+        + '<span style="color:' + estadoColor + ';font-size:0.7rem;font-weight:700;">' + estadoIcon + ' ' + _esc(e.estado) + '</span>'
+        + '</div>'
+        + '<div style="color:#e2e8f0;font-size:0.72rem;margin-top:4px;">' + _esc(e.descripcion).substring(0,120) + '</div>'
+        + (e.valor_actual ? '<div style="color:#f87171;font-size:0.68rem;margin-top:2px;">Sistema: ' + _esc(e.valor_actual) + ' → Correcto: ' + _esc(e.valor_correcto) + '</div>' : '')
+        + (e.correccion_aplicada ? '<div style="color:#22c55e;font-size:0.68rem;margin-top:2px;">' + _esc(e.correccion_aplicada) + '</div>' : '')
+        + '<div style="color:#64748b;font-size:0.62rem;margin-top:4px;">' + _esc(e.reportado_por) + ' • ' + _esc(e.fecha) + '</div>'
+        + '</div>';
+    }
+    el.innerHTML = html;
   }
 
   // ── Panel Admin: tarjetas individuales ──────────────────────────────

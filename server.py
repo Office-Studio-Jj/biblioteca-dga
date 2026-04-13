@@ -1276,6 +1276,211 @@ def admin_historial_limpiar():
     return jsonify({"ok": True})
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# SISTEMA DE CORRECCION REMOTA — Master y Operativo corrigen desde la app
+# ══════════════════════════════════════════════════════════════════════════
+
+_ERRORES_FILE = _DATA_DIR / "errores_reportados.json"
+
+
+def _load_errores():
+    try:
+        if _ERRORES_FILE.exists():
+            with open(_ERRORES_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {"errores": []}
+
+
+def _save_errores(data):
+    with open(_ERRORES_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+@app.route("/admin/reportar-error", methods=["POST"])
+@admin_or_master_required
+def admin_reportar_error():
+    """Master u Operativo reportan un error desde la app movil."""
+    d = request.json or {}
+    tipo = d.get("tipo", "")  # gravamen, codigo, respuesta, otro
+    codigo = d.get("codigo", "").strip()
+    descripcion = d.get("descripcion", "").strip()
+    valor_actual = d.get("valor_actual", "").strip()
+    valor_correcto = d.get("valor_correcto", "").strip()
+    consulta_original = d.get("consulta_original", "").strip()
+
+    if not descripcion:
+        return jsonify({"error": "Describe el error encontrado"}), 400
+
+    errores = _load_errores()
+    error_entry = {
+        "id": str(uuid.uuid4())[:8],
+        "tipo": tipo or "otro",
+        "codigo": codigo,
+        "descripcion": descripcion,
+        "valor_actual": valor_actual,
+        "valor_correcto": valor_correcto,
+        "consulta_original": consulta_original,
+        "reportado_por": session.get("nombre", session.get("role", "?")),
+        "rol": session.get("role", "?"),
+        "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "estado": "pendiente",
+        "correccion_aplicada": ""
+    }
+    errores["errores"].insert(0, error_entry)
+    _save_errores(errores)
+
+    # Si el tipo es gravamen y hay codigo + valor_correcto, aplicar correccion automatica
+    correccion_auto = False
+    if tipo == "gravamen" and codigo and valor_correcto:
+        resultado = _aplicar_correccion_gravamen(codigo, valor_correcto, error_entry["id"])
+        if resultado:
+            correccion_auto = True
+
+    return jsonify({"ok": True, "id": error_entry["id"], "correccion_automatica": correccion_auto})
+
+
+def _aplicar_correccion_gravamen(codigo, valor_correcto, error_id):
+    """Corrige un gravamen en el cache del Arancel."""
+    import re as _re
+    cache_path = os.path.join(SKILL_DIR, "data", "fuentes_nomenclatura", "arancel_cache.json")
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+        codigos = cache.get("codigos", {})
+        if codigo not in codigos:
+            print(f"[CORRECCION] Codigo {codigo} no existe en cache — no se puede corregir")
+            return False
+        desc_actual = codigos[codigo]
+        # Reemplazar gravamen al final de la descripcion
+        nuevo = _re.sub(r'\s+\d+\s*$', f' {valor_correcto}', desc_actual)
+        if nuevo == desc_actual:
+            # Sin numero al final — agregar
+            nuevo = f"{desc_actual} {valor_correcto}"
+        codigos[codigo] = nuevo
+        cache["codigos"] = codigos
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False, indent=2)
+        # Marcar error como resuelto
+        errores = _load_errores()
+        for e in errores["errores"]:
+            if e["id"] == error_id:
+                e["estado"] = "corregido"
+                e["correccion_aplicada"] = f"Cache actualizado: {codigo} gravamen → {valor_correcto}%"
+                break
+        _save_errores(errores)
+        print(f"[CORRECCION] Gravamen de {codigo} corregido a {valor_correcto}% en cache")
+        return True
+    except Exception as ex:
+        print(f"[CORRECCION] Error aplicando correccion: {ex}")
+        return False
+
+
+@app.route("/admin/errores", methods=["GET"])
+@admin_or_master_required
+def admin_errores():
+    """Lista errores reportados."""
+    errores = _load_errores()
+    return jsonify(errores)
+
+
+@app.route("/admin/corregir-gravamen", methods=["POST"])
+@master_required
+def admin_corregir_gravamen():
+    """Master corrige manualmente un gravamen en el cache."""
+    d = request.json or {}
+    codigo = d.get("codigo", "").strip()
+    gravamen = d.get("gravamen", "").strip()
+
+    if not codigo or gravamen == "":
+        return jsonify({"error": "Codigo y gravamen son requeridos"}), 400
+
+    # Validar formato
+    import re as _re
+    if not _re.match(r'^\d{4}\.\d{2}\.\d{2}$', codigo):
+        return jsonify({"error": "Formato de codigo invalido (XXXX.XX.XX)"}), 400
+
+    try:
+        grav_num = int(gravamen)
+        if grav_num < 0 or grav_num > 100:
+            return jsonify({"error": "Gravamen debe estar entre 0 y 100"}), 400
+    except ValueError:
+        return jsonify({"error": "Gravamen debe ser un numero entero"}), 400
+
+    ok = _aplicar_correccion_gravamen(codigo, gravamen, f"manual-{codigo}")
+    if ok:
+        return jsonify({"ok": True, "mensaje": f"Gravamen de {codigo} actualizado a {gravamen}%"})
+    return jsonify({"error": f"No se pudo corregir {codigo}. Verifica que exista en el cache."}), 404
+
+
+@app.route("/admin/reconsultar", methods=["POST"])
+@admin_or_master_required
+def admin_reconsultar():
+    """Reprocesa una consulta que dio error — Master u Operativo la ejecutan de nuevo."""
+    d = request.json or {}
+    question = d.get("question", "").strip()
+    notebook_id = d.get("notebook_id", "biblioteca-de-nomenclaturas")
+
+    if not question:
+        return jsonify({"error": "Escribe la consulta a reprocesar"}), 400
+
+    try:
+        answer = ask_notebooklm(question, notebook_id, timeout=180)
+        return jsonify({"answer": answer, "ok": True})
+    except Exception as e:
+        return jsonify({"error": f"Error al reprocesar: {str(e)[:200]}"}), 500
+
+
+@app.route("/admin/estado-cache", methods=["GET"])
+@admin_or_master_required
+def admin_estado_cache():
+    """Devuelve estado del cache del Arancel para diagnostico."""
+    cache_path = os.path.join(SKILL_DIR, "data", "fuentes_nomenclatura", "arancel_cache.json")
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+        codigos = cache.get("codigos", {})
+        caps = {}
+        for c in codigos:
+            cap = c[:2]
+            caps[cap] = caps.get(cap, 0) + 1
+        return jsonify({
+            "total_codigos": len(codigos),
+            "fuente": cache.get("fuente", "?"),
+            "fecha": cache.get("fecha_extraccion", "?"),
+            "capitulos": len(caps),
+            "top_capitulos": dict(sorted(caps.items(), key=lambda x: -x[1])[:10])
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/admin/buscar-cache", methods=["GET"])
+@admin_or_master_required
+def admin_buscar_cache():
+    """Busca un codigo en el cache y devuelve su info."""
+    codigo = request.args.get("codigo", "").strip()
+    if not codigo:
+        return jsonify({"error": "Parametro 'codigo' requerido"}), 400
+    cache_path = os.path.join(SKILL_DIR, "data", "fuentes_nomenclatura", "arancel_cache.json")
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+        codigos = cache.get("codigos", {})
+        if codigo in codigos:
+            desc = codigos[codigo]
+            import re as _re
+            m = _re.search(r'\s+(\d+)\s*$', desc.strip())
+            grav = m.group(1) if m else "?"
+            return jsonify({"existe": True, "codigo": codigo, "descripcion": desc, "gravamen": grav})
+        # Buscar parcial (primeros 4 o 6 digitos)
+        parciales = {k: v for k, v in codigos.items() if k.startswith(codigo[:4])}
+        return jsonify({"existe": False, "codigo": codigo, "sugerencias": dict(list(parciales.items())[:10])})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # ── Diagnóstico del sistema de consultas (Gemini + NotebookLM) ───────────
 @app.route("/admin/diagnostico-notebooklm")
 @master_required
@@ -1521,44 +1726,65 @@ def _parse_subprocess_answer(output, stderr, notebook_id):
     return answer
 
 
+def _ejecutar_gemini(question, notebook_id, timeout):
+    """Ejecuta ask_gemini.py como subprocess. Retorna respuesta o None."""
+    cmd = [PYTHON, "scripts/ask_gemini.py", "--question", question, "--notebook-id", notebook_id]
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONPATH"] = SKILL_DIR
+    try:
+        result = subprocess.run(
+            cmd, cwd=SKILL_DIR,
+            capture_output=True, text=True, encoding="utf-8",
+            env=env, timeout=timeout
+        )
+        output = result.stdout or ""
+        stderr = result.stderr or ""
+        print(f"[GEMINI_LOG] rc={result.returncode} stdout_len={len(output)} stderr_len={len(stderr)}")
+        print(f"[GEMINI_LOG] stdout_tail={output[-500:]}" if len(output) > 200 else f"[GEMINI_LOG] stdout={output}")
+        if result.returncode != 0:
+            print(f"[GEMINI_LOG] STDERR: {stderr[-500:]}")
+        answer = _parse_subprocess_answer(output, stderr, notebook_id)
+        if answer:
+            return answer
+        print(f"[GEMINI_NOANS] Sin respuesta. rc={result.returncode} stderr={stderr[-500:]}")
+        return None
+    except subprocess.TimeoutExpired:
+        print(f"[GEMINI_LOG] Timeout en Gemini ({timeout}s)")
+        return "TIMEOUT"
+    except Exception as e:
+        print(f"[GEMINI_LOG] Excepción: {e}")
+        return None
+
+
 def ask_notebooklm(question, notebook_id, timeout=120):
-    # ── Ruta 1: Gemini API (sin restricción de IP, sin navegador) ────────
+    # ── Ruta 1: Gemini API con retry automático ────────────────────────
     gemini_key = os.environ.get("GEMINI_API_KEY", "")
     if gemini_key:
-        print(f"[ASK] Usando Gemini API para notebook_id={notebook_id} (timeout={timeout}s)")
-        cmd = [PYTHON, "scripts/ask_gemini.py", "--question", question, "--notebook-id", notebook_id]
-        env = os.environ.copy()
-        env["PYTHONIOENCODING"] = "utf-8"
-        env["PYTHONPATH"] = SKILL_DIR
-        try:
-            result = subprocess.run(
-                cmd, cwd=SKILL_DIR,
-                capture_output=True, text=True, encoding="utf-8",
-                env=env, timeout=timeout
-            )
-            output = result.stdout or ""
-            stderr = result.stderr or ""
-            print(f"[GEMINI_LOG] rc={result.returncode} stdout_len={len(output)} stderr_len={len(stderr)}")
-            print(f"[GEMINI_LOG] stdout_tail={output[-500:]}" if len(output) > 200 else f"[GEMINI_LOG] stdout={output}")
-            if result.returncode != 0:
-                print(f"[GEMINI_LOG] STDERR: {stderr[-500:]}")
-            answer = _parse_subprocess_answer(output, stderr, notebook_id)
+        max_intentos = 2
+        for intento in range(1, max_intentos + 1):
+            print(f"[ASK] Gemini intento {intento}/{max_intentos} — notebook_id={notebook_id} (timeout={timeout}s)")
+            answer = _ejecutar_gemini(question, notebook_id, timeout)
+
+            if answer == "TIMEOUT":
+                if _IS_CLOUD:
+                    return ("El servidor tardó demasiado procesando tu consulta. "
+                            "Esto puede ocurrir con imágenes grandes o documentos complejos. "
+                            "Por favor intenta de nuevo — la segunda consulta suele ser más rápida.")
+                break  # No reintentar timeout, ir a fallback
+
             if answer:
                 return answer + _DISCLAIMER
-            print(f"[GEMINI_NOANS] Sin respuesta. rc={result.returncode} stderr={stderr[-500:]}")
-        except subprocess.TimeoutExpired:
-            print(f"[GEMINI_LOG] Timeout en Gemini ({timeout}s)")
-            # En cloud: devolver error inmediato (NotebookLM browser no funciona)
-            if _IS_CLOUD:
-                return ("El servidor tardó demasiado procesando tu consulta. "
-                        "Esto puede ocurrir con imágenes grandes o documentos complejos. "
-                        "Por favor intenta de nuevo — la segunda consulta suele ser más rápida.")
-        except Exception as e:
-            print(f"[GEMINI_LOG] Excepción: {e}")
 
-    # ── En cloud: si Gemini no respondió, NO intentar NotebookLM (no funciona) ─
+            # Sin respuesta — reintentar si quedan intentos
+            if intento < max_intentos:
+                print(f"[ASK] Reintentando Gemini (intento {intento + 1})...")
+                import time as _time
+                _time.sleep(2)  # Pausa breve antes de reintentar
+
+    # ── En cloud: si Gemini no respondió tras retry, error al usuario ──
     if _IS_CLOUD:
-        print("[ASK] Cloud sin respuesta de Gemini — retornando error al usuario")
+        print("[ASK] Cloud sin respuesta de Gemini tras retry — retornando error al usuario")
         return ("No se pudo obtener respuesta del sistema de IA. "
                 "Verifica que tu consulta sea clara y concisa, e intenta de nuevo en unos segundos.")
 

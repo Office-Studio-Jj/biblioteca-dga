@@ -31,7 +31,7 @@ except ImportError:
 
 # ══════════════════════════════════════════════════════════════════════════
 # CACHE DEL ARANCEL — verificacion rapida de existencia de codigos
-# Se carga UNA VEZ (lazy). Contiene 666 codigos pre-extraidos del PDF.
+# Se carga UNA VEZ (lazy). Contiene 7,616 codigos pre-extraidos del PDF.
 # ══════════════════════════════════════════════════════════════════════════
 _ARANCEL_CACHE_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "data",
@@ -206,12 +206,25 @@ _GRAVAMEN_MINIMO_POR_CAPITULO = {
 }
 
 
+def _extraer_gravamen_de_cache(desc_cache: str) -> int | None:
+    """Extrae el valor de gravamen del final de la descripcion del cache.
+    El cache almacena: 'Descripcion del producto GRAVAMEN_NUM'
+    Ejemplo: '-Las dem\u00e1s m\u00e1quinas y aparatos 0' -> 0
+    """
+    if not desc_cache:
+        return None
+    m = re.search(r'\s+(\d+)\s*$', desc_cache.strip())
+    if m:
+        return int(m.group(1))
+    return None
+
+
 def _validar_gravamen_python(resultado: dict, codigo: str) -> dict:
     """
-    Validacion Python del gravamen.
-    Gemini lee la columna GRAV. del Arancel PDF real — se confia en su lectura.
-    Solo se registra log informativo si el valor parece inusual, pero NO se
-    sobreescribe la respuesta de Gemini. El Arancel PDF es la fuente primaria.
+    Validacion Python del gravamen con cache-first.
+    1. Si el codigo existe en cache con gravamen extraido, usa el cache como verdad.
+    2. Si Gemini contradice el cache, CORRIGE con el valor del cache.
+    3. Si no hay cache, usa la red de seguridad por capitulo como referencia.
     """
     grav_str = resultado.get("gravamen_ad_valorem", "?")
     if grav_str in ("?", "VERIFICAR EN ARANCEL VIGENTE", ""):
@@ -221,16 +234,39 @@ def _validar_gravamen_python(resultado: dict, codigo: str) -> dict:
     if not m:
         return resultado
 
-    grav_num = int(m.group(1))
+    grav_gemini = int(m.group(1))
     capitulo = codigo[:2]
-    gravamen_minimo = _GRAVAMEN_MINIMO_POR_CAPITULO.get(capitulo, 0)
 
-    if grav_num < gravamen_minimo:
-        # Solo log informativo — NO sobreescribir la respuesta de Gemini
-        # Gemini lee el PDF real y puede encontrar codigos con gravamen 0% legitimo
-        print(f"[VERIFICADOR-PYTHON] INFO: Gemini dijo {grav_num}% para {codigo} "
+    # ── CACHE-FIRST: el cache tiene el gravamen real extraido del PDF ──
+    _cargar_cache_arancel()
+    desc_cache = _CACHE_CODIGOS.get(codigo, "")
+    grav_cache = _extraer_gravamen_de_cache(desc_cache)
+
+    if grav_cache is not None and grav_gemini != grav_cache:
+        print(f"[VERIFICADOR-PYTHON] CORRECCION: Gemini dijo {grav_gemini}% para {codigo} "
+              f"pero cache del Arancel dice {grav_cache}%. "
+              f"Se corrige con el valor del cache (extraido con pdfplumber, 0% IA).")
+        resultado["gravamen_ad_valorem"] = f"{grav_cache}%"
+        resultado["gravamen_fuente"] = (
+            resultado.get("gravamen_fuente", "") +
+            f" [CORREGIDO por cache Arancel: {grav_cache}% (Gemini dijo {grav_gemini}%)]"
+        )
+        if grav_cache == 0:
+            resultado["gravamen_nota"] = (
+                f"Gravamen 0% confirmado por cache del Arancel 7ma Enmienda. "
+                f"NMF estandar para {codigo}."
+            )
+        return resultado
+    elif grav_cache is not None:
+        print(f"[VERIFICADOR-PYTHON] OK: Gemini y cache coinciden en {grav_gemini}% para {codigo}")
+        return resultado
+
+    # ── FALLBACK: red de seguridad por capitulo (sin cache) ──
+    gravamen_minimo = _GRAVAMEN_MINIMO_POR_CAPITULO.get(capitulo, 0)
+    if grav_gemini < gravamen_minimo:
+        print(f"[VERIFICADOR-PYTHON] SOSPECHA: Gemini dijo {grav_gemini}% para {codigo} "
               f"(cap. {capitulo} tipicamente >= {gravamen_minimo}%). "
-              f"Se confia en lectura directa del Arancel PDF.")
+              f"Sin cache disponible — se confia en Gemini pero se registra advertencia.")
 
     return resultado
 
