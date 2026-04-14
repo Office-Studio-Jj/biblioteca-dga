@@ -5,3 +5,5 @@ __pycache__/
 *.bat
 generar_iconos.py
 notebooklm_skill/data/browser_state/
+mapa_arquitectura.html
+notebooklm_skill/data/arancel_gemini_cache.json

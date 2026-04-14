@@ -42,7 +42,8 @@ _CACHE_CARGADO = False
 
 
 def _cargar_cache_arancel():
-    """Carga el cache de codigos del Arancel (lazy, una sola vez)."""
+    """Carga el cache de codigos del Arancel (lazy, una sola vez).
+    Ejecuta auto-heal preventivo si detecta codigos sin gravamen."""
     global _CACHE_CODIGOS, _CACHE_CARGADO
     if _CACHE_CARGADO:
         return
@@ -53,6 +54,22 @@ def _cargar_cache_arancel():
                 cache = json.load(f)
             _CACHE_CODIGOS = cache.get("codigos", {})
             print(f"[VERIFICADOR] Cache Arancel cargado: {len(_CACHE_CODIGOS)} codigos")
+
+            # Auto-heal preventivo: reparar codigos sin gravamen al inicio
+            try:
+                from auto_heal_cache import auto_heal
+                reparados = auto_heal(_CACHE_CODIGOS, silent=True)
+                if reparados > 0:
+                    print(f"[AUTO-HEAL] {reparados} codigos reparados preventivamente")
+                    cache["codigos"] = _CACHE_CODIGOS
+                    cache["auto_heal_ultima"] = __import__('datetime').datetime.now().strftime("%Y-%m-%d %H:%M")
+                    with open(_ARANCEL_CACHE_PATH, "w", encoding="utf-8") as f:
+                        json.dump(cache, f, ensure_ascii=False, indent=2)
+            except ImportError:
+                pass  # auto_heal no disponible — continuar sin reparar
+            except Exception as e:
+                print(f"[AUTO-HEAL] Error en reparacion preventiva: {e}")
+
         except Exception as e:
             print(f"[VERIFICADOR] Error cargando cache Arancel: {e}")
 
