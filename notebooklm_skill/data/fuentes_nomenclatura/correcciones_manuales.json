@@ -1,0 +1,23 @@
+{
+  "correcciones": {
+    "8543.70.00": {
+      "gravamen": "0",
+      "fecha": "2026-04-13 21:52",
+      "reportado_por": "manual"
+    }
+  },
+  "historial": [
+    {
+      "codigo": "8543.70.00",
+      "gravamen": "0",
+      "fecha": "2026-04-13 21:51",
+      "reportado_por": "manual"
+    },
+    {
+      "codigo": "8543.70.00",
+      "gravamen": "0",
+      "fecha": "2026-04-13 21:52",
+      "reportado_por": "manual"
+    }
+  ]
+}

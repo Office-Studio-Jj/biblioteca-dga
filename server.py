@@ -1370,6 +1370,23 @@ def _aplicar_correccion_gravamen(codigo, valor_correcto, error_id):
                 e["correccion_aplicada"] = f"Cache actualizado: {codigo} gravamen → {valor_correcto}%"
                 break
         _save_errores(errores)
+        # Proteger en blacklist para que no se sobreescriba en re-extraccion
+        try:
+            bl = _cargar_blacklist()
+            bl["correcciones"][codigo] = {
+                "gravamen": valor_correcto,
+                "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "reportado_por": "auto-correccion"
+            }
+            bl["historial"].append({
+                "codigo": codigo, "gravamen": valor_correcto,
+                "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "reportado_por": "auto-correccion"
+            })
+            _guardar_blacklist(bl)
+            print(f"[CORRECCION] {codigo} protegido en blacklist (anti-regresion)")
+        except Exception as bex:
+            print(f"[CORRECCION] No se pudo proteger en blacklist: {bex}")
         print(f"[CORRECCION] Gravamen de {codigo} corregido a {valor_correcto}% en cache")
         return True
     except Exception as ex:
@@ -1479,6 +1496,81 @@ def admin_buscar_cache():
         return jsonify({"existe": False, "codigo": codigo, "sugerencias": dict(list(parciales.items())[:10])})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ── Auditoria del Cache Arancel (self-healing) ────────────────────────
+_BLACKLIST_FILE = os.path.join(SKILL_DIR, "data", "fuentes_nomenclatura", "correcciones_manuales.json")
+
+
+def _cargar_blacklist():
+    try:
+        if os.path.isfile(_BLACKLIST_FILE):
+            with open(_BLACKLIST_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {"correcciones": {}, "historial": []}
+
+
+def _guardar_blacklist(bl):
+    with open(_BLACKLIST_FILE, "w", encoding="utf-8") as f:
+        json.dump(bl, f, ensure_ascii=False, indent=2)
+
+
+@app.route("/admin/auditar-cache", methods=["GET"])
+@admin_or_master_required
+def admin_auditar_cache():
+    """Auditoria de salud del cache del Arancel."""
+    import re as _re
+    cache_path = os.path.join(SKILL_DIR, "data", "fuentes_nomenclatura", "arancel_cache.json")
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+        codigos = cache.get("codigos", {})
+        sin_grav = 0
+        caps = {}
+        for c, desc in codigos.items():
+            cap = c[:2]
+            caps[cap] = caps.get(cap, 0) + 1
+            m = _re.search(r'\s+(\d+)\s*$', desc.strip())
+            if not m:
+                sin_grav += 1
+        bl = _cargar_blacklist()
+        return jsonify({
+            "salud": "OPTIMO" if sin_grav < 100 else "DEGRADADO" if sin_grav < 500 else "CRITICO",
+            "total_codigos": len(codigos),
+            "sin_gravamen": sin_grav,
+            "capitulos": len(caps),
+            "correcciones_protegidas": len(bl.get("correcciones", {})),
+            "fecha_extraccion": cache.get("fecha_extraccion", "?"),
+            "reparaciones": cache.get("reparaciones_aplicadas", 0)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/admin/proteger-correccion", methods=["POST"])
+@master_required
+def admin_proteger_correccion():
+    """Registra una correccion en la blacklist para que no se sobreescriba."""
+    d = request.json or {}
+    codigo = d.get("codigo", "").strip()
+    gravamen = d.get("gravamen", "").strip()
+    if not codigo or gravamen == "":
+        return jsonify({"error": "Codigo y gravamen requeridos"}), 400
+    bl = _cargar_blacklist()
+    bl["correcciones"][codigo] = {
+        "gravamen": gravamen,
+        "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "reportado_por": session.get("nombre", session.get("role", "master"))
+    }
+    bl["historial"].append({
+        "codigo": codigo, "gravamen": gravamen,
+        "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "reportado_por": session.get("nombre", session.get("role", "master"))
+    })
+    _guardar_blacklist(bl)
+    return jsonify({"ok": True, "mensaje": f"{codigo} protegido con gravamen {gravamen}%"})
 
 
 # ── Diagnóstico del sistema de consultas (Gemini + NotebookLM) ───────────
