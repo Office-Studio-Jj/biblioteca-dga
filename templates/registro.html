@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registro — Logistica de Puertos y Aduanas RD</title>
   <meta name="theme-color" content="#1e3a5f">
   <style>
@@ -16,7 +16,7 @@
 
     .logo-top { text-align: center; margin-bottom: 6px; font-size: 2.4rem; }
     h1 { text-align: center; font-size: 1.05rem; font-weight: 700; color: #d4af37; margin-bottom: 3px; }
-    .sub { text-align: center; font-size: 0.7rem; color: #64748b; margin-bottom: 24px; }
+    .sub { text-align: center; font-size: 0.82rem; color: #cbd5e1; margin-bottom: 24px; }
 
     .card {
       background: #1e293b; border-radius: 20px; padding: 24px 20px; margin-bottom: 16px;
@@ -29,7 +29,7 @@
 
     .field { margin-bottom: 14px; }
     .field label {
-      display: block; font-size: 0.65rem; font-weight: 700; color: #64748b;
+      display: block; font-size: 0.78rem; font-weight: 700; color: #94a3b8;
       text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;
     }
     .field input, .field textarea, .field select {
@@ -54,7 +54,7 @@
     .error { background: #7f1d1d; border: 1px solid #ef4444; color: #fca5a5;
              border-radius: 10px; padding: 9px 14px; font-size: 0.78rem; margin-bottom: 16px; }
 
-    .login-link { text-align: center; margin-top: 16px; font-size: 0.75rem; color: #64748b; }
+    .login-link { text-align: center; margin-top: 16px; font-size: 0.82rem; color: #94a3b8; }
     .login-link a { color: #d4af37; text-decoration: none; font-weight: 600; }
 
     .required { color: #f87171; margin-left: 2px; }
@@ -70,9 +70,8 @@
 
   <form method="POST" action="/registro">
 
-    <!-- Datos personales -->
     <div class="card">
-      <div class="card-title">👤 Datos personales</div>
+      <div class="card-title">👤 Crea tu cuenta</div>
 
       <div class="field">
         <label>Nombre completo <span class="required">*</span></label>
@@ -83,56 +82,9 @@
         <label>Correo electrónico <span class="required">*</span></label>
         <input type="email" name="correo" placeholder="correo@ejemplo.com" required>
       </div>
-
-      <div class="field">
-        <label>Número de WhatsApp <span class="required">*</span></label>
-        <input type="tel" name="whatsapp" placeholder="(809) 000-0000" required>
-      </div>
-
-      <div class="field">
-        <label>Profesión <span class="required">*</span></label>
-        <input type="text" name="profesion" placeholder="Ej. Agente Aduanal, Abogado, Importador..." required>
-      </div>
-
-      <div class="field">
-        <label>¿A qué se dedica? <span class="required">*</span></label>
-        <input type="text" name="dedicacion" placeholder="Describe brevemente tu actividad principal" required>
-      </div>
     </div>
 
-    <!-- Dirección -->
-    <div class="card">
-      <div class="card-title">📍 Dirección</div>
-
-      <div class="field">
-        <label>País <span class="required">*</span></label>
-        <input type="text" name="pais" placeholder="Ej. República Dominicana" value="República Dominicana" required>
-      </div>
-
-      <div class="row2">
-        <div class="field">
-          <label>Provincia <span class="required">*</span></label>
-          <input type="text" name="provincia" placeholder="Ej. Santo Domingo" required>
-        </div>
-        <div class="field">
-          <label>Municipio <span class="required">*</span></label>
-          <input type="text" name="municipio" placeholder="Ej. Distrito Nacional" required>
-        </div>
-      </div>
-
-      <div class="row2">
-        <div class="field">
-          <label>Calle / Av.</label>
-          <input type="text" name="calle" placeholder="Nombre de la calle">
-        </div>
-        <div class="field">
-          <label>Número</label>
-          <input type="text" name="numero" placeholder="No. 123">
-        </div>
-      </div>
-    </div>
-
-    <button type="submit" class="btn-reg">Registrarme y Acceder →</button>
+    <button type="submit" class="btn-reg">Crear cuenta y entrar →</button>
   </form>
 
   <div class="login-link">
@@ -227,43 +179,19 @@
     {
       target: 'input[name="nombre"]',
       title: '👤 Paso 1: Tu nombre',
-      body: 'Escribe tu <strong>nombre completo</strong> tal como aparece en tus documentos. Ejemplo: Juan Perez Garcia.',
+      body: 'Escribe tu <strong>nombre completo</strong>. Ejemplo: Juan Perez Garcia.',
       position: 'below'
     },
     {
       target: 'input[name="correo"]',
-      title: '📧 Paso 2: Correo electronico',
-      body: 'Ingresa un correo <strong>valido</strong> que uses frecuentemente. Este sera tu usuario para iniciar sesion.',
-      position: 'below'
-    },
-    {
-      target: 'input[name="whatsapp"]',
-      title: '📱 Paso 3: WhatsApp',
-      body: 'Tu numero de WhatsApp con codigo de area. Ejemplo: <strong>(809) 555-1234</strong>. Se usara para comunicaciones importantes.',
-      position: 'below'
-    },
-    {
-      target: 'input[name="profesion"]',
-      title: '💼 Paso 4: Profesion',
-      body: 'Indica tu profesion relacionada con comercio exterior. Ejemplo: <strong>Agente Aduanal</strong>, Importador, Abogado, etc.',
-      position: 'below'
-    },
-    {
-      target: 'input[name="dedicacion"]',
-      title: '🎯 Paso 5: Actividad',
-      body: 'Describe brevemente a que te dedicas. Ejemplo: <strong>Importacion de equipos electronicos</strong>.',
-      position: 'below'
-    },
-    {
-      target: 'input[name="provincia"]',
-      title: '📍 Paso 6: Ubicacion',
-      body: 'Completa tu <strong>provincia y municipio</strong>. El pais ya esta pre-llenado como Republica Dominicana.',
+      title: '📧 Paso 2: Correo',
+      body: 'Ingresa tu correo. Este sera tu <strong>usuario</strong> para iniciar sesion.',
       position: 'below'
     },
     {
       target: '.btn-reg',
-      title: '🚀 Paso 7: Crear cuenta',
-      body: 'Cuando todo este listo, presiona este boton. Se creara tu cuenta y entraras <strong>automaticamente</strong> a la app. La contrasena inicial es <strong>Puertos2024</strong> y podras cambiarla.',
+      title: '🚀 Paso 3: Listo!',
+      body: 'Presiona el boton y entraras <strong>automaticamente</strong>. La contrasena inicial es <strong>Puertos2024</strong> y podras cambiarla.',
       position: 'above'
     }
   ];
@@ -370,10 +298,9 @@
     localStorage.setItem('dga_tutor_registro_done', '1');
   }
 
-  // Auto-iniciar si viene del asistente de login O primera vez
+  // Solo auto-iniciar si viene del asistente de login (parametro tutor=1)
   const _fromTutor = new URLSearchParams(window.location.search).get('tutor');
-  const _tutorDone = localStorage.getItem('dga_tutor_registro_done');
-  if (_fromTutor === '1' || !_tutorDone) {
+  if (_fromTutor === '1') {
     setTimeout(iniciarTutorRegistro, 800);
   }
 </script>

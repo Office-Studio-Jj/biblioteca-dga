@@ -297,7 +297,7 @@ def registro():
             "whatsapp":   d.get("whatsapp", "").strip(),
             "profesion":  d.get("profesion", "").strip(),
             "dedicacion": d.get("dedicacion", "").strip(),
-            "pais":       d.get("pais", "").strip(),
+            "pais":       d.get("pais", "República Dominicana").strip(),
             "provincia":  d.get("provincia", "").strip(),
             "municipio":  d.get("municipio", "").strip(),
             "calle":      d.get("calle", "").strip(),
@@ -527,10 +527,10 @@ def consultar():
                 return jsonify({"error": "No se pudo analizar la imagen. Intenta con otra foto o escribe tu consulta."}), 400
 
     # Timeout por tipo de consulta:
-    #   Texto: 120s (Gemini + Arancel PDF + supervisor)
-    #   Imagen: 180s (Vision API + Gemini + Arancel PDF + supervisor)
+    #   Texto: 60s (Gemini + Arancel PDF + supervisor)
+    #   Imagen: 90s (Vision API + Gemini + Arancel PDF + supervisor)
     tiene_imagen = bool(producto_identificado) or (archivo is not None)
-    timeout_consulta = 180 if tiene_imagen else 120
+    timeout_consulta = 90 if tiene_imagen else 60
 
     try:
         answer = ask_notebooklm(question, notebook_id, timeout=timeout_consulta)
@@ -1443,7 +1443,7 @@ def admin_reconsultar():
         return jsonify({"error": "Escribe la consulta a reprocesar"}), 400
 
     try:
-        answer = ask_notebooklm(question, notebook_id, timeout=180)
+        answer = ask_notebooklm(question, notebook_id, timeout=90)
         return jsonify({"answer": answer, "ok": True})
     except Exception as e:
         return jsonify({"error": f"Error al reprocesar: {str(e)[:200]}"}), 500
@@ -1789,7 +1789,7 @@ def descargar_app():
 _ROL_TITULOS = {
     "master":    "Administrador Master",
     "operativo": "Administrador Operativo",
-    "invitado":  "Invitado",
+    "invitado":  "Usuario",
 }
 
 @app.route("/descargar/<rol>")
@@ -1880,13 +1880,13 @@ def _ejecutar_gemini(question, notebook_id, timeout):
         return None
 
 
-def ask_notebooklm(question, notebook_id, timeout=120):
+def ask_notebooklm(question, notebook_id, timeout=60):
     # ── Ruta 1: Gemini API con retry automático + backoff exponencial ──
     gemini_key = os.environ.get("GEMINI_API_KEY", "")
     if gemini_key:
         import time as _time
         import random as _random
-        max_intentos = 3
+        max_intentos = 2
         for intento in range(1, max_intentos + 1):
             print(f"[ASK] Gemini intento {intento}/{max_intentos} — notebook_id={notebook_id} (timeout={timeout}s)")
             answer = _ejecutar_gemini(question, notebook_id, timeout)

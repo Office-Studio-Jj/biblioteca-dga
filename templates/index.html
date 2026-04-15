@@ -2069,7 +2069,7 @@
     _lastNbName = selName;
 
     const _ctrl = new AbortController();
-    const _tid  = setTimeout(() => _ctrl.abort(), 150000);
+    const _tid  = setTimeout(() => _ctrl.abort(), 75000);
     try {
       let res;
       if (_attachedFile) {
@@ -2377,7 +2377,7 @@
     _lastNbName = _retryNbName;
 
     const _ctrlR = new AbortController();
-    const _tidR  = setTimeout(() => _ctrlR.abort(), 150000);
+    const _tidR  = setTimeout(() => _ctrlR.abort(), 75000);
     try {
       let res;
       if (_fichaFile) {
