@@ -514,6 +514,78 @@ INCOHERENCIAS_CONOCIDAS = [
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# SECCION 1.5: BIBLIOTECA DE ERRORES RESUELTOS
+# Registro persistente de errores corregidos para anti-regresion.
+# Cada error se guarda con: codigo original, codigo corregido, fecha, motivo.
+# ══════════════════════════════════════════════════════════════════════════
+
+_ERRORES_RESUELTOS_PATH = os.path.join(_FUENTES_DIR, "errores_resueltos.json")
+
+
+def _cargar_errores_resueltos() -> list:
+    """Carga la biblioteca de errores resueltos."""
+    try:
+        if os.path.exists(_ERRORES_RESUELTOS_PATH):
+            with open(_ERRORES_RESUELTOS_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"[ERRORES_RESUELTOS] Error cargando: {e}")
+    return []
+
+
+def _registrar_error_resuelto(codigo_original: str, codigo_corregido: str,
+                               motivo: str, fuente: str):
+    """
+    Registra un error corregido en la biblioteca de errores resueltos.
+    Anti-regresion: si el mismo error se repite, se detecta mas rapido.
+    """
+    try:
+        errores = _cargar_errores_resueltos()
+
+        # No duplicar si ya existe el mismo par original->corregido
+        for e in errores:
+            if (e.get("codigo_original") == codigo_original and
+                    e.get("codigo_corregido") == codigo_corregido):
+                e["ocurrencias"] = e.get("ocurrencias", 1) + 1
+                e["ultima_fecha"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                with open(_ERRORES_RESUELTOS_PATH, "w", encoding="utf-8") as f:
+                    json.dump(errores, f, ensure_ascii=False, indent=2)
+                print(f"[ERRORES_RESUELTOS] Repetido: {codigo_original} -> "
+                      f"{codigo_corregido} (x{e['ocurrencias']})")
+                return
+
+        # Nuevo error resuelto
+        errores.append({
+            "codigo_original": codigo_original,
+            "codigo_corregido": codigo_corregido,
+            "motivo": motivo,
+            "fuente": fuente,
+            "fecha": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "ultima_fecha": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "ocurrencias": 1
+        })
+
+        with open(_ERRORES_RESUELTOS_PATH, "w", encoding="utf-8") as f:
+            json.dump(errores, f, ensure_ascii=False, indent=2)
+
+        print(f"[ERRORES_RESUELTOS] Nuevo: {codigo_original} -> {codigo_corregido} ({motivo})")
+    except Exception as e:
+        print(f"[ERRORES_RESUELTOS] Error guardando: {e}")
+
+
+def consultar_errores_resueltos(codigo: str = None) -> list:
+    """
+    Consulta la biblioteca de errores resueltos.
+    Si se pasa un codigo, filtra por ese codigo original.
+    """
+    errores = _cargar_errores_resueltos()
+    if codigo:
+        return [e for e in errores if e.get("codigo_original") == codigo
+                or e.get("codigo_corregido") == codigo]
+    return errores
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # SECCION 2: FUNCIONES DE VALIDACION
 # Cada funcion retorna (estado, mensaje).
 # Estados posibles: "OK", "OBSERVACION", "ERROR"
@@ -597,6 +669,14 @@ def _check_codigo_arancelario(respuesta: str) -> Tuple[str, str, str]:
         r'AUDITORIA:\s*APROBADA\b',
         'AUDITORIA: CONDICIONADA — codigo corregido por Supervisor Interno',
         respuesta
+    )
+
+    # Registrar en biblioteca de errores resueltos
+    _registrar_error_resuelto(
+        codigo_original=codigo,
+        codigo_corregido=nuevo if ext_fallback else f"{sub_sa}.XX",
+        motivo=f"NO existe bajo {sub_sa}. Corregido por CODIGOS_VERIFICADOS_RD",
+        fuente="CHECK_Codigo"
     )
 
     return (respuesta, "ERROR",
@@ -752,19 +832,26 @@ def _check_fuente(respuesta: str, notebook_id: str) -> Tuple[str, str]:
                 "la respuesta podria ser generica internacional")
 
 
-def _check_fuentes_pdf(respuesta: str, pregunta: str, notebook_id: str) -> Tuple[str, str]:
+def _check_fuentes_pdf(respuesta: str, pregunta: str, notebook_id: str) -> Tuple[str, str, str]:
     """
     Valida la respuesta contra las fuentes PDF locales del cuaderno nomenclatura.
     Solo aplica al cuaderno de nomenclaturas.
     100% Python — busca coincidencias textuales en los PDFs extraidos.
+
+    CORRECCION AUTOMATICA: Si el codigo NO existe en fuentes PDF pero la
+    subpartida SI tiene extensiones validas, auto-promueve la extension
+    correcta como resultado principal.
+
+    Returns:
+        (respuesta_modificada, estado, mensaje)
     """
     if notebook_id != "biblioteca-de-nomenclaturas":
-        return "OK", "Check PDF: solo aplica a nomenclaturas"
+        return respuesta, "OK", "Check PDF: solo aplica a nomenclaturas"
 
     _cargar_fuentes_pdf()  # Lazy load
 
     if not _FUENTES_TEXTO:
-        return "OBSERVACION", "Fuentes PDF no cargadas — verificacion limitada"
+        return respuesta, "OBSERVACION", "Fuentes PDF no cargadas — verificacion limitada"
 
     # Extraer codigo del bloque de clasificacion si existe
     si = respuesta.find("---DATOS_CLASIFICACION---")
@@ -776,9 +863,59 @@ def _check_fuentes_pdf(respuesta: str, pregunta: str, notebook_id: str) -> Tuple
             codigo = m_code.group(1)
             existe, msg = verificar_codigo_en_fuentes(codigo)
             if existe:
-                return "OK", f"Fuentes PDF: {msg}"
+                return respuesta, "OK", f"Fuentes PDF: {msg}"
             else:
-                return "OBSERVACION", f"Fuentes PDF: {msg}"
+                # ── AUTO-CORRECCION: promover extension correcta ──
+                # El codigo NO existe en PDF pero la subpartida SI tiene
+                # extensiones validas. Extraer la mejor extension y corregir.
+                partes = codigo.split(".")
+                if len(partes) == 3:
+                    sub_sa = f"{partes[0]}.{partes[1]}"
+                    extensiones = {c: d for c, d in _CODIGOS_PDF.items()
+                                   if c.startswith(sub_sa + ".")}
+                    if extensiones:
+                        # Seleccionar mejor extension: preferir la unica si solo hay 1,
+                        # o la primera disponible (ordenada por codigo)
+                        ext_ordenadas = sorted(extensiones.items())
+                        mejor_codigo = ext_ordenadas[0][0]
+                        mejor_desc = ext_ordenadas[0][1]
+
+                        disponibles = "; ".join(
+                            f"{c}" for c, d in ext_ordenadas[:5])
+
+                        nota = (f"{mejor_codigo} — {mejor_desc} "
+                                f"[CORREGIDO por FuentesPDF: {codigo} NO EXISTE "
+                                f"en Arancel RD. Extension correcta: {disponibles}]")
+
+                        # Reemplazar SUBPARTIDA_NAC en la respuesta
+                        old_line = re.search(r'SUBPARTIDA_NAC:.*', bloque)
+                        if old_line:
+                            respuesta = respuesta.replace(
+                                old_line.group(0),
+                                f"SUBPARTIDA_NAC: {nota}")
+
+                        # Degradar auditoria
+                        respuesta = re.sub(
+                            r'AUDITORIA:\s*APROBADA\b',
+                            'AUDITORIA: CONDICIONADA — codigo corregido por FuentesPDF',
+                            respuesta)
+
+                        # Registrar en biblioteca de errores resueltos
+                        _registrar_error_resuelto(
+                            codigo_original=codigo,
+                            codigo_corregido=mejor_codigo,
+                            motivo=f"NO encontrado en fuentes PDF. Corregido a {mejor_codigo}",
+                            fuente="CHECK_FuentesPDF"
+                        )
+
+                        print(f"[SUPERVISOR_INTERNO] FuentesPDF AUTO-CORRECCION: "
+                              f"{codigo} -> {mejor_codigo}")
+                        return (respuesta, "ERROR",
+                                f"OBSERVACION: Fuentes PDF: {codigo} NO encontrado. "
+                                f"CORREGIDO a {mejor_codigo} — {mejor_desc}")
+
+                # Sin extensiones para corregir — solo observacion
+                return respuesta, "OBSERVACION", f"Fuentes PDF: {msg}"
 
     # Verificar que la respuesta menciona conceptos presentes en las fuentes
     pregunta_lower = pregunta.lower()
@@ -796,9 +933,9 @@ def _check_fuentes_pdf(respuesta: str, pregunta: str, notebook_id: str) -> Tuple
             hits_fuente += 1
 
     if hits_fuente > 0:
-        return "OK", f"Fuentes PDF: {hits_fuente}/{min(len(terminos_relevantes), 5)} terminos encontrados en documentos locales"
+        return respuesta, "OK", f"Fuentes PDF: {hits_fuente}/{min(len(terminos_relevantes), 5)} terminos encontrados en documentos locales"
 
-    return "OK", "Fuentes PDF: sin terminos especificos para validar"
+    return respuesta, "OK", "Fuentes PDF: sin terminos especificos para validar"
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -875,13 +1012,16 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
     checks.append(("Seguridad", "OK", "OK"))
 
     # Check 8: Validacion contra fuentes PDF locales (nomenclatura)
-    st_pdf, msg_pdf = _check_fuentes_pdf(respuesta, pregunta, notebook_id)
+    # _check_fuentes_pdf ahora retorna 3 valores (puede auto-corregir respuesta)
+    respuesta, st_pdf, msg_pdf = _check_fuentes_pdf(respuesta, pregunta, notebook_id)
     checks.append(("FuentesPDF", st_pdf, msg_pdf))
 
     # ── Determinar resultado ─────────────────────────────────────────────
     errores = [c for c in checks if c[1] == "ERROR"]
     observaciones = [c for c in checks if c[1] == "OBSERVACION"]
-    hay_correccion_codigo = any(c[0] == "Codigo" and c[1] == "ERROR" for c in checks)
+    hay_correccion_codigo = any(
+        c[0] in ("Codigo", "FuentesPDF") and c[1] == "ERROR" for c in checks
+    )
 
     if errores:
         resultado = "CORREGIDA" if hay_correccion_codigo else "CONDICIONADA"

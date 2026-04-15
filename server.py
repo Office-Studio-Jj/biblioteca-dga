@@ -1473,6 +1473,37 @@ def admin_estado_cache():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/admin/errores-resueltos", methods=["GET"])
+@admin_or_master_required
+def admin_errores_resueltos():
+    """Consulta la biblioteca de errores resueltos (anti-regresion)."""
+    errores_path = os.path.join(SKILL_DIR, "data", "fuentes_nomenclatura", "errores_resueltos.json")
+    codigo = request.args.get("codigo", "").strip()
+    try:
+        if not os.path.exists(errores_path):
+            return jsonify({"errores": [], "total": 0})
+        with open(errores_path, "r", encoding="utf-8") as f:
+            errores = json.load(f)
+        if codigo:
+            errores = [e for e in errores if
+                       e.get("codigo_original") == codigo or
+                       e.get("codigo_corregido") == codigo]
+        # Estadisticas rapidas
+        total_ocurrencias = sum(e.get("ocurrencias", 1) for e in errores)
+        fuentes = {}
+        for e in errores:
+            src = e.get("fuente", "desconocido")
+            fuentes[src] = fuentes.get(src, 0) + 1
+        return jsonify({
+            "errores": errores,
+            "total": len(errores),
+            "total_ocurrencias": total_ocurrencias,
+            "por_fuente": fuentes
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/admin/buscar-cache", methods=["GET"])
 @admin_or_master_required
 def admin_buscar_cache():
@@ -1850,15 +1881,23 @@ def _ejecutar_gemini(question, notebook_id, timeout):
 
 
 def ask_notebooklm(question, notebook_id, timeout=120):
-    # ── Ruta 1: Gemini API con retry automático ────────────────────────
+    # ── Ruta 1: Gemini API con retry automático + backoff exponencial ──
     gemini_key = os.environ.get("GEMINI_API_KEY", "")
     if gemini_key:
-        max_intentos = 2
+        import time as _time
+        import random as _random
+        max_intentos = 3
         for intento in range(1, max_intentos + 1):
             print(f"[ASK] Gemini intento {intento}/{max_intentos} — notebook_id={notebook_id} (timeout={timeout}s)")
             answer = _ejecutar_gemini(question, notebook_id, timeout)
 
             if answer == "TIMEOUT":
+                if intento < max_intentos:
+                    # Reintentar timeout con backoff (a veces es transitorio)
+                    wait = min(2 ** intento + _random.uniform(0, 1), 10)
+                    print(f"[ASK] Timeout transitorio — reintentando en {wait:.1f}s...")
+                    _time.sleep(wait)
+                    continue
                 if _IS_CLOUD:
                     return ("El servidor tardó demasiado procesando tu consulta. "
                             "Esto puede ocurrir con imágenes grandes o documentos complejos. "
@@ -1868,15 +1907,15 @@ def ask_notebooklm(question, notebook_id, timeout=120):
             if answer:
                 return answer + _DISCLAIMER
 
-            # Sin respuesta — reintentar si quedan intentos
+            # Sin respuesta — reintentar con backoff exponencial + jitter
             if intento < max_intentos:
-                print(f"[ASK] Reintentando Gemini (intento {intento + 1})...")
-                import time as _time
-                _time.sleep(2)  # Pausa breve antes de reintentar
+                wait = min(2 ** intento + _random.uniform(0, 1), 10)
+                print(f"[ASK] Sin respuesta — reintentando en {wait:.1f}s (intento {intento + 1})...")
+                _time.sleep(wait)
 
     # ── En cloud: si Gemini no respondió tras retry, error al usuario ──
     if _IS_CLOUD:
-        print("[ASK] Cloud sin respuesta de Gemini tras retry — retornando error al usuario")
+        print(f"[ASK] Cloud sin respuesta de Gemini tras {max_intentos if gemini_key else 0} intentos — retornando error al usuario")
         return ("No se pudo obtener respuesta del sistema de IA. "
                 "Verifica que tu consulta sea clara y concisa, e intenta de nuevo en unos segundos.")
 
