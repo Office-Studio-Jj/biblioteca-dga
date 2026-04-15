@@ -1504,6 +1504,34 @@ def admin_errores_resueltos():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/admin/errores-recurrentes", methods=["GET"])
+@admin_or_master_required
+def admin_errores_recurrentes():
+    """Consulta errores recurrentes documentados (anti-regresion general)."""
+    recurrentes_path = os.path.join(SKILL_DIR, "data", "errores_recurrentes.json")
+    try:
+        if not os.path.exists(recurrentes_path):
+            return jsonify({"errores": [], "total": 0, "reglas": []})
+        with open(recurrentes_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        errores = data.get("errores", [])
+        tipo_filtro = request.args.get("tipo", "").strip()
+        estado_filtro = request.args.get("estado", "").strip()
+        if tipo_filtro:
+            errores = [e for e in errores if e.get("tipo") == tipo_filtro]
+        if estado_filtro:
+            errores = [e for e in errores if e.get("estado") == estado_filtro]
+        # Ordenar por mas reportados primero
+        errores.sort(key=lambda e: e.get("reportado", 0), reverse=True)
+        return jsonify({
+            "errores": errores,
+            "total": len(errores),
+            "reglas_prevencion": data.get("reglas_prevencion", [])
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/admin/buscar-cache", methods=["GET"])
 @admin_or_master_required
 def admin_buscar_cache():

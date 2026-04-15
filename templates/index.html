@@ -2069,7 +2069,7 @@
     _lastNbName = selName;
 
     const _ctrl = new AbortController();
-    const _tid  = setTimeout(() => _ctrl.abort(), 75000);
+    const _tid  = setTimeout(() => _ctrl.abort(), 180000);
     try {
       let res;
       if (_attachedFile) {
@@ -2146,7 +2146,7 @@
     } catch(e) {
       clearTimeout(_tid);
       if (e.name === 'AbortError') {
-        body.innerHTML = '<span class="error">⏱ La consulta tardó demasiado (más de 2 min).<br>El servidor sigue procesando. Intenta de nuevo en unos segundos.</span>';
+        body.innerHTML = '<span class="error">⏱ La consulta tardó demasiado (más de 3 min).<br>Esto puede ocurrir con imágenes grandes. Intenta de nuevo.</span>';
       } else {
         body.innerHTML = '<span class="error">Sin conexión con el servidor.<br>Verifica tu internet e intenta de nuevo.</span>';
       }
@@ -2377,7 +2377,7 @@
     _lastNbName = _retryNbName;
 
     const _ctrlR = new AbortController();
-    const _tidR  = setTimeout(() => _ctrlR.abort(), 75000);
+    const _tidR  = setTimeout(() => _ctrlR.abort(), 180000);
     try {
       let res;
       if (_fichaFile) {
@@ -3212,13 +3212,11 @@
     const esPrimerAcceso = forzado || MUST_CHANGE_PASSWORD;
 
     if (esPrimerAcceso) {
-      // Primer acceso: mostrar campo pre-rellenado con la clave del sistema (solo lectura)
-      if (actualWrap) actualWrap.style.display = 'block';
+      // Primer acceso: ocultar campo contraseña actual (ya viene integrada en el sistema)
+      if (actualWrap) actualWrap.style.display = 'none';
       const passActualEl = document.getElementById('passActual');
       passActualEl.value    = FIRST_ACCESS_PWD;
       passActualEl.readOnly = true;
-      passActualEl.style.opacity = '0.6';
-      passActualEl.type = 'text'; // Mostrar la clave visible para que el usuario la vea
       aviso.style.display  = 'block';
       btnCan.style.display = 'none';
       titulo.textContent   = '🔐 Crea tu contraseña personal';
@@ -4220,9 +4218,10 @@
   document.addEventListener('DOMContentLoaded', () => {
     _tutorInit();
     // Auto-mostrar si es primera vez como invitado
+    // NO iniciar si debe cambiar contraseña primero (evita superposicion modal + tutorial)
     const role = '{{ role }}';
     const tutorDone = localStorage.getItem('dga_tutor_consulta_done');
-    if (role === 'invitado' && !tutorDone) {
+    if (role === 'invitado' && !tutorDone && !MUST_CHANGE_PASSWORD) {
       setTimeout(_tutorStart, 1200);
     }
   });

@@ -1,0 +1,95 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "descripcion": "Registro de errores reportados mas de una vez. Fuente para auto-correccion.",
+    "ultima_actualizacion": "2026-04-15"
+  },
+  "errores": [
+    {
+      "id": "ERR-001",
+      "titulo": "Modal contrasena y tutorial se superponen en primer acceso",
+      "componente": "templates/index.html",
+      "tipo": "UX/frontend",
+      "reportado": 2,
+      "fechas": ["2026-04-14", "2026-04-15"],
+      "estado": "corregido",
+      "solucion": "No iniciar tutorial si MUST_CHANGE_PASSWORD esta activo. Ocultar campo contrasena actual en primer acceso.",
+      "archivos_afectados": ["templates/index.html"],
+      "lineas_clave": "abrirModalPass(), _tutorStart auto-init",
+      "prevencion": "Siempre verificar que modales y overlays no se disparen simultaneamente"
+    },
+    {
+      "id": "ERR-002",
+      "titulo": "Timeout prematuro en consultas (frontend aborta antes que backend termine)",
+      "componente": "templates/index.html + server.py",
+      "tipo": "timeout/performance",
+      "reportado": 3,
+      "fechas": ["2026-04-14", "2026-04-14", "2026-04-15"],
+      "estado": "corregido",
+      "solucion": "Frontend timeout aumentado de 75s a 180s. Backend usa 60s texto / 90s imagenes con 2 reintentos.",
+      "archivos_afectados": ["templates/index.html", "server.py", "notebooklm_skill/scripts/config.py"],
+      "lineas_clave": "AbortController timeout, timeout_consulta, QUERY_TIMEOUT_SECONDS",
+      "prevencion": "Frontend timeout debe ser >= (backend_timeout * max_intentos + backoff_total). Actualmente: 180s >= (90*2 + 10)"
+    },
+    {
+      "id": "ERR-003",
+      "titulo": "Codigo arancelario inexistente como resultado principal",
+      "componente": "notebooklm_skill/scripts/supervisor_interno.py",
+      "tipo": "clasificacion/datos",
+      "reportado": 2,
+      "fechas": ["2026-04-14", "2026-04-14"],
+      "estado": "corregido",
+      "solucion": "_check_fuentes_pdf auto-promueve extension correcta. Retorna ERROR->CORREGIDA.",
+      "archivos_afectados": ["notebooklm_skill/scripts/supervisor_interno.py"],
+      "lineas_clave": "_check_fuentes_pdf()",
+      "prevencion": "Siempre verificar codigo contra fuentes PDF antes de retornar al usuario"
+    },
+    {
+      "id": "ERR-004",
+      "titulo": "Gravamen incorrecto (0% cuando deberia ser mayor)",
+      "componente": "notebooklm_skill/scripts/verificador_arancelario.py",
+      "tipo": "clasificacion/datos",
+      "reportado": 3,
+      "fechas": ["2026-04-13", "2026-04-14", "2026-04-15"],
+      "estado": "corregido",
+      "solucion": "Cache arancel con 7616 codigos, blacklist anti-regresion, _GRAVAMEN_MINIMO_POR_CAPITULO como red seguridad.",
+      "archivos_afectados": ["notebooklm_skill/scripts/verificador_arancelario.py", "notebooklm_skill/data/fuentes_nomenclatura/arancel_cache.json"],
+      "lineas_clave": "_validar_gravamen_python(), _cargar_blacklist()",
+      "prevencion": "Consultar cache/blacklist ANTES de usar respuesta de Gemini"
+    },
+    {
+      "id": "ERR-005",
+      "titulo": "No se pudo obtener respuesta del sistema de IA",
+      "componente": "server.py",
+      "tipo": "timeout/performance",
+      "reportado": 3,
+      "fechas": ["2026-04-13", "2026-04-14", "2026-04-15"],
+      "estado": "corregido",
+      "solucion": "3 intentos con backoff exponencial (2^n + jitter). Timeouts se reintentan automaticamente.",
+      "archivos_afectados": ["server.py"],
+      "lineas_clave": "ask_notebooklm(), _ejecutar_gemini()",
+      "prevencion": "Nunca usar un solo intento sin backoff para llamadas a API externas"
+    },
+    {
+      "id": "ERR-006",
+      "titulo": "Casilla contrasena actual bloqueada confunde en primer acceso",
+      "componente": "templates/index.html",
+      "tipo": "UX/frontend",
+      "reportado": 2,
+      "fechas": ["2026-04-15", "2026-04-15"],
+      "estado": "corregido",
+      "solucion": "Ocultar passActualWrap completamente en primer acceso (display:none). El valor se envia automaticamente.",
+      "archivos_afectados": ["templates/index.html"],
+      "lineas_clave": "abrirModalPass(), passActualWrap",
+      "prevencion": "Campos pre-rellenados que no requieren interaccion del usuario deben ocultarse"
+    }
+  ],
+  "reglas_prevencion": [
+    "Frontend timeout >= backend_timeout * max_intentos + backoff",
+    "Modales y overlays no deben dispararse simultaneamente",
+    "Campos pre-rellenados sin interaccion deben ocultarse",
+    "Siempre verificar cache/blacklist antes de usar respuesta de IA",
+    "API calls externas necesitan retry con backoff exponencial",
+    "Codigos arancelarios siempre validar contra fuentes PDF"
+  ]
+}
