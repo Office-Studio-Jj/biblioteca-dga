@@ -48,6 +48,24 @@
     .btn-installed{background:linear-gradient(135deg,#22c55e,#16a34a)!important;color:#fff!important;box-shadow:0 4px 16px #22c55e33!important}
     .install-hint{font-size:.65rem;color:#475569;text-align:center;margin-top:8px}
 
+    /* Post-install onboarding */
+    .onboarding-section{padding:0 20px;margin-bottom:20px}
+    .onboarding-card{background:linear-gradient(135deg,#0d2818,#1a2e1a);border:1.5px solid #22c55e44;border-radius:16px;padding:20px;text-align:center}
+    .onboarding-check{width:48px;height:48px;background:#22c55e;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;margin:0 auto 12px;box-shadow:0 0 20px #22c55e44}
+    .onboarding-title{font-size:1rem;font-weight:800;color:#22c55e;margin-bottom:4px}
+    .onboarding-subtitle{font-size:.72rem;color:#94a3b8;margin-bottom:18px}
+    .onboarding-steps{text-align:left;margin-bottom:18px}
+    .ob-step{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+    .ob-num{min-width:28px;height:28px;background:#22c55e22;color:#22c55e;border:1.5px solid #22c55e55;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;flex-shrink:0}
+    .ob-text strong{display:block;font-size:.8rem;color:#e2e8f0;margin-bottom:1px}
+    .ob-text span{font-size:.65rem;color:#64748b;line-height:1.35}
+    .btn-onboarding{display:block;width:100%;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:12px;padding:15px;font-size:1.05rem;font-weight:800;text-align:center;text-decoration:none;cursor:pointer;letter-spacing:.3px;box-shadow:0 4px 16px #22c55e33;margin-bottom:10px}
+    .btn-onboarding:active{transform:scale(.98)}
+    .onboarding-alt{font-size:.68rem;color:#475569;text-align:center}
+    .onboarding-alt a{color:#60a5fa;text-decoration:underline;margin-left:4px}
+    @keyframes slideDown{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
+    .onboarding-section.visible{display:block!important;animation:slideDown .4s ease-out}
+
     /* Sections */
     .section{padding:0 20px;margin-bottom:20px}
     .section-title{font-size:.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #1e293b}
@@ -138,6 +156,47 @@
     <div class="install-hint" id="installHint">Preparando instalacion...</div>
     <!-- Fallback link si no soporta install prompt -->
     <a id="fallbackLink" href="{{ app_url }}" style="display:none;text-align:center;margin-top:8px;font-size:.7rem;color:#60a5fa;text-decoration:underline">Abrir en navegador</a>
+  </div>
+
+  <!-- POST-INSTALL ONBOARDING (aparece despues de instalar) -->
+  <div class="onboarding-section" id="onboardingSection" style="display:none">
+    <div class="onboarding-card">
+      <div class="onboarding-check">&#10003;</div>
+      <div class="onboarding-title">App instalada correctamente</div>
+      <div class="onboarding-subtitle">Siguiente paso: crea tu cuenta para empezar a consultar</div>
+
+      <div class="onboarding-steps">
+        <div class="ob-step">
+          <div class="ob-num">1</div>
+          <div class="ob-text">
+            <strong>Crea tu usuario</strong>
+            <span>Nombre, correo, WhatsApp y ubicacion</span>
+          </div>
+        </div>
+        <div class="ob-step">
+          <div class="ob-num">2</div>
+          <div class="ob-text">
+            <strong>Elige tu contrasena</strong>
+            <span>Minimo 6 caracteres — la cambias al entrar</span>
+          </div>
+        </div>
+        <div class="ob-step">
+          <div class="ob-num">3</div>
+          <div class="ob-text">
+            <strong>Empieza a consultar</strong>
+            <span>8 cuadernos listos con asistente virtual</span>
+          </div>
+        </div>
+      </div>
+
+      <a class="btn-onboarding" id="btnCrearCuenta" href="{{ app_url }}/registro">
+        Crear mi cuenta ahora
+      </a>
+      <div class="onboarding-alt">
+        <span>¿Ya tienes cuenta?</span>
+        <a href="{{ app_url }}/invitado" class="onboarding-link">Iniciar sesion</a>
+      </div>
+    </div>
   </div>
 
   <!-- Screenshots / Previews -->
@@ -286,15 +345,36 @@ const ROL       = "{{ rol_titulo }}";
 
 // ── PWA Install Prompt ──────────────────────────────────────────────
 let deferredPrompt = null;
-const btnInstall   = document.getElementById('btnInstall');
-const installHint  = document.getElementById('installHint');
-const fallbackLink = document.getElementById('fallbackLink');
+const btnInstall      = document.getElementById('btnInstall');
+const installHint     = document.getElementById('installHint');
+const fallbackLink    = document.getElementById('fallbackLink');
+const onboardingPanel = document.getElementById('onboardingSection');
 
 // Detectar si ya esta instalada (standalone o localStorage)
 function isInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches
       || window.navigator.standalone === true
       || localStorage.getItem('dga_app_installed') === '1';
+}
+
+// Mostrar seccion de onboarding post-install
+function showOnboarding() {
+  onboardingPanel.classList.add('visible');
+  // Scroll suave hacia el onboarding
+  setTimeout(function() {
+    onboardingPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 300);
+}
+
+// Marcar como instalada y mostrar onboarding
+function markInstalled() {
+  localStorage.setItem('dga_app_installed', '1');
+  btnInstall.textContent = 'App Instalada';
+  btnInstall.classList.add('btn-installed');
+  btnInstall.disabled = true;
+  installHint.textContent = 'La app ya esta en tu pantalla de inicio';
+  fallbackLink.style.display = 'none';
+  showOnboarding();
 }
 
 // Estado inicial del boton
@@ -304,6 +384,7 @@ function initInstallButton() {
     btnInstall.classList.add('btn-installed');
     btnInstall.disabled = true;
     installHint.textContent = 'La app ya esta en tu pantalla de inicio';
+    showOnboarding();
     return;
   }
   // Estado por defecto: enlace directo (fallback para iOS/navegadores sin soporte)
@@ -341,28 +422,20 @@ window.addEventListener('beforeinstallprompt', function(e) {
     const result = await deferredPrompt.userChoice;
 
     if (result.outcome === 'accepted') {
-      localStorage.setItem('dga_app_installed', '1');
-      btnInstall.textContent = 'App Instalada';
-      btnInstall.classList.add('btn-installed');
-      installHint.textContent = 'Busca el icono en tu pantalla de inicio';
+      deferredPrompt = null;
+      markInstalled();
     } else {
       btnInstall.disabled = false;
       btnInstall.textContent = 'Instalar App';
       installHint.textContent = 'Puedes instalarla cuando quieras';
     }
-    deferredPrompt = null;
   };
 });
 
 // Detectar instalacion completada (cualquier metodo)
 window.addEventListener('appinstalled', function() {
-  localStorage.setItem('dga_app_installed', '1');
   deferredPrompt = null;
-  btnInstall.textContent = 'App Instalada';
-  btnInstall.classList.add('btn-installed');
-  btnInstall.disabled = true;
-  installHint.textContent = 'Busca el icono en tu pantalla de inicio';
-  fallbackLink.style.display = 'none';
+  markInstalled();
 });
 
 // Registrar Service Worker (requerido para install prompt)
