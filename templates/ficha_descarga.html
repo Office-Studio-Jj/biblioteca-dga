@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Biblioteca DGA — {{ rol_titulo }}</title>
   <meta name="theme-color" content="#0f172a">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Puertos y Aduanas">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <meta property="og:title" content="Biblioteca DGA — {{ rol_titulo }}">
   <meta property="og:description" content="App oficial de consulta aduanera de la Republica Dominicana. 8 cuadernos especializados con IA.">
   <meta property="og:type" content="website">
@@ -38,6 +44,8 @@
     .install-section{padding:16px 20px}
     .btn-install{display:block;width:100%;background:linear-gradient(135deg,#d4af37,#c9a030);color:#0f172a;border:none;border-radius:12px;padding:15px;font-size:1.05rem;font-weight:800;text-align:center;text-decoration:none;cursor:pointer;letter-spacing:.3px;box-shadow:0 4px 16px #d4af3733}
     .btn-install:active{transform:scale(.98)}
+    .btn-install:disabled{opacity:.6;cursor:default;transform:none}
+    .btn-installed{background:linear-gradient(135deg,#22c55e,#16a34a)!important;color:#fff!important;box-shadow:0 4px 16px #22c55e33!important}
     .install-hint{font-size:.65rem;color:#475569;text-align:center;margin-top:8px}
 
     /* Sections */
@@ -124,10 +132,12 @@
 
   <!-- Install Button -->
   <div class="install-section">
-    <a class="btn-install" id="btnInstall" href="{{ app_url }}">
+    <button class="btn-install" id="btnInstall" type="button">
       Instalar App
-    </a>
-    <div class="install-hint">Toca para abrir la app directamente en tu navegador</div>
+    </button>
+    <div class="install-hint" id="installHint">Preparando instalacion...</div>
+    <!-- Fallback link si no soporta install prompt -->
+    <a id="fallbackLink" href="{{ app_url }}" style="display:none;text-align:center;margin-top:8px;font-size:.7rem;color:#60a5fa;text-decoration:underline">Abrir en navegador</a>
   </div>
 
   <!-- Screenshots / Previews -->
@@ -274,6 +284,95 @@ const APP_URL   = "{{ app_url }}";
 const FICHA_URL = "{{ ficha_url }}";
 const ROL       = "{{ rol_titulo }}";
 
+// ── PWA Install Prompt ──────────────────────────────────────────────
+let deferredPrompt = null;
+const btnInstall   = document.getElementById('btnInstall');
+const installHint  = document.getElementById('installHint');
+const fallbackLink = document.getElementById('fallbackLink');
+
+// Detectar si ya esta instalada (standalone o localStorage)
+function isInstalled() {
+  return window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true
+      || localStorage.getItem('dga_app_installed') === '1';
+}
+
+// Estado inicial del boton
+function initInstallButton() {
+  if (isInstalled()) {
+    btnInstall.textContent = 'App Instalada';
+    btnInstall.classList.add('btn-installed');
+    btnInstall.disabled = true;
+    installHint.textContent = 'La app ya esta en tu pantalla de inicio';
+    return;
+  }
+  // Estado por defecto: enlace directo (fallback para iOS/navegadores sin soporte)
+  btnInstall.textContent = 'Instalar App';
+  installHint.textContent = 'Toca para instalar en tu pantalla de inicio';
+  fallbackLink.style.display = 'block';
+
+  // Clic fallback: abrir la app en el navegador
+  btnInstall.addEventListener('click', function handleFallback() {
+    if (!deferredPrompt) {
+      window.location.href = APP_URL;
+    }
+  });
+}
+
+// Capturar el evento beforeinstallprompt (Chrome, Edge, Samsung Internet, Opera)
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  deferredPrompt = e;
+
+  // Activar boton de instalacion nativa
+  btnInstall.textContent = 'Instalar App';
+  btnInstall.disabled = false;
+  btnInstall.classList.remove('btn-installed');
+  installHint.textContent = 'Toca para instalar como app en tu dispositivo';
+  fallbackLink.style.display = 'none';
+
+  // Reemplazar listener del boton
+  btnInstall.onclick = async function() {
+    if (!deferredPrompt) return;
+    btnInstall.disabled = true;
+    btnInstall.textContent = 'Instalando...';
+
+    deferredPrompt.prompt();
+    const result = await deferredPrompt.userChoice;
+
+    if (result.outcome === 'accepted') {
+      localStorage.setItem('dga_app_installed', '1');
+      btnInstall.textContent = 'App Instalada';
+      btnInstall.classList.add('btn-installed');
+      installHint.textContent = 'Busca el icono en tu pantalla de inicio';
+    } else {
+      btnInstall.disabled = false;
+      btnInstall.textContent = 'Instalar App';
+      installHint.textContent = 'Puedes instalarla cuando quieras';
+    }
+    deferredPrompt = null;
+  };
+});
+
+// Detectar instalacion completada (cualquier metodo)
+window.addEventListener('appinstalled', function() {
+  localStorage.setItem('dga_app_installed', '1');
+  deferredPrompt = null;
+  btnInstall.textContent = 'App Instalada';
+  btnInstall.classList.add('btn-installed');
+  btnInstall.disabled = true;
+  installHint.textContent = 'Busca el icono en tu pantalla de inicio';
+  fallbackLink.style.display = 'none';
+});
+
+// Registrar Service Worker (requerido para install prompt)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/static/sw.js').catch(function() {});
+}
+
+initInstallButton();
+
+// ── Compartir ───────────────────────────────────────────────────────
 const MSG = '🚢 *Biblioteca DGA — ' + ROL + '*\n\n' +
   'Te comparto la app de consulta aduanera de la Republica Dominicana.\n\n' +
   '📲 Instalar: ' + FICHA_URL + '\n\n' +
