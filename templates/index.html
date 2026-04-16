@@ -792,7 +792,7 @@
       {% elif role == 'operativo' %}
       <span class="role-badge operativo">🛡️ Administrador Operativo</span>
       {% else %}
-      <span class="role-badge invitado">👤 Invitado — Solo consultas</span>
+      <span class="role-badge invitado">👤 Usuario — Solo consultas</span>
       {% endif %}
     </div>
   </div>
@@ -998,7 +998,7 @@
             <div>
               <div style="font-size:0.95rem;font-weight:800;color:#e2e8f0;">{{ nombre }}</div>
               <div style="font-size:0.72rem;color:{% if role == 'master' %}#d4af37{% elif role == 'operativo' %}#22c55e{% else %}#93c5fd{% endif %};font-weight:600;margin-top:2px;">
-                {% if role == 'master' %}Administrador Master{% elif role == 'operativo' %}Administrador Operativo{% else %}Usuario Invitado{% endif %}
+                {% if role == 'master' %}Administrador Master{% elif role == 'operativo' %}Administrador Operativo{% else %}Usuario{% endif %}
               </div>
               {% if correo and correo != 'master' %}
               <div style="font-size:0.68rem;color:#64748b;margin-top:2px;">📧 {{ correo }}</div>
@@ -1888,6 +1888,7 @@
   }
 
   /* ── Renderiza el panel del Supervisor General Interno (todos los cuadernos) ── */
+  /* Para usuarios regulares: solo header con resultado. Admin: detalles completos. */
   function _renderSupervisorBox(sd, box) {
     const res = sd.resultado || '';
     let colorClass = 'sup-aprobada';
@@ -1897,6 +1898,34 @@
     else if (res.startsWith('CONDICIONADA')){ colorClass = 'sup-corregida'; icon = '⚠️'; }
     else if (res.startsWith('RECHAZADA')){ colorClass = 'sup-rechazada';   icon = '❌'; }
 
+    const lockIcon = sd.firma ? '🔒' : '🔓';
+    const lockClass = sd.firma ? 'sup-lock-ok' : 'sup-lock-warn';
+    const lockTitle = sd.firma
+      ? 'Bloque firmado con HMAC-SHA256 — autenticidad verificada'
+      : 'Sin firma criptográfica — verificar autenticidad';
+
+    // ── Usuarios regulares: solo resultado y código verificado (sin checks internos) ──
+    if (!IS_MASTER && !IS_OPERATIVO) {
+      const codigoRow = sd.codigoVerificado && sd.codigoVerificado !== 'N/A'
+        ? `<div class="sup-codigo-row">
+            <span class="sup-label">Código verificado:</span>
+            <span class="sup-code">${_esc(sd.codigoVerificado)}</span>
+            <span class="sup-desc-verif">${_esc(sd.descripcionVerif || '')}</span>
+          </div>` : '';
+      box.innerHTML = `
+        <div class="sup-header ${colorClass}">
+          <span class="sup-icon">${icon}</span>
+          <span class="sup-title">SUPERVISOR GENERAL INTERNO</span>
+          <span class="sup-resultado">${_esc(res)}</span>
+          <span class="${lockClass}" title="${lockTitle}">${lockIcon}</span>
+        </div>
+        <div class="sup-body">
+          ${codigoRow}
+        </div>`;
+      return;
+    }
+
+    // ── Admin (master/operativo): detalles completos ──
     const checkRows = (sd.checks || []).map(c => {
       const v = c.val || '';
       const isOk   = v.startsWith('OK');
@@ -1914,12 +1943,6 @@
           <span class="sup-code">${_esc(sd.codigoVerificado)}</span>
           <span class="sup-desc-verif">${_esc(sd.descripcionVerif || '')}</span>
         </div>` : '';
-
-    const lockIcon = sd.firma ? '🔒' : '🔓';
-    const lockClass = sd.firma ? 'sup-lock-ok' : 'sup-lock-warn';
-    const lockTitle = sd.firma
-      ? 'Bloque firmado con HMAC-SHA256 — autenticidad verificada'
-      : 'Sin firma criptográfica — verificar autenticidad';
 
     box.innerHTML = `
       <div class="sup-header ${colorClass}">

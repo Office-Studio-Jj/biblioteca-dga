@@ -121,6 +121,40 @@ HISTORIAL_FILE   = str(_DATA_DIR / "historial_invitados.json")
 RECOVERY_FILE    = str(_DATA_DIR / "recuperaciones.json")
 CUADERNOS_FILE   = str(_DATA_DIR / "cuadernos.json")
 
+# ── Notificación WhatsApp al admin (CallMeBot API) ────────────────────────
+_ADMIN_WHATSAPP = "18093547636"  # (809)354-7636 con código país +1 RD
+
+def _notificar_whatsapp_registro(nombre, correo, whatsapp_usuario):
+    """Envía WhatsApp al admin cuando alguien se registra. No bloquea si falla."""
+    apikey = os.environ.get("CALLMEBOT_APIKEY", "")
+    if not apikey:
+        print(f"[WA_NOTIFY] Sin CALLMEBOT_APIKEY — registro de {correo} no notificado por WhatsApp")
+        return False
+    try:
+        import urllib.request
+        import urllib.parse
+        mensaje = (
+            f"📲 Nuevo registro en Biblioteca DGA\n\n"
+            f"Nombre: {nombre}\n"
+            f"Correo: {correo}\n"
+            f"WhatsApp: {whatsapp_usuario}\n"
+            f"Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        )
+        url = (
+            f"https://api.callmebot.com/whatsapp.php"
+            f"?phone={_ADMIN_WHATSAPP}"
+            f"&text={urllib.parse.quote(mensaje)}"
+            f"&apikey={apikey}"
+        )
+        req = urllib.request.Request(url, method='GET')
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            status = resp.status
+            print(f"[WA_NOTIFY] Enviado a {_ADMIN_WHATSAPP} — status={status}")
+            return status == 200
+    except Exception as e:
+        print(f"[WA_NOTIFY] Error enviando WhatsApp: {e}")
+        return False
+
 # ── Helpers de historial (solo admin puede ver/gestionar) ────────────────
 def load_historial():
     try:
@@ -310,6 +344,14 @@ def registro():
         data["usuarios"].append(nuevo)
         save_users(data)
         log_historial(correo, nuevo["nombre"], "registro", "Nuevo usuario registrado")
+
+        # Notificar al admin por WhatsApp (no bloquea si falla)
+        import threading
+        threading.Thread(
+            target=_notificar_whatsapp_registro,
+            args=(nuevo["nombre"], correo, nuevo["whatsapp"]),
+            daemon=True
+        ).start()
 
         session.permanent               = True
         session["logged_in"]            = True

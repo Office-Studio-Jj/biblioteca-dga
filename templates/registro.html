@@ -82,6 +82,12 @@
         <label>Correo electrónico <span class="required">*</span></label>
         <input type="email" name="correo" placeholder="correo@ejemplo.com" required>
       </div>
+
+      <div class="field">
+        <label>WhatsApp <span class="required">*</span></label>
+        <input type="tel" id="whatsappField" name="whatsapp" placeholder="(000)000-0000" required
+               maxlength="13" inputmode="numeric" autocomplete="tel">
+      </div>
     </div>
 
     <button type="submit" class="btn-reg">Crear cuenta y entrar →</button>
@@ -175,6 +181,25 @@
 </style>
 
 <script>
+  // ── Auto-formato WhatsApp (000)000-0000 ──
+  const _waField = document.getElementById('whatsappField');
+  _waField.addEventListener('input', function(e) {
+    let v = this.value.replace(/\D/g, '').slice(0, 10);
+    if (v.length > 6) {
+      this.value = '(' + v.slice(0,3) + ')' + v.slice(3,6) + '-' + v.slice(6);
+    } else if (v.length > 3) {
+      this.value = '(' + v.slice(0,3) + ')' + v.slice(3);
+    } else if (v.length > 0) {
+      this.value = '(' + v;
+    } else {
+      this.value = '';
+    }
+  });
+  // Prevenir letras
+  _waField.addEventListener('keypress', function(e) {
+    if (!/[\d]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Tab') e.preventDefault();
+  });
+
   const _tutorSteps = [
     {
       target: 'input[name="nombre"]',
@@ -189,8 +214,14 @@
       position: 'below'
     },
     {
+      target: '#whatsappField',
+      title: '📱 Paso 3: WhatsApp',
+      body: 'Tu numero de WhatsApp. Se formatea solo: <strong>(809)354-7636</strong>.',
+      position: 'below'
+    },
+    {
       target: '.btn-reg',
-      title: '🚀 Paso 3: Listo!',
+      title: '🚀 Paso 4: Listo!',
       body: 'Presiona el boton y entraras <strong>automaticamente</strong>. La contrasena inicial es <strong>Puertos2024</strong> y podras cambiarla.',
       position: 'above'
     }
