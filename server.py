@@ -443,7 +443,7 @@ def login():
                         log_historial(correo, usuario["nombre"], evento_op, detalle_op)
                         return redirect(url_for("index"))
 
-        elif role_req == "invitado" and pwd_hash == get_guest_hash():
+        elif role_req == "invitado":
             if not correo:
                 error = "Ingresa tu correo registrado para acceder como invitado."
             else:
@@ -454,18 +454,26 @@ def login():
                     error = "Tu acceso ha sido bloqueado por el administrador."
                 else:
                     primer_acceso = not usuario.get("password_changed", False)
-                    session.permanent             = True
-                    session["logged_in"]          = True
-                    session["role"]               = "invitado"
-                    session["correo"]             = correo
-                    session["nombre"]             = usuario["nombre"]
-                    session["must_change_password"] = primer_acceso
-                    if primer_acceso:
-                        session["_first_access_pwd"] = pwd
-                    evento = "primer_acceso" if primer_acceso else "inicio_sesion"
-                    log_historial(correo, usuario["nombre"], evento,
-                                  "Primer acceso — debe cambiar contraseña" if primer_acceso else "Inicio de sesión")
-                    return redirect(url_for("index"))
+                    user_pw_hash = usuario.get("password_hash", "")
+                    # Check personal password first, then shared password
+                    pwd_ok = (user_pw_hash and pwd_hash == user_pw_hash) or \
+                             (not user_pw_hash and pwd_hash == get_guest_hash()) or \
+                             (primer_acceso and pwd_hash == get_guest_hash())
+                    if not pwd_ok:
+                        error = "Contraseña incorrecta. Intenta de nuevo."
+                    else:
+                        session.permanent             = True
+                        session["logged_in"]          = True
+                        session["role"]               = "invitado"
+                        session["correo"]             = correo
+                        session["nombre"]             = usuario["nombre"]
+                        session["must_change_password"] = primer_acceso
+                        if primer_acceso:
+                            session["_first_access_pwd"] = pwd
+                        evento = "primer_acceso" if primer_acceso else "inicio_sesion"
+                        log_historial(correo, usuario["nombre"], evento,
+                                      "Primer acceso — debe cambiar contraseña" if primer_acceso else "Inicio de sesión")
+                        return redirect(url_for("index"))
         else:
             error = "Contraseña incorrecta. Intenta de nuevo."
 
@@ -1022,14 +1030,21 @@ def cambiar_contrasena():
         elif role == "invitado":
             # Solo verificar contraseña actual si NO es primer acceso
             if not es_primer_acceso:
-                if actual_hash != passwords.get("invitado", _DEFAULT_GUEST_HASH):
-                    return jsonify({"error": "La contraseña actual es incorrecta."}), 400
-            passwords["invitado"] = nueva_hash
-            save_passwords(passwords)
-            # Marcar que ya cambio la contrasena
+                usuario = find_user_by_email(correo_session)
+                user_pw_hash = usuario.get("password_hash", "") if usuario else ""
+                if user_pw_hash:
+                    # User has personal password — verify against it
+                    if actual_hash != user_pw_hash:
+                        return jsonify({"error": "La contraseña actual es incorrecta."}), 400
+                else:
+                    # No personal password yet — verify against shared
+                    if actual_hash != passwords.get("invitado", _DEFAULT_GUEST_HASH):
+                        return jsonify({"error": "La contraseña actual es incorrecta."}), 400
+            # Store personal password_hash per user (NOT changing shared password)
             data = load_users()
             for u in data["usuarios"]:
                 if u["correo"].lower() == correo_session.lower():
+                    u["password_hash"]        = nueva_hash
                     u["password_changed"]     = True
                     u["must_change_password"] = False
                     break
@@ -1956,7 +1971,7 @@ def ask_notebooklm(question, notebook_id, timeout=60):
     if gemini_key:
         import time as _time
         import random as _random
-        max_intentos = 2
+        max_intentos = 3
         for intento in range(1, max_intentos + 1):
             print(f"[ASK] Gemini intento {intento}/{max_intentos} — notebook_id={notebook_id} (timeout={timeout}s)")
             answer = _ejecutar_gemini(question, notebook_id, timeout)
@@ -1986,8 +2001,9 @@ def ask_notebooklm(question, notebook_id, timeout=60):
     # ── En cloud: si Gemini no respondió tras retry, error al usuario ──
     if _IS_CLOUD:
         print(f"[ASK] Cloud sin respuesta de Gemini tras {max_intentos if gemini_key else 0} intentos — retornando error al usuario")
-        return ("No se pudo obtener respuesta del sistema de IA. "
-                "Verifica que tu consulta sea clara y concisa, e intenta de nuevo en unos segundos.")
+        return ("El sistema de IA no pudo procesar tu consulta en este momento. "
+                "Intenta reformular tu pregunta de forma más específica (ej: '¿Cuál es el código arancelario de anillos de oro para joyería?') "
+                "y vuelve a consultar. Si el problema persiste, intenta en unos minutos.")
 
     # ── Ruta 2: NotebookLM con navegador (SOLO local/Windows) ────────────
     print(f"[ASK] Usando NotebookLM (navegador) para notebook_id={notebook_id}")

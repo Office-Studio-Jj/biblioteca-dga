@@ -101,7 +101,7 @@
     <input type="hidden" name="role" id="roleInput" value="master">
 
     <div class="roles">
-      <div class="role-btn active-master" id="btnMaster" onclick="setRole('master')">
+      <div class="role-btn" id="btnMaster" onclick="setRole('master')">
         <span class="rico">👑</span>Master
       </div>
       <div class="role-btn" id="btnOperativo" onclick="setRole('operativo')">
@@ -207,7 +207,15 @@
       if (correoField) correoField.value = savedCorreo;
       document.getElementById('recordarme').checked = true;
     } else {
-      setRole('master');
+      // Recuperar rol del intento anterior (tras error de login)
+      const lastRole = sessionStorage.getItem('lastAttemptedRole');
+      if (lastRole) {
+        setRole(lastRole);
+        sessionStorage.removeItem('lastAttemptedRole');
+      } else {
+        // Primera visita: mostrar "Usuario" por defecto
+        setRole('invitado');
+      }
     }
   })();
 
@@ -215,6 +223,8 @@
   document.querySelector('form').addEventListener('submit', function() {
     const correo = (document.getElementById('correoField').value || '').trim();
     const role   = document.getElementById('roleInput').value;
+    // Siempre guardar el rol intentado en sessionStorage para recuperar tras error
+    sessionStorage.setItem('lastAttemptedRole', role);
     if (document.getElementById('recordarme').checked) {
       if (correo) localStorage.setItem(LS_CORREO, correo);
       localStorage.setItem(LS_ROLE, role);
