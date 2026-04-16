@@ -831,7 +831,45 @@ def _obtener_arancel_gemini(api_key):
         return None
 
 
-def ask_gemini(question, notebook_id):
+def _reformular_pregunta(question: str, notebook_id: str, intento: int) -> str:
+    """Reformula la pregunta para reintentos cuando Gemini no responde.
+    Cada intento usa una estrategia diferente para maximizar exito.
+    Solo actua sobre el cuaderno de nomenclaturas.
+    """
+    if notebook_id != "biblioteca-de-nomenclaturas":
+        return question
+
+    q = question.strip()
+
+    if intento == 2:
+        # Estrategia 2: agregar contexto arancelario explicito
+        if "codigo" not in q.lower() and "código" not in q.lower():
+            return (
+                "¿Cuál es el código arancelario de la República Dominicana "
+                "(Arancel 7ma Enmienda) para: " + q + "? "
+                "Incluye el código de 8 dígitos y el gravamen NMF."
+            )
+        return q
+
+    if intento == 3:
+        # Estrategia 3: simplificar al maximo — solo el producto
+        import re as _re
+        simplificada = _re.sub(
+            r'^(cual|cuál|es el|dame|dime|necesito|quiero saber|como clasifico|'
+            r'clasificacion de|código de|codigo de|arancel de|para)\s+',
+            '', q, flags=_re.IGNORECASE
+        ).strip()
+        if simplificada and len(simplificada) > 3:
+            return (
+                "Clasificacion arancelaria RD: " + simplificada +
+                ". Codigo 8 digitos y gravamen."
+            )
+        return q
+
+    return question  # intento 1: pregunta original
+
+
+def ask_gemini(question, notebook_id, _intento=1):
     """Consulta Gemini API. Borrador pasa por Supervisor General Interno (Python)."""
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
@@ -859,10 +897,15 @@ def ask_gemini(question, notebook_id):
             "\n7. Lee la columna GRAV. para el gravamen y EX. ITBIS para exenciones.\n"
         )
 
+    # Reformular la pregunta si es un reintento (intento > 1)
+    question_actual = _reformular_pregunta(question, notebook_id, _intento)
+    if question_actual != question:
+        print(f"[GEMINI] Pregunta reformulada (intento {_intento}): {question_actual[:80]}")
+
     full_prompt = (
         "Contexto: Pregunta de un profesional de aduanas/comercio exterior "
         "de la Republica Dominicana que usa la " + notebook_name + "."
-        + refuerzo + "\n\nPregunta: " + question
+        + refuerzo + "\n\nPregunta: " + question_actual
     )
 
     try:
@@ -882,6 +925,31 @@ def ask_gemini(question, notebook_id):
         answer = response.text.strip()
         t1 = time.time()
         print(f"[GEMINI] Borrador recibido ({len(answer)} chars) en {t1-t0:.1f}s")
+
+        # Gate 1: Validar longitud minima para nomenclaturas
+        # Respuestas muy cortas son refusals o respuestas vacias — marcar como invalidas
+        # para que server.py pueda reintentar con pregunta reformulada.
+        if notebook_id == "biblioteca-de-nomenclaturas" and answer and len(answer) < 80:
+            print(
+                f"[GEMINI] Respuesta demasiado corta para nomenclatura "
+                f"({len(answer)} chars) — marcando como invalida"
+            )
+            answer = ""
+
+        # Gate 2: Validar que la respuesta tiene estructura arancelaria minima
+        if notebook_id == "biblioteca-de-nomenclaturas" and answer:
+            import re as _re
+            tiene_estructura = bool(
+                _re.search(r'\d{4}[\.\d]*', answer) or
+                _re.search(r'capitul[oa]\s+\d', answer, _re.I) or
+                _re.search(r'partida|subpartida|arancelari', answer, _re.I)
+            )
+            if not tiene_estructura and len(answer) > 20:
+                print(
+                    f"[GEMINI] Respuesta sin estructura arancelaria — "
+                    f"posible respuesta generica ({len(answer)} chars)"
+                )
+                answer = ""  # Tratar como vacia para forzar reintento en server.py
 
         # ── VERIFICACION CACHE-FIRST (nomenclatura) ──────────────────────
         # 1. Extraer codigo del borrador
@@ -940,9 +1008,10 @@ def main():
     parser = argparse.ArgumentParser(description="Consulta Gemini API con contexto DGA")
     parser.add_argument("--question", required=True, help="Pregunta a realizar")
     parser.add_argument("--notebook-id", required=True, help="ID del cuaderno DGA")
+    parser.add_argument("--intento", type=int, default=1, help="Numero de intento (para reformulacion)")
     args = parser.parse_args()
 
-    answer = ask_gemini(args.question, args.notebook_id)
+    answer = ask_gemini(args.question, args.notebook_id, _intento=args.intento)
 
     if answer:
         sep = "=" * 60

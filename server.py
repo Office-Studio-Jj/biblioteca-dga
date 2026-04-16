@@ -5,6 +5,7 @@ Acceso protegido con contraseña de administrador
 
 import subprocess
 import os
+import re
 import hashlib
 import secrets
 import json
@@ -1934,9 +1935,9 @@ def _parse_subprocess_answer(output, stderr, notebook_id):
     return answer
 
 
-def _ejecutar_gemini(question, notebook_id, timeout):
+def _ejecutar_gemini(question, notebook_id, timeout, intento=1):
     """Ejecuta ask_gemini.py como subprocess. Retorna respuesta o None."""
-    cmd = [PYTHON, "scripts/ask_gemini.py", "--question", question, "--notebook-id", notebook_id]
+    cmd = [PYTHON, "scripts/ask_gemini.py", "--question", question, "--notebook-id", notebook_id, "--intento", str(intento)]
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONPATH"] = SKILL_DIR
@@ -1965,6 +1966,120 @@ def _ejecutar_gemini(question, notebook_id, timeout):
         return None
 
 
+def _es_respuesta_valida(answer: str, notebook_id: str) -> bool:
+    """Gate 2: Valida que Gemini devolvio una respuesta estructurada, no basura.
+    Rechaza respuestas vacias, demasiado cortas, o negativas explicitas.
+    """
+    if not answer or len(answer.strip()) < 60:
+        return False
+    a_lower = answer.lower()
+    # Rechazar negativas/refusals explicitas
+    rechazos = [
+        "no puedo ayudar", "no tengo informacion", "no tengo suficiente",
+        "lo siento, no", "i cannot", "i'm sorry", "no se puede determinar",
+        "consulta no valida", "pregunta fuera de scope",
+    ]
+    if any(r in a_lower for r in rechazos):
+        print(f"[VALIDACION] Respuesta rechazada — refusal detectado")
+        return False
+    # Para nomenclaturas: debe tener estructura arancelaria o intento de clasificacion
+    if notebook_id == "biblioteca-de-nomenclaturas":
+        tiene_estructura = bool(
+            re.search(r'\d{4}[\.\d]*', answer) or                   # codigo numerico
+            re.search(r'capitul[oa]\s+\d', answer, re.I) or         # "Capitulo 71"
+            re.search(r'partida|subpartida|arancelari', answer, re.I)  # terminologia
+        )
+        if not tiene_estructura:
+            print(f"[VALIDACION] Respuesta rechazada — sin estructura arancelaria ({len(answer)} chars)")
+            return False
+    return True
+
+
+def _consultar_cache_fallback(question: str, notebook_id: str) -> "str | None":
+    """Gate 3: Busqueda en cache arancelario cuando Gemini no responde.
+    Solo para nomenclaturas. Retorna codigos relevantes con gravamenes verificados.
+    Fuente: arancel_cache.json (7,616 codigos, pdfplumber 0% IA).
+    """
+    if notebook_id != "biblioteca-de-nomenclaturas":
+        return None
+
+    import unicodedata
+    cache_path = os.path.join(
+        os.path.dirname(__file__),
+        "notebooklm_skill", "data", "fuentes_nomenclatura", "arancel_cache.json"
+    )
+    if not os.path.exists(cache_path):
+        return None
+
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+    except Exception:
+        return None
+
+    # Extraer palabras clave de la pregunta (ignorar stopwords)
+    stopwords = {
+        "cual", "cuál", "es", "el", "la", "los", "las", "de", "del",
+        "para", "que", "qué", "un", "una", "como", "código", "codigo",
+        "arancelario", "clasificacion", "clasificación", "arancel",
+        "me", "puedes", "dar", "dime", "cual", "seria", "sería",
+    }
+
+    def _normalizar(txt: str) -> str:
+        txt = unicodedata.normalize("NFKD", txt.lower())
+        return "".join(c for c in txt if not unicodedata.combining(c))
+
+    pregunta_norm = _normalizar(question)
+    palabras = [
+        p for p in re.sub(r'[^\w\s]', ' ', pregunta_norm).split()
+        if len(p) > 3 and p not in stopwords
+    ]
+
+    if not palabras:
+        return None
+
+    # Buscar en cache: score por cuantas palabras clave aparecen en la descripcion
+    resultados = []
+    for codigo, descripcion in cache.items():
+        desc_norm = _normalizar(descripcion)
+        score = sum(1 for p in palabras if p in desc_norm)
+        if score > 0:
+            resultados.append((score, codigo, descripcion))
+
+    if not resultados:
+        return None
+
+    # Top 5 mas relevantes
+    resultados.sort(key=lambda x: x[0], reverse=True)
+    top = resultados[:5]
+
+    # Formatear respuesta de fallback
+    lineas = [
+        "⚠️ RESPUESTA DE EMERGENCIA — CACHE ARANCELARIO VERIFICADO",
+        "",
+        f"El sistema de IA no pudo procesar tu consulta en este momento.",
+        f"Los siguientes códigos del Arancel 7ma Enmienda pueden ser relevantes para:",
+        f"  \"{question.strip()}\"",
+        "",
+        "RESULTADOS DEL CACHE VERIFICADO (pdfplumber, 0% IA):",
+        "─" * 50,
+    ]
+    for score, codigo, descripcion in top:
+        # Extraer gravamen del final de la descripcion
+        m_grav = re.search(r'\b(\d+)%?\s*$', descripcion.strip())
+        grav_str = f" — Gravamen: {m_grav.group(1)}%" if m_grav else ""
+        lineas.append(f"  {codigo}: {descripcion.strip()}{grav_str}")
+
+    lineas += [
+        "─" * 50,
+        "",
+        "⚠️ AVISO: Estos resultados son orientativos basados en búsqueda de palabras clave.",
+        "Para clasificación oficial, reformule su consulta o intente de nuevo en unos segundos.",
+        "Verifique siempre con el Arancel oficial antes de usar en declaraciones aduaneras.",
+    ]
+    return "\n".join(lineas)
+
+
 def ask_notebooklm(question, notebook_id, timeout=60):
     # ── Ruta 1: Gemini API con retry automático + backoff exponencial ──
     gemini_key = os.environ.get("GEMINI_API_KEY", "")
@@ -1974,7 +2089,7 @@ def ask_notebooklm(question, notebook_id, timeout=60):
         max_intentos = 3
         for intento in range(1, max_intentos + 1):
             print(f"[ASK] Gemini intento {intento}/{max_intentos} — notebook_id={notebook_id} (timeout={timeout}s)")
-            answer = _ejecutar_gemini(question, notebook_id, timeout)
+            answer = _ejecutar_gemini(question, notebook_id, timeout, intento=intento)
 
             if answer == "TIMEOUT":
                 if intento < max_intentos:
@@ -1989,8 +2104,12 @@ def ask_notebooklm(question, notebook_id, timeout=60):
                             "Por favor intenta de nuevo — la segunda consulta suele ser más rápida.")
                 break  # No reintentar timeout, ir a fallback
 
-            if answer:
+            if answer and _es_respuesta_valida(answer, notebook_id):
                 return answer + _DISCLAIMER
+            elif answer:
+                # Gemini respondio pero con contenido invalido — reintentar
+                print(f"[ASK] Respuesta invalida de Gemini (intento {intento}) — reintentando...")
+                answer = None  # Forzar reintento
 
             # Sin respuesta — reintentar con backoff exponencial + jitter
             if intento < max_intentos:
@@ -2000,9 +2119,14 @@ def ask_notebooklm(question, notebook_id, timeout=60):
 
     # ── En cloud: si Gemini no respondió tras retry, error al usuario ──
     if _IS_CLOUD:
-        print(f"[ASK] Cloud sin respuesta de Gemini tras {max_intentos if gemini_key else 0} intentos — retornando error al usuario")
+        print(f"[ASK] Cloud sin respuesta de Gemini — intentando fallback cache...")
+        fallback = _consultar_cache_fallback(question, notebook_id)
+        if fallback:
+            print(f"[ASK] Fallback cache exitoso — devolviendo resultados verificados")
+            return fallback + _DISCLAIMER
         return ("El sistema de IA no pudo procesar tu consulta en este momento. "
-                "Intenta reformular tu pregunta de forma más específica (ej: '¿Cuál es el código arancelario de anillos de oro para joyería?') "
+                "Intenta reformular tu pregunta de forma más específica "
+                "(ej: '¿Cuál es el código arancelario de anillos de oro para joyería?') "
                 "y vuelve a consultar. Si el problema persiste, intenta en unos minutos.")
 
     # ── Ruta 2: NotebookLM con navegador (SOLO local/Windows) ────────────
