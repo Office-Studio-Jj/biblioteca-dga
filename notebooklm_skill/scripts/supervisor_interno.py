@@ -832,6 +832,99 @@ def _check_fuente(respuesta: str, notebook_id: str) -> Tuple[str, str]:
                 "la respuesta podria ser generica internacional")
 
 
+def _check_gravamen_arancelario(respuesta: str) -> Tuple[str, str, str]:
+    """GATE 2: Valida el gravamen en la respuesta contra las fuentes verificadas.
+
+    Consulta en orden de prioridad:
+    1. correcciones_manuales.json  (maxima prioridad — humano verificado)
+    2. arancel_cache.json          (7,616 codigos, pdfplumber 0% IA)
+    3. gravamenes_lookup.json      (cobertura extendida, tabla posicional)
+
+    Returns: (respuesta_corregida, estado, mensaje)
+    """
+    # Solo aplica a respuestas arancelarias con codigo y gravamen
+    if "SUBPARTIDA_NAC:" not in respuesta:
+        return respuesta, "OK", "No aplica (sin codigo arancelario)"
+
+    m_cod = re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', respuesta)
+    if not m_cod:
+        return respuesta, "OK", "Sin codigo XXXX.XX.XX en respuesta"
+    codigo = m_cod.group(1)
+
+    m_grav = re.search(r'(?:GRAVAMEN|Gravamen|gravamen)[^:]*:\s*(\d+)\s*%', respuesta)
+    if not m_grav:
+        return respuesta, "OBSERVACION", f"No se detecto gravamen para verificar ({codigo})"
+    grav_respuesta = int(m_grav.group(1))
+
+    # ── Verificar contra las tres fuentes ──────────────────────────────────
+    _BASE = os.path.join(os.path.dirname(__file__), '..', 'data', 'fuentes_nomenclatura')
+
+    grav_verificado = None
+    fuente = None
+
+    # Prioridad 1: correcciones_manuales.json
+    try:
+        with open(os.path.join(_BASE, 'correcciones_manuales.json'), 'r', encoding='utf-8') as _f:
+            _cm = json.load(_f)
+        _corr = _cm.get('correcciones', {}).get(codigo, {})
+        if _corr and 'gravamen' in _corr:
+            grav_verificado = int(_corr['gravamen'])
+            fuente = "correcciones_manuales"
+    except Exception:
+        pass
+
+    # Prioridad 2: arancel_cache.json
+    if grav_verificado is None:
+        try:
+            with open(os.path.join(_BASE, 'arancel_cache.json'), 'r', encoding='utf-8') as _f:
+                _cache = json.load(_f)
+            _desc = _cache.get(codigo, "")
+            if _desc:
+                _m = re.search(r'\b(\d+)%?$', _desc.strip())
+                if not _m:
+                    _m = re.search(r'\s(\d+)\s*$', _desc.strip())
+                if _m:
+                    grav_verificado = int(_m.group(1))
+                    fuente = "arancel_cache"
+        except Exception:
+            pass
+
+    # Prioridad 3: gravamenes_lookup.json
+    if grav_verificado is None:
+        try:
+            with open(os.path.join(_BASE, 'gravamenes_lookup.json'), 'r', encoding='utf-8') as _f:
+                _lookup = json.load(_f)
+            _entry = _lookup.get(codigo, {})
+            if _entry and 'g' in _entry:
+                grav_verificado = int(_entry['g'])
+                fuente = "gravamenes_lookup"
+        except Exception:
+            pass
+
+    # ── Evaluar resultado ───────────────────────────────────────────────────
+    if grav_verificado is None:
+        return (respuesta, "OBSERVACION",
+                f"Gravamen {grav_respuesta}% para {codigo} — sin fuente verificable (incluir en cache)")
+
+    if grav_respuesta != grav_verificado:
+        # Correccion forzada en el supervisor
+        respuesta = re.sub(
+            r'((?:GRAVAMEN|Gravamen|gravamen)[^:]*:\s*)\d+(\s*%)',
+            rf'\g<1>{grav_verificado}\2',
+            respuesta, flags=re.IGNORECASE
+        )
+        respuesta = re.sub(
+            r'((?:Ad[\s\-]*Valorem|Derecho\s+Ad[\s\-]*Valorem)[^:]*:\s*)\d+(\s*%)',
+            rf'\g<1>{grav_verificado}\2',
+            respuesta, flags=re.IGNORECASE
+        )
+        return (respuesta, "ERROR",
+                f"CORREGIDO: {codigo} gravamen {grav_respuesta}%→{grav_verificado}% segun {fuente} (Arancel 7ma Enmienda)")
+
+    return (respuesta, "OK",
+            f"{codigo} gravamen {grav_respuesta}% VERIFICADO segun {fuente}")
+
+
 def _check_fuentes_pdf(respuesta: str, pregunta: str, notebook_id: str) -> Tuple[str, str, str]:
     """
     Valida la respuesta contra las fuentes PDF locales del cuaderno nomenclatura.
@@ -1011,7 +1104,11 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
     # Check 7: Alertas de seguridad (inyecciones se bloquean automaticamente = OK)
     checks.append(("Seguridad", "OK", "OK"))
 
-    # Check 8: Validacion contra fuentes PDF locales (nomenclatura)
+    # Check 8: Gravamen — validacion legal obligatoria
+    respuesta, st_grav, msg_grav = _check_gravamen_arancelario(respuesta)
+    checks.append(("Gravamen", st_grav, msg_grav))
+
+    # Check 9: Validacion contra fuentes PDF locales (nomenclatura)
     # _check_fuentes_pdf ahora retorna 3 valores (puede auto-corregir respuesta)
     respuesta, st_pdf, msg_pdf = _check_fuentes_pdf(respuesta, pregunta, notebook_id)
     checks.append(("FuentesPDF", st_pdf, msg_pdf))

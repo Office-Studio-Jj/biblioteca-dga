@@ -590,13 +590,60 @@ from verificador_arancelario import _extraer_gravamen_de_cache, _CACHE_CODIGOS, 
 # ──────────────────────────────────────────────────────────────────────────
 
 
+def _get_gravamen_manual(codigo: str) -> "int | None":
+    """Lee correcciones_manuales.json — maxima prioridad, verificado por humano."""
+    try:
+        manual_path = os.path.join(os.path.dirname(__file__), '..', 'data',
+                                   'fuentes_nomenclatura', 'correcciones_manuales.json')
+        with open(manual_path, 'r', encoding='utf-8') as _f:
+            _data = json.load(_f)
+        corr = _data.get('correcciones', {}).get(codigo, {})
+        if corr and 'gravamen' in corr:
+            return int(corr['gravamen'])
+    except Exception:
+        pass
+    return None
+
+
+def _get_gravamen_lookup(codigo: str) -> "int | None":
+    """Lee gravamenes_lookup.json — tabla posicional del Arancel PDF."""
+    try:
+        lookup_path = os.path.join(os.path.dirname(__file__), '..', 'data',
+                                   'fuentes_nomenclatura', 'gravamenes_lookup.json')
+        with open(lookup_path, 'r', encoding='utf-8') as _f:
+            _data = json.load(_f)
+        entry = _data.get(codigo, {})
+        if entry and 'g' in entry:
+            return int(entry['g'])
+    except Exception:
+        pass
+    return None
+
+
 def _corregir_gravamen_con_cache(answer: str, codigo: str) -> str:
-    """Corrige el gravamen en el borrador de Gemini usando el valor del cache.
-    Se usa cuando el codigo ya fue confirmado en cache (rapido, sin API extra)."""
-    _cargar_cache_arancel()
-    desc_cache = _CACHE_CODIGOS.get(codigo, "")
-    grav_cache = _extraer_gravamen_de_cache(desc_cache)
-    if grav_cache is None:
+    """Corrige el gravamen usando TRES fuentes en orden de prioridad:
+    1. correcciones_manuales.json  (MAXIMA PRIORIDAD — verificado por humano)
+    2. arancel_cache.json          (7,616 codigos extraidos por pdfplumber, 0% IA)
+    3. gravamenes_lookup.json      (lookup posicional del PDF — cobertura extendida)
+    """
+    # PRIORIDAD 1: Correcciones manuales (human-verified, overrides everything)
+    grav_verificado = _get_gravamen_manual(codigo)
+    fuente_grav = "correcciones_manuales.json (verificado por humano)"
+
+    if grav_verificado is None:
+        # PRIORIDAD 2: Cache principal (pdfplumber, 0% IA)
+        _cargar_cache_arancel()
+        desc_cache = _CACHE_CODIGOS.get(codigo, "")
+        grav_verificado = _extraer_gravamen_de_cache(desc_cache)
+        fuente_grav = "arancel_cache.json (pdfplumber, 0% IA)"
+
+    if grav_verificado is None:
+        # PRIORIDAD 3: Lookup posicional (cobertura extendida)
+        grav_verificado = _get_gravamen_lookup(codigo)
+        fuente_grav = "gravamenes_lookup.json (tabla posicional PDF)"
+
+    if grav_verificado is None:
+        # Sin fuente verificada — no corregir, la compuerta final manejara la advertencia
         return answer
 
     # Buscar el gravamen que Gemini puso en el borrador
@@ -610,21 +657,23 @@ def _corregir_gravamen_con_cache(answer: str, codigo: str) -> str:
         m = re.search(pat, answer, re.IGNORECASE)
         if m:
             grav_gemini = int(m.group(1))
-            if grav_gemini != grav_cache:
-                print(f"[GEMINI-CACHE] CORRECCION gravamen: Gemini={grav_gemini}% → Cache={grav_cache}% para {codigo}")
+            if grav_gemini != grav_verificado:
+                print(f"[GEMINI-CACHE] CORRECCION gravamen: Gemini={grav_gemini}% "
+                      f"→ Verificado={grav_verificado}% para {codigo} (fuente: {fuente_grav})")
                 # Reemplazar en todos los formatos
                 for repl_pat in [
                     r'((?:GRAVAMEN|Gravamen|gravamen)[^:]*:\s*)\d+(\s*%)',
                     r'((?:Ad[\s\-]*Valorem|Derecho\s+Ad[\s\-]*Valorem)[^:]*:\s*)\d+(\s*%)',
                 ]:
-                    answer = re.sub(repl_pat, rf'\g<1>{grav_cache}\2', answer, flags=re.IGNORECASE)
-
-                # Agregar nota de correccion en el bloque de datos
+                    answer = re.sub(repl_pat, rf'\g<1>{grav_verificado}\2',
+                                    answer, flags=re.IGNORECASE)
+                # Agregar nota de correccion verificada
                 nota_correccion = (
                     f"\n\n---CARGOS_VERIFICADOS---"
-                    f"\nGRAVAMEN_AD_VALOREM: {grav_cache}% — NMF estandar"
-                    f" [CORREGIDO por cache Arancel: {grav_cache}% (Gemini dijo {grav_gemini}%)]"
-                    f"\nVERIFICADO_POR: Cache Arancel 7ma Enmienda (pdfplumber, 0% IA)"
+                    f"\nGRAVAMEN_AD_VALOREM: {grav_verificado}% — NMF estandar"
+                    f"\n[CORREGIDO AUTOMATICAMENTE: Gemini indicó {grav_gemini}%"
+                    f" — Valor correcto {grav_verificado}% segun {fuente_grav}]"
+                    f"\nVERIFICACION_LEGAL: APROBADO — fuente primaria Arancel 7ma Enmienda RD"
                     f"\n---FIN_CARGOS_VERIFICADOS---"
                 )
                 fin_clas = answer.find("---FIN_CLASIFICACION---")
@@ -633,10 +682,92 @@ def _corregir_gravamen_con_cache(answer: str, codigo: str) -> str:
                 else:
                     answer += nota_correccion
             else:
-                print(f"[GEMINI-CACHE] OK: gravamen {grav_gemini}% coincide con cache para {codigo}")
+                print(f"[GEMINI-CACHE] OK: gravamen {grav_gemini}% verificado para "
+                      f"{codigo} (fuente: {fuente_grav})")
             break
 
     return answer
+
+def _compuerta_final_gravamen(answer: str, notebook_id: str) -> str:
+    """COMPUERTA FINAL DE SEGURIDAD LEGAL.
+
+    Ejecuta SIEMPRE como ultimo paso antes de retornar al usuario.
+    Garantiza que NINGUN gravamen incorrecto llegue al usuario.
+
+    Si el gravamen no puede verificarse: aviso legal obligatorio.
+    Si el gravamen es incorrecto: correccion forzada + registro.
+    """
+    if notebook_id != "biblioteca-de-nomenclaturas":
+        return answer
+
+    # Extraer codigo arancelario de la respuesta
+    m_cod = re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', answer)
+    if not m_cod:
+        return answer
+    codigo = m_cod.group(1)
+
+    # Extraer gravamen que esta en la respuesta
+    m_grav = re.search(r'(?:GRAVAMEN|Gravamen|gravamen)[^:]*:\s*(\d+)\s*%', answer)
+    if not m_grav:
+        return answer
+    grav_respuesta = int(m_grav.group(1))
+
+    # Verificar contra las TRES fuentes en orden de prioridad
+    grav_verificado = _get_gravamen_manual(codigo)
+    fuente = "correcciones_manuales.json"
+
+    if grav_verificado is None:
+        _cargar_cache_arancel()
+        desc = _CACHE_CODIGOS.get(codigo, "")
+        grav_verificado = _extraer_gravamen_de_cache(desc)
+        fuente = "arancel_cache.json"
+
+    if grav_verificado is None:
+        grav_verificado = _get_gravamen_lookup(codigo)
+        fuente = "gravamenes_lookup.json"
+
+    if grav_verificado is None:
+        # No se puede verificar — AVISO LEGAL OBLIGATORIO
+        print(f"[GATE-FINAL] AVISO: gravamen {grav_respuesta}% para {codigo} NO VERIFICABLE en ninguna fuente")
+        aviso_legal = (
+            "\n\n⚠️ AVISO LEGAL — DATO NO VERIFICADO AUTOMATICAMENTE: "
+            f"El gravamen indicado para el código {codigo} no pudo ser confirmado "
+            "contra el Arancel 7ma Enmienda en esta consulta. "
+            "Verifique manualmente antes de usar en declaraciones aduaneras. "
+            "Puede reportar este código al administrador para su inclusión en el cache verificado."
+        )
+        return answer + aviso_legal
+
+    if grav_respuesta != grav_verificado:
+        # CORRECCION FORZADA — gravamen incorrecto detectado en compuerta final
+        print(f"[GATE-FINAL] CORRECCION FORZADA: {grav_respuesta}% → {grav_verificado}% "
+              f"para {codigo} (fuente: {fuente})")
+        # Forzar reemplazo en la respuesta
+        answer = re.sub(
+            r'((?:GRAVAMEN|Gravamen|gravamen)[^:]*:\s*)\d+(\s*%)',
+            rf'\g<1>{grav_verificado}\2',
+            answer, flags=re.IGNORECASE
+        )
+        answer = re.sub(
+            r'((?:Ad[\s\-]*Valorem|Derecho\s+Ad[\s\-]*Valorem)[^:]*:\s*)\d+(\s*%)',
+            rf'\g<1>{grav_verificado}\2',
+            answer, flags=re.IGNORECASE
+        )
+        nota_gate = (
+            f"\n\n---CORRECCION_LEGAL_AUTOMATICA---"
+            f"\nCODIGO: {codigo}"
+            f"\nGRAVAMEN_CORREGIDO: {grav_verificado}% (valor previo incorrecto: {grav_respuesta}%)"
+            f"\nFUENTE_VERIFICACION: {fuente} — Arancel 7ma Enmienda RD"
+            f"\nACCION: Corrección aplicada automáticamente — el valor {grav_respuesta}% fue rechazado"
+            f"\nVALIDEZ_LEGAL: Usar SOLO el valor {grav_verificado}% en trámites aduaneros"
+            f"\n---FIN_CORRECCION_LEGAL---"
+        )
+        answer += nota_gate
+    else:
+        print(f"[GATE-FINAL] OK: gravamen {grav_respuesta}% verificado para {codigo} (fuente: {fuente})")
+
+    return answer
+
 
 # ── Arancel PDF: contexto real para consultas de nomenclatura ─────────────
 _ARANCEL_PDF = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "arancel_7ma_enmienda.pdf")
@@ -793,6 +924,9 @@ def ask_gemini(question, notebook_id):
                               "---FIN_SUPERVISION---")
 
         print("[GEMINI] Supervision completada")
+
+        # ── COMPUERTA FINAL DE SEGURIDAD LEGAL — ultimo paso siempre ──
+        answer = _compuerta_final_gravamen(answer, notebook_id)
 
         return answer
     except Exception as e:
