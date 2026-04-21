@@ -878,7 +878,8 @@ def _check_gravamen_arancelario(respuesta: str) -> Tuple[str, str, str]:
         try:
             with open(os.path.join(_BASE, 'arancel_cache.json'), 'r', encoding='utf-8') as _f:
                 _cache = json.load(_f)
-            _desc = _cache.get(codigo, "")
+            _codigos = _cache.get("codigos", _cache)
+            _desc = _codigos.get(codigo, "")
             if _desc:
                 _m = re.search(r'\b(\d+)%?$', _desc.strip())
                 if not _m:
