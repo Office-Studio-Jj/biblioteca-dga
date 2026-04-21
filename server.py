@@ -1854,6 +1854,83 @@ def manual_pdf(rol):
         download_name=filename,
     )
 
+@app.route("/api/segunda-opinion", methods=["POST"])
+@login_required
+def api_segunda_opinion():
+    """Busca los top-5 codigos del cache que mejor coinciden con la consulta del usuario."""
+    import re as _re
+    d = request.json or {}
+    query = d.get("query", "").strip()
+    codigo_actual = d.get("codigo_actual", "").strip()
+    if not query:
+        return jsonify({"error": "query requerida"}), 400
+
+    cache_path = os.path.join(SKILL_DIR, "data", "fuentes_nomenclatura", "arancel_cache.json")
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+        codigos = cache.get("codigos", cache)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    # Normalizar query: extraer palabras clave significativas (>=4 chars)
+    palabras = [w.lower() for w in _re.findall(r'[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]{4,}', query)]
+    if not palabras:
+        return jsonify({"error": "Consulta muy corta"}), 400
+
+    # Calcular score por codigo
+    scores = []
+    for codigo, desc in codigos.items():
+        if codigo == codigo_actual:
+            continue
+        desc_lower = desc.lower()
+        score = sum(2 if p in desc_lower else 0 for p in palabras)
+        # Bonus: palabras del inicio de la descripcion (mas especifica)
+        score += sum(1 if p in desc_lower[:60] else 0 for p in palabras)
+        if score > 0:
+            m = _re.search(r'\s+(\d+)\s*$', desc.strip())
+            grav = m.group(1) if m else "?"
+            scores.append((score, codigo, desc, grav))
+
+    scores.sort(reverse=True)
+    top5 = [
+        {"codigo": c, "descripcion": d[:120], "gravamen": g, "score": s}
+        for s, c, d, g in scores[:5]
+    ]
+    return jsonify({"ok": True, "candidatos": top5, "query": query, "palabras_clave": palabras})
+
+
+@app.route("/api/confirmar-clasificacion", methods=["POST"])
+@login_required
+def api_confirmar_clasificacion():
+    """El usuario confirma que el codigo X es el correcto para su consulta.
+    Guarda en correcciones_manuales para que future consultas lo usen."""
+    import re as _re
+    d = request.json or {}
+    codigo = d.get("codigo", "").strip()
+    query = d.get("query", "").strip()
+    gravamen = d.get("gravamen", "").strip()
+    if not codigo or not _re.match(r'^\d{4}\.\d{2}\.\d{2}$', codigo):
+        return jsonify({"error": "Codigo invalido"}), 400
+
+    # Registrar en correcciones con la query como contexto
+    bl = _cargar_blacklist()
+    bl["correcciones"][codigo] = {
+        "gravamen": gravamen,
+        "fecha": __import__('datetime').datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "reportado_por": f"segunda-opinion:{session.get('username','?')}",
+        "query_origen": query[:100]
+    }
+    bl.setdefault("historial", []).append({
+        "codigo": codigo, "gravamen": gravamen,
+        "fecha": __import__('datetime').datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "reportado_por": f"segunda-opinion:{session.get('username','?')}",
+        "query_origen": query[:100]
+    })
+    _guardar_blacklist(bl)
+    return jsonify({"ok": True, "mensaje": f"Clasificacion {codigo} confirmada y guardada"})
+
+
 @app.route("/instalar")
 def instalar():
     server_url = _get_public_url()

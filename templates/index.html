@@ -1368,6 +1368,20 @@
 
 </div><!-- /app -->
 
+<!-- Modal Segunda Opinion -->
+<div class="modal-usuarios" id="modalSegundaOpinion">
+  <div class="modal-u-box" style="max-width:480px;">
+    <h3 style="color:#fde68a;margin-bottom:4px;">🔍 Segunda Opinión</h3>
+    <p style="font-size:0.75rem;color:#94a3b8;margin:0 0 12px;">Selecciona el código correcto. Queda guardado para consultas futuras.</p>
+    <div id="so-loading" style="text-align:center;padding:20px;color:#64748b;">Buscando alternativas...</div>
+    <div id="so-lista" style="display:none;"></div>
+    <div id="so-error" style="display:none;color:#f87171;font-size:0.78rem;padding:8px;"></div>
+    <div style="margin-top:12px;text-align:right;">
+      <button class="u-btn-cancel" onclick="cerrarSegundaOpinion()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Crear / Editar Cuaderno -->
 <div class="modal-usuarios" id="modalCuaderno">
   <div class="modal-u-box">
@@ -2040,6 +2054,12 @@
           ⚠️ Restricciones: <span style="color:#e2e8f0;">${_esc(rest)}</span>
           &nbsp;·&nbsp; Auditoría: <span style="color:${auditColor};font-weight:700;">${_esc(auditVal)}</span>
         </div>
+        <button onclick="abrirSegundaOpinion('${_esc(code)}')"
+          style="width:100%;margin:6px 0 2px;padding:8px;background:rgba(234,179,8,0.12);
+                 border:1px solid rgba(234,179,8,0.35);border-radius:8px;color:#fde68a;
+                 font-size:0.78rem;cursor:pointer;letter-spacing:0.02em;">
+          🔍 Segunda Opinión — ¿Código incorrecto?
+        </button>
         ${detailsBlock}
       </div>`;
   }
@@ -3428,6 +3448,85 @@
 
   function cerrarModalCuaderno() {
     document.getElementById('modalCuaderno').classList.remove('show');
+  }
+
+  // ── Segunda Opinion ──────────────────────────────────────────────────────
+  let _soCodigoActual = '';
+  let _soQuery = '';
+
+  async function abrirSegundaOpinion(codigoActual) {
+    _soCodigoActual = codigoActual;
+    _soQuery = _lastQuery || '';
+    const modal = document.getElementById('modalSegundaOpinion');
+    document.getElementById('so-loading').style.display = 'block';
+    document.getElementById('so-lista').style.display = 'none';
+    document.getElementById('so-error').style.display = 'none';
+    modal.classList.add('show');
+
+    try {
+      const r = await fetch('/api/segunda-opinion', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ query: _soQuery, codigo_actual: codigoActual })
+      });
+      const data = await r.json();
+      document.getElementById('so-loading').style.display = 'none';
+
+      if (!data.ok || !data.candidatos?.length) {
+        document.getElementById('so-error').style.display = 'block';
+        document.getElementById('so-error').textContent = 'No se encontraron alternativas para esta consulta.';
+        return;
+      }
+
+      const lista = document.getElementById('so-lista');
+      lista.innerHTML = `
+        <div style="font-size:0.7rem;color:#64748b;margin-bottom:8px;">
+          Palabras clave: <span style="color:#94a3b8;">${data.palabras_clave.join(', ')}</span>
+        </div>
+        ${data.candidatos.map((c, i) => `
+          <div onclick="confirmarClasificacion('${c.codigo}','${c.gravamen}')"
+            style="background:rgba(15,23,42,0.8);border:1px solid rgba(234,179,8,0.2);
+                   border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;
+                   transition:border-color 0.2s;"
+            onmouseover="this.style.borderColor='rgba(234,179,8,0.6)'"
+            onmouseout="this.style.borderColor='rgba(234,179,8,0.2)'">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+              <span style="color:#fde68a;font-weight:700;font-size:0.9rem;">${c.codigo}</span>
+              <span style="background:rgba(234,179,8,0.15);color:#fde68a;padding:2px 8px;
+                           border-radius:12px;font-size:0.72rem;">Gravamen: ${c.gravamen}%</span>
+            </div>
+            <div style="font-size:0.73rem;color:#cbd5e1;line-height:1.4;">${c.descripcion}</div>
+          </div>
+        `).join('')}`;
+      lista.style.display = 'block';
+    } catch(e) {
+      document.getElementById('so-loading').style.display = 'none';
+      document.getElementById('so-error').style.display = 'block';
+      document.getElementById('so-error').textContent = 'Error al buscar alternativas.';
+    }
+  }
+
+  function cerrarSegundaOpinion() {
+    document.getElementById('modalSegundaOpinion').classList.remove('show');
+  }
+
+  async function confirmarClasificacion(codigo, gravamen) {
+    try {
+      await fetch('/api/confirmar-clasificacion', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ codigo, gravamen, query: _soQuery })
+      });
+    } catch(e) {}
+    cerrarSegundaOpinion();
+    // Mostrar confirmacion rapida
+    const msg = document.createElement('div');
+    msg.textContent = `Clasificacion ${codigo} (${gravamen}%) guardada como correcta`;
+    msg.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);' +
+      'background:#1e293b;border:1px solid rgba(234,179,8,0.4);color:#fde68a;' +
+      'padding:10px 18px;border-radius:10px;font-size:0.8rem;z-index:9999;';
+    document.body.appendChild(msg);
+    setTimeout(() => msg.remove(), 3000);
   }
 
   async function guardarCuaderno() {
