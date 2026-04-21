@@ -1985,6 +1985,57 @@ def api_confirmar_clasificacion():
     return jsonify({"ok": True, "mensaje": f"Clasificacion {codigo} confirmada y guardada"})
 
 
+@app.route("/api/generar-informe-pdf", methods=["POST"])
+@login_required
+def api_generar_informe_pdf():
+    """Compara dos partidas arancelarias y devuelve un PDF descargable."""
+    d           = request.json or {}
+    query       = d.get("query", "").strip()
+    codigo_a    = d.get("codigo_a", "").strip()   # recomendado por Biblioteca
+    codigo_b    = d.get("codigo_b", "").strip()   # seleccionado por usuario
+    gravamen_a  = str(d.get("gravamen_a", ""))
+    gravamen_b  = str(d.get("gravamen_b", ""))
+
+    if not codigo_a or not codigo_b:
+        return jsonify({"error": "Se requieren ambos codigos"}), 400
+
+    # Cargar descripciones desde cache
+    try:
+        sys.path.insert(0, str(Path(__file__).parent / "notebooklm_skill" / "scripts"))
+        from cache_utils import cargar_codigos as _get_codigos
+        codigos = _get_codigos()
+        desc_a  = codigos.get(codigo_a, "")
+        desc_b  = codigos.get(codigo_b, "")
+    except Exception:
+        desc_a = desc_b = ""
+
+    # Análisis comparativo con Claude Haiku
+    try:
+        from comparador_partidas import comparar_partidas
+        analisis = comparar_partidas(query, codigo_a, desc_a, codigo_b, desc_b)
+    except Exception as e:
+        analisis = {
+            "ok": False, "veredicto": "B", "codigo_correcto": codigo_b,
+            "pasos": [{"titulo": "Analisis no disponible", "contenido": str(e)}],
+            "referencias": [], "conclusion": f"Error en analisis: {e}", "error": str(e)
+        }
+
+    # Generar PDF
+    try:
+        from generador_informe_pdf import generar_informe_pdf
+        pdf_bytes = generar_informe_pdf(
+            query, codigo_a, desc_a, gravamen_a,
+            codigo_b, desc_b, gravamen_b, analisis
+        )
+        response = make_response(pdf_bytes)
+        nombre   = f"Informe_Arancelario_{codigo_a}_vs_{codigo_b}.pdf"
+        response.headers["Content-Type"]        = "application/pdf"
+        response.headers["Content-Disposition"] = f'attachment; filename="{nombre}"'
+        return response
+    except Exception as e:
+        return jsonify({"error": f"Error generando PDF: {str(e)[:100]}"}), 500
+
+
 @app.route("/instalar")
 def instalar():
     server_url = _get_public_url()

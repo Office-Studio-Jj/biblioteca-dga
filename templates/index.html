@@ -3484,18 +3484,28 @@
           Palabras clave: <span style="color:#94a3b8;">${data.palabras_clave.join(', ')}</span>
         </div>
         ${data.candidatos.map((c, i) => `
-          <div onclick="confirmarClasificacion('${c.codigo}','${c.gravamen}')"
-            style="background:rgba(15,23,42,0.8);border:1px solid rgba(234,179,8,0.2);
-                   border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;
-                   transition:border-color 0.2s;"
-            onmouseover="this.style.borderColor='rgba(234,179,8,0.6)'"
-            onmouseout="this.style.borderColor='rgba(234,179,8,0.2)'">
+          <div style="background:rgba(15,23,42,0.8);border:1px solid rgba(234,179,8,0.2);
+                   border-radius:8px;padding:10px 12px;margin-bottom:8px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
               <span style="color:#fde68a;font-weight:700;font-size:0.9rem;">${c.codigo}</span>
               <span style="background:rgba(234,179,8,0.15);color:#fde68a;padding:2px 8px;
                            border-radius:12px;font-size:0.72rem;">Gravamen: ${c.gravamen}%</span>
             </div>
-            <div style="font-size:0.73rem;color:#cbd5e1;line-height:1.4;">${c.descripcion}</div>
+            <div style="font-size:0.73rem;color:#cbd5e1;line-height:1.4;margin-bottom:8px;">${c.descripcion}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button onclick="confirmarClasificacion('${c.codigo}','${c.gravamen}')"
+                style="flex:1;min-width:120px;padding:6px 10px;background:rgba(34,197,94,0.15);
+                       border:1px solid rgba(34,197,94,0.4);border-radius:6px;color:#86efac;
+                       font-size:0.72rem;cursor:pointer;">
+                ✓ Este es el correcto
+              </button>
+              <button onclick="generarInformePDF('${_soCodigoActual}','${c.codigo}','${c.gravamen}')"
+                style="flex:1;min-width:120px;padding:6px 10px;background:rgba(59,130,246,0.15);
+                       border:1px solid rgba(59,130,246,0.4);border-radius:6px;color:#93c5fd;
+                       font-size:0.72rem;cursor:pointer;">
+                📄 Comparar y generar informe PDF
+              </button>
+            </div>
           </div>
         `).join('')}`;
       lista.style.display = 'block';
@@ -3527,6 +3537,51 @@
       'padding:10px 18px;border-radius:10px;font-size:0.8rem;z-index:9999;';
     document.body.appendChild(msg);
     setTimeout(() => msg.remove(), 3000);
+  }
+
+  async function generarInformePDF(codigoA, codigoB, gravamenB) {
+    const btn = event.target;
+    const textoOriginal = btn.textContent;
+    btn.textContent = '⏳ Generando informe...';
+    btn.disabled = true;
+
+    try {
+      const r = await fetch('/api/generar-informe-pdf', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          query: _soQuery,
+          codigo_a: codigoA,
+          codigo_b: codigoB,
+          gravamen_a: '',
+          gravamen_b: gravamenB
+        })
+      });
+
+      if (!r.ok) {
+        const err = await r.json();
+        alert('Error: ' + (err.error || 'No se pudo generar el informe'));
+        return;
+      }
+
+      // Descargar PDF automáticamente
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `Informe_${codigoA}_vs_${codigoB}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      cerrarSegundaOpinion();
+    } catch(e) {
+      alert('Error generando informe. Intenta de nuevo.');
+    } finally {
+      btn.textContent = textoOriginal;
+      btn.disabled = false;
+    }
   }
 
   async function guardarCuaderno() {
