@@ -88,6 +88,50 @@ def _security_headers(response):
     response.headers['Content-Security-Policy'] = csp
     return response
 
+# ── Cache de consultas frecuentes ──────────────────────────────────────────
+_CACHE_CONSULTAS_PATH = Path(__file__).parent / "notebooklm_skill" / "data" / "fuentes_nomenclatura" / "consultas_cache.json"
+_CACHE_CONSULTAS: dict = {}
+_CACHE_CONSULTAS_TTL  = 7 * 24 * 3600  # 7 días
+_CACHE_CONSULTAS_MAX  = 500
+
+def _cargar_cache_consultas():
+    global _CACHE_CONSULTAS
+    try:
+        if _CACHE_CONSULTAS_PATH.exists():
+            _CACHE_CONSULTAS = json.loads(_CACHE_CONSULTAS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        _CACHE_CONSULTAS = {}
+
+def _guardar_cache_consultas():
+    try:
+        _CACHE_CONSULTAS_PATH.write_text(
+            json.dumps(_CACHE_CONSULTAS, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception:
+        pass
+
+def _cache_key(question: str, notebook_id: str) -> str:
+    return hashlib.md5((question.lower().strip() + "|" + notebook_id).encode()).hexdigest()
+
+def _get_cached(question: str, notebook_id: str):
+    entry = _CACHE_CONSULTAS.get(_cache_key(question, notebook_id))
+    if not entry:
+        return None
+    if time.time() - entry.get("ts", 0) > _CACHE_CONSULTAS_TTL:
+        del _CACHE_CONSULTAS[_cache_key(question, notebook_id)]
+        return None
+    entry["hits"] = entry.get("hits", 0) + 1
+    return entry["answer"]
+
+def _set_cached(question: str, notebook_id: str, answer: str):
+    if len(_CACHE_CONSULTAS) >= _CACHE_CONSULTAS_MAX:
+        oldest = min(_CACHE_CONSULTAS, key=lambda k: _CACHE_CONSULTAS[k].get("ts", 0))
+        del _CACHE_CONSULTAS[oldest]
+    _CACHE_CONSULTAS[_cache_key(question, notebook_id)] = {"answer": answer, "ts": time.time(), "hits": 0}
+    _guardar_cache_consultas()
+
+_cargar_cache_consultas()
+
 # ── Rate limiter en memoria ─────────────────────────────────────────────
 _rate_limits = defaultdict(list)
 _RATE_CONFIGS = {
@@ -538,6 +582,13 @@ def consultar():
     if _rate_limited(f"consulta:{ip}", 'consulta'):
         return jsonify({"error": "Demasiadas consultas. Espera un momento."}), 429
 
+    # ── Cache hit: respuesta instantánea para consultas repetidas (solo texto) ──
+    if not archivo:
+        cached = _get_cached(question, notebook_id)
+        if cached:
+            print(f"[CACHE_HIT] '{question[:60]}' — devuelto sin llamar a Gemini")
+            return jsonify({"answer": cached, "from_cache": True})
+
     # Si hay archivo adjunto, extraer texto / analizar imagen y añadirlo a la pregunta
     producto_identificado = ""
     if archivo:
@@ -585,6 +636,9 @@ def consultar():
 
     try:
         answer = ask_notebooklm(question, notebook_id, timeout=timeout_consulta)
+        # Guardar en cache solo consultas de texto (no imágenes, no errores)
+        if not archivo and answer and not answer.startswith("[ERROR"):
+            _set_cached(question, notebook_id, answer)
         resp = {"answer": answer}
         if producto_identificado:
             resp["producto_identificado"] = producto_identificado
