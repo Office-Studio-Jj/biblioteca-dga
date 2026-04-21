@@ -152,6 +152,15 @@ def auto_heal_y_guardar():
     reparados = auto_heal(codigos)
 
     if reparados > 0:
+        # Backup en D: antes de modificar
+        try:
+            import sys, os
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+            from backup_dga import capa2_local
+            capa2_local()
+        except Exception:
+            pass
+
         guardar_cache(codigos, meta_extra={
             "auto_heal_ultima": datetime.now().strftime("%Y-%m-%d %H:%M"),
         })
