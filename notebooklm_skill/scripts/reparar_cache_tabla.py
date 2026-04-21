@@ -50,15 +50,15 @@ def cargar_blacklist():
 
 
 def cargar_cache():
-    if os.path.isfile(CACHE_PATH):
-        with open(CACHE_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {"codigos": {}}
+    from cache_utils import cargar_codigos
+    return {"codigos": cargar_codigos()}
 
 
 def guardar_cache(cache):
-    with open(CACHE_PATH, "w", encoding="utf-8") as f:
-        json.dump(cache, f, ensure_ascii=False, indent=2)
+    from cache_utils import guardar_cache as _guardar
+    _guardar(cache.get("codigos", {}), meta_extra={
+        k: v for k, v in cache.items() if k != "codigos"
+    })
 
 
 def dedup_text(text):

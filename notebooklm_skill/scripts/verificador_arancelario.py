@@ -50,9 +50,9 @@ def _cargar_cache_arancel():
     _CACHE_CARGADO = True
     if os.path.isfile(_ARANCEL_CACHE_PATH):
         try:
-            with open(_ARANCEL_CACHE_PATH, "r", encoding="utf-8") as f:
-                cache = json.load(f)
-            _CACHE_CODIGOS = cache.get("codigos", {})
+            from cache_utils import cargar_codigos
+            _CACHE_CODIGOS = cargar_codigos()
+            cache = {"codigos": _CACHE_CODIGOS}
             print(f"[VERIFICADOR] Cache Arancel cargado: {len(_CACHE_CODIGOS)} codigos")
 
             # Auto-heal preventivo: reparar codigos sin gravamen al inicio

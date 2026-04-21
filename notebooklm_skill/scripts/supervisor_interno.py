@@ -876,9 +876,8 @@ def _check_gravamen_arancelario(respuesta: str) -> Tuple[str, str, str]:
     # Prioridad 2: arancel_cache.json
     if grav_verificado is None:
         try:
-            with open(os.path.join(_BASE, 'arancel_cache.json'), 'r', encoding='utf-8') as _f:
-                _cache = json.load(_f)
-            _codigos = _cache.get("codigos", _cache)
+            from cache_utils import cargar_codigos
+            _codigos = cargar_codigos()
             _desc = _codigos.get(codigo, "")
             if _desc:
                 _m = re.search(r'\b(\d+)%?$', _desc.strip())

@@ -241,18 +241,12 @@ def main():
                 if desc_limpia and len(desc_limpia) > 1:
                     codigos_limpios[codigo] = desc_limpia
 
-    # Guardar nuevo cache
-    cache = {
-        "fuente": "Arancel 7ma enmienda de la republica dominicana.pdf",
+    # Guardar nuevo cache via contrato centralizado
+    from cache_utils import guardar_cache
+    guardar_cache(codigos_limpios, meta_extra={
         "paginas": total_paginas,
-        "codigos_extraidos": len(codigos_limpios),
         "metodo": "pdfplumber tables + text + words con dedup (0% IA)",
-        "fecha_extraccion": time.strftime("%Y-%m-%d"),
-        "codigos": codigos_limpios
-    }
-
-    with open(CACHE_PATH, 'w', encoding='utf-8') as f:
-        json.dump(cache, f, ensure_ascii=False, indent=2)
+    })
 
     # Resumen
     caps = set(c[:2] for c in codigos_limpios)

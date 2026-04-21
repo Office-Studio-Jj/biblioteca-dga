@@ -146,16 +146,15 @@ def auto_heal(codigos_cache: dict, silent=False) -> int:
 
 def auto_heal_y_guardar():
     """Carga cache, repara, guarda. Para uso standalone."""
-    cache = _cargar_json(CACHE_PATH)
-    codigos = cache.get("codigos", {})
+    from cache_utils import cargar_codigos, guardar_cache
+    codigos = cargar_codigos()
 
     reparados = auto_heal(codigos)
 
     if reparados > 0:
-        cache["codigos"] = codigos
-        cache["auto_heal_ultima"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-        cache["auto_heal_reparados"] = cache.get("auto_heal_reparados", 0) + reparados
-        _guardar_json(CACHE_PATH, cache)
+        guardar_cache(codigos, meta_extra={
+            "auto_heal_ultima": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        })
         print(f"[AUTO-HEAL] Cache guardado con {reparados} reparaciones")
 
     return reparados
