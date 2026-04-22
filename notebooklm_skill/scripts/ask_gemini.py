@@ -942,7 +942,12 @@ def ask_gemini(question, notebook_id, _intento=1):
         print("[GEMINI] ERROR: GEMINI_API_KEY no esta configurada")
         return None
 
-    client = genai.Client(api_key=api_key)
+    try:
+        client = genai.Client(api_key=api_key)
+    except Exception as _ce:
+        print(f"[GEMINI] ERROR al crear cliente: {_ce}")
+        return None
+
     system_prompt = DGA_CONTEXT.get(notebook_id, DEFAULT_CONTEXT)
     notebook_name = notebook_id.replace("-", " ").title()
 
@@ -979,16 +984,61 @@ def ask_gemini(question, notebook_id, _intento=1):
         t0 = time.time()
         answer = None
 
-        print("[GEMINI] Consultando gemini-2.5-flash (thinking OFF)...")
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=full_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                thinking_config=types.ThinkingConfig(thinking_budget=0),
+        # Intentar con thinking_budget=0 primero; si falla 400, reintentar sin thinking_config
+        # (gemini-2.5-flash tiene bugs conocidos con thinking_budget en algunas versiones)
+        _MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"]
+        _model_used = _MODELS[0]
+        print(f"[GEMINI] Consultando {_model_used} (thinking OFF)...")
+        try:
+            response = client.models.generate_content(
+                model=_model_used,
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                )
             )
-        )
-        answer = response.text.strip()
+        except Exception as _think_err:
+            _err_str = str(_think_err).lower()
+            if "400" in _err_str or "invalid" in _err_str or "thinking" in _err_str:
+                print(f"[GEMINI] thinking_budget=0 falló ({_think_err}) — reintentando sin thinking_config")
+                try:
+                    response = client.models.generate_content(
+                        model=_model_used,
+                        contents=full_prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_prompt,
+                        )
+                    )
+                except Exception as _fallback_err:
+                    print(f"[GEMINI] Fallback sin thinking también falló: {_fallback_err}")
+                    # Último recurso: modelo más estable
+                    _model_used = _MODELS[1]
+                    print(f"[GEMINI] Último recurso: {_model_used}")
+                    response = client.models.generate_content(
+                        model=_model_used,
+                        contents=full_prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_prompt,
+                        )
+                    )
+            else:
+                raise  # Re-raise si no es error de thinking_config
+
+        # response.text puede fallar si hay thinking tokens — usar parts como fallback
+        try:
+            answer = response.text.strip()
+        except Exception as _txt_err:
+            print(f"[GEMINI] response.text falló ({_txt_err}) — extrayendo desde parts")
+            try:
+                answer = "".join(
+                    p.text for p in response.candidates[0].content.parts
+                    if hasattr(p, "text") and p.text
+                ).strip()
+            except Exception as _parts_err:
+                print(f"[GEMINI] Extracción de parts también falló: {_parts_err}")
+                answer = ""
+
         t1 = time.time()
         print(f"[GEMINI] Borrador recibido ({len(answer)} chars) en {t1-t0:.1f}s")
 

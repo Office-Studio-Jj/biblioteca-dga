@@ -21,6 +21,16 @@ app = Flask(__name__, static_folder='static')
 import sys
 from pathlib import Path
 
+# ── Fix encoding: piped stdout en Railway usa ASCII por defecto, causando
+# UnicodeEncodeError cuando se imprime emoji en respuestas de Gemini ──────
+try:
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    if hasattr(sys.stderr, 'reconfigure'):
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
 # ── URL pública centralizada (CAMBIAR AQUÍ si cambia el dominio Railway) ──
 _RAILWAY_PUBLIC_URL = "https://biblioteca-dga-production.up.railway.app"
 
@@ -646,7 +656,9 @@ def consultar():
     except subprocess.TimeoutExpired:
         return jsonify({"error": "Tiempo de espera agotado. Intenta de nuevo."}), 504
     except Exception as e:
-        print(f"[CONSULTAR_ERROR] {e}")
+        import traceback as _tb
+        print(f"[CONSULTAR_ERROR] {type(e).__name__}: {e}")
+        print(f"[CONSULTAR_TRACEBACK]\n{_tb.format_exc()}")
         return jsonify({"error": "Error interno al procesar la consulta. Intente de nuevo."}), 500
 
 
@@ -2212,20 +2224,39 @@ def _ejecutar_gemini(question, notebook_id, timeout, intento=1):
         )
         output = result.stdout or ""
         stderr = result.stderr or ""
-        print(f"[GEMINI_LOG] rc={result.returncode} stdout_len={len(output)} stderr_len={len(stderr)}")
-        print(f"[GEMINI_LOG] stdout_tail={output[-500:]}" if len(output) > 200 else f"[GEMINI_LOG] stdout={output}")
+
+        def _safe_print(msg):
+            """Print tolerante a emoji/caracteres no-ASCII en stdout piped."""
+            try:
+                print(msg)
+            except UnicodeEncodeError:
+                print(msg.encode('ascii', errors='replace').decode('ascii'))
+
+        _safe_print(f"[GEMINI_LOG] rc={result.returncode} stdout_len={len(output)} stderr_len={len(stderr)}")
+        _tail = output[-500:] if len(output) > 200 else output
+        _safe_print(f"[GEMINI_LOG] stdout={'tail' if len(output) > 200 else 'full'}={_tail}")
         if result.returncode != 0:
-            print(f"[GEMINI_LOG] STDERR: {stderr[-500:]}")
+            _safe_print(f"[GEMINI_LOG] STDERR: {stderr[-500:]}")
         answer = _parse_subprocess_answer(output, stderr, notebook_id)
         if answer:
             return answer
-        print(f"[GEMINI_NOANS] Sin respuesta. rc={result.returncode} stderr={stderr[-500:]}")
+        _safe_print(f"[GEMINI_NOANS] Sin respuesta. rc={result.returncode} stderr={stderr[-500:]}")
         return None
     except subprocess.TimeoutExpired:
         print(f"[GEMINI_LOG] Timeout en Gemini ({timeout}s)")
         return "TIMEOUT"
+    except UnicodeEncodeError as _ue:
+        # Este except captura el error de encoding que causaba el 500 original
+        try:
+            print(f"[GEMINI_LOG] UnicodeEncodeError en logging (encoding issue): {type(_ue).__name__}")
+        except Exception:
+            pass
+        return None
     except Exception as e:
-        print(f"[GEMINI_LOG] Excepción: {e}")
+        try:
+            print(f"[GEMINI_LOG] Excepcion: {type(e).__name__}")
+        except Exception:
+            pass
         return None
 
 
@@ -2344,6 +2375,18 @@ def _consultar_cache_fallback(question: str, notebook_id: str) -> "str | None":
 
 
 def ask_notebooklm(question, notebook_id, timeout=60):
+    """Wrapper de seguridad — siempre retorna string, nunca propaga excepciones."""
+    try:
+        return _ask_notebooklm_internal(question, notebook_id, timeout)
+    except Exception as _e:
+        import traceback as _tb
+        print(f"[ASK_FATAL] {type(_e).__name__}: {_e}")
+        print(f"[ASK_FATAL_TRACEBACK]\n{_tb.format_exc()}")
+        return ("El sistema encontró un error inesperado procesando tu consulta. "
+                "Por favor intenta de nuevo en unos segundos.")
+
+
+def _ask_notebooklm_internal(question, notebook_id, timeout=60):
     # ── Ruta 1: Gemini API con retry automático + backoff exponencial ──
     gemini_key = os.environ.get("GEMINI_API_KEY", "")
     if gemini_key:
