@@ -2586,6 +2586,97 @@ def _precalentar_arancel():
 import threading
 threading.Thread(target=_precalentar_arancel, daemon=True).start()
 
+# ══════════════════════════════════════════════════════════════════════════
+# MERCEOLOGIA — Endpoints de fichas merceologicas
+# Integrado con skill merceologia-producto (triple integracion)
+# ══════════════════════════════════════════════════════════════════════════
+
+_MERCEO_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "notebooklm_skill", "data", "merceologia"
+)
+
+
+def _slug_merceo(texto: str) -> str:
+    """Slug consistente con el script generar_ficha.py del skill."""
+    import unicodedata
+    s = (texto or "").strip().lower()
+    s = unicodedata.normalize('NFKD', s)
+    s = ''.join(c for c in s if not unicodedata.combining(c))
+    s = s.replace('ñ', 'n')
+    s = re.sub(r'[^a-z0-9]+', '-', s).strip('-')
+    return s[:60] or "producto-sin-nombre"
+
+
+@app.route("/merceologia")
+def merceologia_listar():
+    """Lista las fichas merceologicas disponibles."""
+    if not os.path.isdir(_MERCEO_DIR):
+        return jsonify({"fichas": [], "total": 0, "dir": _MERCEO_DIR})
+    archivos = sorted([f for f in os.listdir(_MERCEO_DIR) if f.endswith(".md")])
+    fichas = []
+    for f in archivos:
+        ruta = os.path.join(_MERCEO_DIR, f)
+        fichas.append({
+            "slug": f.replace(".md", ""),
+            "archivo": f,
+            "tamano_bytes": os.path.getsize(ruta),
+            "modificado": os.path.getmtime(ruta),
+        })
+    return jsonify({"fichas": fichas, "total": len(fichas)})
+
+
+@app.route("/merceologia/<slug>")
+def merceologia_ver(slug):
+    """Devuelve el contenido de una ficha merceologica."""
+    slug_limpio = _slug_merceo(slug)
+    ruta = os.path.join(_MERCEO_DIR, f"{slug_limpio}.md")
+    if not os.path.isfile(ruta):
+        return jsonify({
+            "error": "Ficha no encontrada",
+            "slug_buscado": slug_limpio,
+            "sugerencia": "Crear con skill merceologia-producto"
+        }), 404
+    try:
+        with open(ruta, "r", encoding="utf-8") as f:
+            contenido = f.read()
+        return jsonify({
+            "slug": slug_limpio,
+            "contenido_md": contenido,
+            "longitud": len(contenido),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/merceologia/buscar")
+def merceologia_buscar():
+    """Busca fichas por termino en el contenido."""
+    q = request.args.get("q", "").strip().lower()
+    if not q or len(q) < 3:
+        return jsonify({"error": "Query minima 3 caracteres"}), 400
+    if not os.path.isdir(_MERCEO_DIR):
+        return jsonify({"hits": []})
+    hits = []
+    for f in os.listdir(_MERCEO_DIR):
+        if not f.endswith(".md"):
+            continue
+        ruta = os.path.join(_MERCEO_DIR, f)
+        try:
+            with open(ruta, "r", encoding="utf-8") as fp:
+                texto = fp.read().lower()
+            if q in texto:
+                idx = texto.find(q)
+                contexto = texto[max(0, idx-80):idx+len(q)+80]
+                hits.append({
+                    "slug": f.replace(".md", ""),
+                    "contexto": contexto.replace("\n", " ").strip(),
+                })
+        except Exception:
+            pass
+    return jsonify({"hits": hits, "total": len(hits), "query": q})
+
+
 # ── Arranque ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import socket
