@@ -194,63 +194,179 @@ def buscar_en_fuentes(termino: str, max_resultados: int = 5) -> List[Dict[str, s
     return resultados[:max_resultados]
 
 
+def _elegir_codigo_corregido(
+    codigo: str,
+    catalogo: Dict[str, str]
+) -> Tuple[Optional[str], Optional[str], str, str]:
+    """
+    Escoge el mejor codigo de reemplazo dado un codigo invalido.
+    Cascada escalonada — cubre la CLASE completa de codigos erroneos:
+
+      1. Subpartida 6 dig (hermanos directos) — extension .XX errada
+      2. Partida 4 dig    (familia extendida) — HS obsoleto / subpartida inventada
+      3. Capitulo 2 dig   (solo metadata informativa, no corregir a ciegas)
+
+    Returns:
+        (codigo_mejor, desc_mejor, nivel, lista_disponibles)
+        - codigo_mejor/desc son None si no hay candidato seguro
+    """
+    codigo_norm = _normalizar_codigo(codigo) or codigo
+    partes = codigo_norm.split('.')
+    if len(partes) != 3:
+        return None, None, "formato invalido", ""
+
+    sub_sa = f"{partes[0]}.{partes[1]}"
+    partida_sa = partes[0]
+
+    # NIVEL 1: hermanos por subpartida 6 dig
+    hermanos_sub = sorted([(c, d) for c, d in catalogo.items()
+                           if c.startswith(sub_sa + ".")])
+    if hermanos_sub:
+        mejor_codigo, mejor_desc = hermanos_sub[0]
+        disp = "; ".join(c for c, _ in hermanos_sub[:8])
+        return mejor_codigo, mejor_desc, "subpartida (extension invalida)", disp
+
+    # NIVEL 2: hermanos por partida 4 dig (HS obsoleto o subpartida inexistente)
+    hermanos_part = sorted([(c, d) for c, d in catalogo.items()
+                            if c.startswith(partida_sa + ".")])
+    if hermanos_part:
+        mejor_codigo, mejor_desc = hermanos_part[0]
+        disp = "; ".join(c for c, _ in hermanos_part[:8])
+        return mejor_codigo, mejor_desc, "partida (HS obsoleto o subpartida inventada)", disp
+
+    # NIVEL 3: solo metadata informativa del capitulo, sin auto-correccion ciega
+    # Retornar None obliga al flujo a RECHAZAR el codigo (auditoria: RECHAZADA)
+    return None, None, "sin candidato — capitulo/partida invalidos", ""
+
+
+def _normalizar_codigo(codigo: str) -> Optional[str]:
+    """
+    Normaliza un codigo arancelario a formato RD estandar: XXXX.XX.XX (8 digitos).
+    Retorna None si no es convertible.
+
+    Maneja variantes comunes de formato erroneo:
+      - Con separadores distintos: 8525-80-90, 8525/80/90  → 8525.80.90
+      - Sin separadores: 85258090                           → 8525.80.90
+      - Ceros faltantes: 8525.8.9                           → 8525.08.09
+      - Extension 10 dig: 8525.80.90.00                     → 8525.80.90 (truncar)
+      - Espacios: " 8525.80.90 "                            → 8525.80.90
+    """
+    if not codigo:
+        return None
+    s = str(codigo).strip()
+    s = re.sub(r'[\s]', '', s)
+    # Reemplazar separadores alternativos por punto
+    s = re.sub(r'[\-/_,]', '.', s)
+
+    # Si ya tiene formato correcto
+    m = re.fullmatch(r'(\d{4})\.(\d{2})\.(\d{2})(?:\.\d+)?', s)
+    if m:
+        return f"{m.group(1)}.{m.group(2)}.{m.group(3)}"
+
+    # Formato sin separadores (8 o mas digitos)
+    digitos = re.sub(r'\D', '', s)
+    if len(digitos) >= 8:
+        return f"{digitos[0:4]}.{digitos[4:6]}.{digitos[6:8]}"
+
+    # Formato con separadores pero digitos desparejos (8525.8.9 -> 8525.08.09)
+    partes = s.split('.')
+    if len(partes) == 3 and all(p.isdigit() for p in partes):
+        if len(partes[0]) == 4:
+            return f"{partes[0]}.{partes[1].zfill(2)[:2]}.{partes[2].zfill(2)[:2]}"
+
+    return None
+
+
 def verificar_codigo_en_fuentes(codigo: str) -> Tuple[bool, str]:
     """
     Verifica si un codigo arancelario existe en las fuentes PDF locales.
     100% Python, 0% IA.
 
-    Estrategia de fallback cuando el codigo exacto no existe:
-      1. Buscar por subpartida SA 6 dig (ej: 8525.80)
-      2. Si no hay extensiones, buscar por partida SA 4 dig (ej: 8525)
-         — cubre casos de codigos HS obsoletos (HS2017 → HS2022)
-      3. Si cache >= 5000 codigos (completo), NO aprobar codigos faltantes
+    Estrategia escalonada (cubre la CLASE completa de codigos invalidos):
+      Paso 0: Normalizar formato (XXXX.XX.XX)
+      Paso 1: Coincidencia exacta en cache
+      Paso 2: Fallback por subpartida SA 6 dig (hermanos directos)
+              — cubre: subpartida invalida con partida correcta,
+                       extension invalida (.XX final)
+      Paso 3: Fallback por partida SA 4 dig (familia extendida)
+              — cubre: codigos HS obsoletos (HS2017 -> HS2022),
+                       partida invalida con capitulo correcto
+      Paso 4: Fallback por capitulo 2 dig (solo metadata)
+              — cubre: capitulo correcto pero todo lo demas errado
+      Paso 5: Busqueda textual en PDFs (ultima oportunidad)
+      Paso 6: Rechazo duro si cache completo (>= 5000 codigos)
+
+    No retorna True para ningun codigo ausente si el cache esta completo.
     """
     _cargar_fuentes_pdf()  # Lazy load
-    # Buscar codigo exacto en el indice
-    if codigo in _CODIGOS_PDF:
-        return True, f"{codigo} ENCONTRADO en fuentes: {_CODIGOS_PDF[codigo]}"
+
+    codigo_norm = _normalizar_codigo(codigo)
+    if not codigo_norm:
+        return False, (f"{codigo} FORMATO INVALIDO. "
+                      f"Esperado XXXX.XX.XX (8 digitos).")
+
+    # Indicador si la normalizacion corrigio el formato
+    formato_corregido = (codigo != codigo_norm)
+    prefijo_formato = f"[formato corregido: {codigo} -> {codigo_norm}] " if formato_corregido else ""
+
+    # PASO 1: coincidencia exacta
+    if codigo_norm in _CODIGOS_PDF:
+        return True, f"{prefijo_formato}{codigo_norm} ENCONTRADO: {_CODIGOS_PDF[codigo_norm]}"
 
     cache_completo = len(_CODIGOS_PDF) >= 5000
 
-    # Buscar por subpartida SA (6 digitos) y partida SA (4 digitos)
-    partes = codigo.split(".")
-    if len(partes) == 3:
-        sub_sa = f"{partes[0]}.{partes[1]}"          # 8525.80
-        partida_sa = partes[0]                        # 8525
+    partes = codigo_norm.split(".")
+    sub_sa = f"{partes[0]}.{partes[1]}"   # 8525.80
+    partida_sa = partes[0]                 # 8525
+    capitulo_sa = partes[0][:2]            # 85
 
-        # Paso 1: extensiones por subpartida 6 dig (prefijo "8525.80.")
-        extensiones = {c: d for c, d in _CODIGOS_PDF.items()
+    # PASO 2: hermanos por subpartida 6 dig
+    extensiones_sub = {c: d for c, d in _CODIGOS_PDF.items()
                        if c.startswith(sub_sa + ".")}
-        if extensiones:
-            ext_list = "; ".join(f"{c} = {d}" for c, d in list(extensiones.items())[:5])
-            return False, (f"{codigo} NO encontrado en fuentes PDF. "
-                          f"Subpartida {sub_sa} tiene estas extensiones: {ext_list}")
+    if extensiones_sub:
+        ext_list = "; ".join(f"{c}={d[:40]}"
+                              for c, d in list(sorted(extensiones_sub.items()))[:6])
+        return False, (f"{prefijo_formato}{codigo_norm} NO existe en Arancel RD. "
+                      f"Extension invalida en subpartida {sub_sa}. "
+                      f"Codigos vigentes de esta subpartida: {ext_list}")
 
-        # Paso 2: fallback por partida 4 dig (codigo HS obsoleto HS2017 -> HS2022)
-        # "8525.80.90" no existe pero la partida "8525" si tiene codigos vigentes
-        extensiones_partida = {c: d for c, d in _CODIGOS_PDF.items()
-                               if c.startswith(partida_sa + ".")}
-        if extensiones_partida:
-            ext_list = "; ".join(f"{c} = {d}"
-                                  for c, d in list(sorted(extensiones_partida.items()))[:8])
-            return False, (f"{codigo} NO existe en Arancel RD (posible codigo HS obsoleto). "
-                          f"Subpartida SA {sub_sa} no existe en RD. "
-                          f"Partida {partida_sa} tiene estos codigos vigentes: {ext_list}")
+    # PASO 3: hermanos por partida 4 dig (HS obsoleto o subpartida invalida)
+    extensiones_part = {c: d for c, d in _CODIGOS_PDF.items()
+                        if c.startswith(partida_sa + ".")}
+    if extensiones_part:
+        ext_list = "; ".join(f"{c}={d[:40]}"
+                              for c, d in list(sorted(extensiones_part.items()))[:8])
+        return False, (f"{prefijo_formato}{codigo_norm} NO existe en Arancel RD. "
+                      f"Subpartida {sub_sa} no existe (posible HS obsoleto o codigo inventado). "
+                      f"Codigos vigentes de partida {partida_sa}: {ext_list}")
 
-    # Buscar directamente en texto de PDFs (por si el indice no lo capturo)
-    hits = buscar_en_fuentes(codigo, max_resultados=2)
+    # PASO 4: hermanos por capitulo 2 dig (estructura de Seccion)
+    extensiones_cap = {c: d for c, d in _CODIGOS_PDF.items()
+                       if c.startswith(capitulo_sa)
+                       and len(c) >= 4
+                       and c[4] == '.'}
+    if extensiones_cap:
+        # Agrupar partidas unicas del capitulo
+        partidas_cap = sorted(set(c.split('.')[0] for c in extensiones_cap))[:12]
+        return False, (f"{prefijo_formato}{codigo_norm} NO existe en Arancel RD. "
+                      f"Partida {partida_sa} no existe en capitulo {capitulo_sa}. "
+                      f"Partidas vigentes del capitulo: {', '.join(partidas_cap)}")
+
+    # PASO 5: busqueda textual (cobertura residual)
+    hits = buscar_en_fuentes(codigo_norm, max_resultados=2)
     if hits:
         ctx = hits[0]["contexto"][:80]
-        return True, f"{codigo} encontrado en {hits[0]['fuente']}: {ctx}"
+        return True, f"{prefijo_formato}{codigo_norm} encontrado textual en {hits[0]['fuente']}: {ctx}"
 
-    # Si el cache esta completo (>= 5000 codigos), un codigo faltante ES invalido
+    # PASO 6: rechazo duro — cache completo garantiza validez
     if cache_completo:
-        return False, (f"{codigo} NO existe en Arancel RD. "
-                      f"Cache completo ({len(_CODIGOS_PDF)} codigos) — codigo invalido.")
+        return False, (f"{prefijo_formato}{codigo_norm} NO existe en Arancel RD. "
+                      f"Capitulo {capitulo_sa} no existe o codigo totalmente invalido. "
+                      f"Cache completo ({len(_CODIGOS_PDF)} codigos).")
 
-    # Cache incompleto: no bloquear por prudencia
-    return True, (f"{codigo} no esta en el indice local (limitado a {len(_CODIGOS_PDF)} codigos). "
-                  f"Codigo puede ser valido — verificado por Gemini contra Arancel")
+    # Cache incompleto (estado degradado) — no bloquear
+    return True, (f"{prefijo_formato}{codigo_norm} no esta en indice local "
+                  f"({len(_CODIGOS_PDF)} codigos — cache degradado). Validacion limitada.")
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -972,80 +1088,70 @@ def _check_fuentes_pdf(respuesta: str, pregunta: str, notebook_id: str) -> Tuple
     if not _FUENTES_TEXTO:
         return respuesta, "OBSERVACION", "Fuentes PDF no cargadas — verificacion limitada"
 
-    # Extraer codigo del bloque de clasificacion si existe
+    # Extraer codigo del bloque de clasificacion si existe.
+    # Regex permisivo: captura tambien formatos defectuosos para corregirlos.
     si = respuesta.find("---DATOS_CLASIFICACION---")
     ei = respuesta.find("---FIN_CLASIFICACION---")
     if si != -1 and ei != -1:
         bloque = respuesta[si:ei]
-        m_code = re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', bloque)
+        m_code = re.search(
+            r'SUBPARTIDA_NAC:\s*([\d][\d\.\-/_\s]{5,20}[\d])',
+            bloque
+        )
         if m_code:
-            codigo = m_code.group(1)
+            codigo_raw = m_code.group(1).strip()
+            codigo = _normalizar_codigo(codigo_raw) or codigo_raw
             existe, msg = verificar_codigo_en_fuentes(codigo)
             if existe:
                 return respuesta, "OK", f"Fuentes PDF: {msg}"
             else:
-                # ── AUTO-CORRECCION: promover extension correcta ──
-                # El codigo NO existe en PDF. Busqueda en 2 niveles:
-                #   1. Subpartida SA 6 dig (ej: 8525.80) — caso estandar
-                #   2. Partida SA 4 dig (ej: 8525)       — HS obsoleto HS2017->HS2022
-                partes = codigo.split(".")
-                if len(partes) == 3:
-                    sub_sa = f"{partes[0]}.{partes[1]}"
-                    partida_sa = partes[0]
+                # ── AUTO-CORRECCION escalonada (cubre la CLASE completa) ──
+                #  Nivel 1: subpartida 6 dig (extension errada en misma subpartida)
+                #  Nivel 2: partida 4 dig    (HS obsoleto o subpartida inventada)
+                #  Nivel 3: capitulo 2 dig   (aviso informativo, sin corregir)
+                mejor_codigo, mejor_desc, nivel_correccion, disponibles = \
+                    _elegir_codigo_corregido(codigo, _CODIGOS_PDF)
 
-                    extensiones = {c: d for c, d in _CODIGOS_PDF.items()
-                                   if c.startswith(sub_sa + ".")}
-                    nivel_correccion = "subpartida"
+                if mejor_codigo:
+                    nota = (f"{mejor_codigo} — {mejor_desc} "
+                            f"[CORREGIDO por FuentesPDF: {codigo_raw} NO EXISTE "
+                            f"en Arancel RD ({nivel_correccion}). "
+                            f"Codigos vigentes: {disponibles}]")
 
-                    # Fallback: codigo HS obsoleto — buscar en partida 4 dig
-                    if not extensiones:
-                        extensiones = {c: d for c, d in _CODIGOS_PDF.items()
-                                       if c.startswith(partida_sa + ".")}
-                        nivel_correccion = "partida (codigo HS obsoleto)"
+                    # Reemplazar SUBPARTIDA_NAC en la respuesta
+                    old_line = re.search(r'SUBPARTIDA_NAC:.*', bloque)
+                    if old_line:
+                        respuesta = respuesta.replace(
+                            old_line.group(0),
+                            f"SUBPARTIDA_NAC: {nota}")
 
-                    if extensiones:
-                        ext_ordenadas = sorted(extensiones.items())
-                        mejor_codigo = ext_ordenadas[0][0]
-                        mejor_desc = ext_ordenadas[0][1]
+                    # Degradar auditoria
+                    respuesta = re.sub(
+                        r'AUDITORIA:\s*APROBADA\b',
+                        'AUDITORIA: CONDICIONADA — codigo corregido por FuentesPDF',
+                        respuesta)
 
-                        disponibles = "; ".join(
-                            f"{c}" for c, d in ext_ordenadas[:8])
+                    # Registrar en biblioteca de errores resueltos
+                    _registrar_error_resuelto(
+                        codigo_original=codigo_raw,
+                        codigo_corregido=mejor_codigo,
+                        motivo=f"NO encontrado en fuentes PDF ({nivel_correccion}). "
+                               f"Corregido a {mejor_codigo}",
+                        fuente="CHECK_FuentesPDF"
+                    )
 
-                        nota = (f"{mejor_codigo} — {mejor_desc} "
-                                f"[CORREGIDO por FuentesPDF: {codigo} NO EXISTE "
-                                f"en Arancel RD ({nivel_correccion}). "
-                                f"Codigos vigentes: {disponibles}]")
+                    print(f"[SUPERVISOR_INTERNO] FuentesPDF AUTO-CORRECCION "
+                          f"[{nivel_correccion}]: {codigo_raw} -> {mejor_codigo}")
+                    return (respuesta, "ERROR",
+                            f"OBSERVACION: Fuentes PDF: {codigo_raw} NO encontrado "
+                            f"({nivel_correccion}). CORREGIDO a {mejor_codigo} — {mejor_desc}")
 
-                        # Reemplazar SUBPARTIDA_NAC en la respuesta
-                        old_line = re.search(r'SUBPARTIDA_NAC:.*', bloque)
-                        if old_line:
-                            respuesta = respuesta.replace(
-                                old_line.group(0),
-                                f"SUBPARTIDA_NAC: {nota}")
-
-                        # Degradar auditoria
-                        respuesta = re.sub(
-                            r'AUDITORIA:\s*APROBADA\b',
-                            'AUDITORIA: CONDICIONADA — codigo corregido por FuentesPDF',
-                            respuesta)
-
-                        # Registrar en biblioteca de errores resueltos
-                        _registrar_error_resuelto(
-                            codigo_original=codigo,
-                            codigo_corregido=mejor_codigo,
-                            motivo=f"NO encontrado en fuentes PDF ({nivel_correccion}). "
-                                   f"Corregido a {mejor_codigo}",
-                            fuente="CHECK_FuentesPDF"
-                        )
-
-                        print(f"[SUPERVISOR_INTERNO] FuentesPDF AUTO-CORRECCION "
-                              f"[{nivel_correccion}]: {codigo} -> {mejor_codigo}")
-                        return (respuesta, "ERROR",
-                                f"OBSERVACION: Fuentes PDF: {codigo} NO encontrado "
-                                f"({nivel_correccion}). CORREGIDO a {mejor_codigo} — {mejor_desc}")
-
-                # Sin extensiones para corregir — solo observacion
-                return respuesta, "OBSERVACION", f"Fuentes PDF: {msg}"
+                # Sin candidatos para corregir — degradar auditoria y observar
+                respuesta = re.sub(
+                    r'AUDITORIA:\s*APROBADA\b',
+                    'AUDITORIA: RECHAZADA — codigo invalido sin candidato de correccion',
+                    respuesta)
+                return respuesta, "ERROR", f"Fuentes PDF: {msg}"
 
     # Verificar que la respuesta menciona conceptos presentes en las fuentes
     pregunta_lower = pregunta.lower()

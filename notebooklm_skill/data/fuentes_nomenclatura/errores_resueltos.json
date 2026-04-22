@@ -163,15 +163,46 @@
     },
     {
       "id": "ERR-012",
-      "titulo": "Partida HS obsoleta emitida como valida (8525.80.90 ya no existe en HS2022)",
-      "sintomas_usuario": ["partidas erroneas", "codigo no existe en el arancel PDF", "partida inventada", "8525.80", "codigo emitido no existe"],
-      "keywords_match": ["partida erronea", "no existe en el arancel", "partida inventada", "HS obsoleto", "HS2017", "8525.80", "codigo emitido invalido"],
+      "titulo": "Codigo arancelario invalido entregado al usuario (CLASE de errores)",
+      "sintomas_usuario": [
+        "partidas erroneas que no existen en el arancel",
+        "codigo inventado",
+        "partida no existe",
+        "HS obsoleto",
+        "extension errada",
+        "formato de codigo invalido",
+        "codigo con guiones",
+        "codigo con mas de 8 digitos"
+      ],
+      "keywords_match": [
+        "codigo invalido", "no existe en el arancel", "partida erronea",
+        "partida inventada", "HS obsoleto", "HS2017", "extension invalida",
+        "subpartida invalida", "capitulo invalido", "formato codigo",
+        "codigo inventado", "partidas erroneas"
+      ],
       "componente": "notebooklm_skill/scripts/supervisor_interno.py",
       "tipo": "clasificacion/datos",
-      "fix_resumen": "Fallback 2 niveles en verificar_codigo_en_fuentes y _check_fuentes_pdf: subpartida 6 dig -> partida 4 dig para detectar codigos HS obsoletos (ej 8525.80 HS2017 -> 8525.8x HS2022). Cache>=5000 rechaza codigos faltantes.",
+      "fix_resumen": "Validador generico escalonado cubre clase completa de codigos invalidos: (1) normalizacion de formato (guiones/espacios/10dig/ceros faltantes), (2) exacto en cache, (3) hermanos subpartida 6dig, (4) hermanos partida 4dig (HS obsoleto), (5) partidas del capitulo 2dig, (6) rechazo duro si cache>=5000. Auto-correccion en _check_fuentes_pdf usa helper centralizado _elegir_codigo_corregido(). Auditoria: APROBADA->CONDICIONADA si se corrige, RECHAZADA si no hay candidato.",
       "archivos": ["notebooklm_skill/scripts/supervisor_interno.py"],
-      "lineas_clave": ["verificar_codigo_en_fuentes()", "_check_fuentes_pdf()", "extensiones_partida fallback", "cache_completo >= 5000"],
-      "verificacion": "python -c \"import sys; sys.path.insert(0,'notebooklm_skill/scripts'); from supervisor_interno import verificar_codigo_en_fuentes; print(verificar_codigo_en_fuentes('8525.80.90'))\" — debe retornar (False, ...codigo HS obsoleto...)",
+      "lineas_clave": [
+        "_normalizar_codigo()",
+        "_elegir_codigo_corregido()",
+        "verificar_codigo_en_fuentes()",
+        "_check_fuentes_pdf()",
+        "cache_completo >= 5000 rechaza faltantes"
+      ],
+      "verificacion": "python -c \"import sys; sys.path.insert(0,'notebooklm_skill/scripts'); from supervisor_interno import verificar_codigo_en_fuentes; assert verificar_codigo_en_fuentes('8525.80.90')[0]==False; assert verificar_codigo_en_fuentes('9999.99.99')[0]==False; assert verificar_codigo_en_fuentes('85258090')[0]==False; print('OK')\"",
+      "casos_clase": [
+        "extension invalida en subpartida valida (ej 8525.89.99)",
+        "HS obsoleto (ej 8525.80.90 HS2017 -> 8525.8x HS2022)",
+        "subpartida inventada con partida valida (ej 8525.99.00)",
+        "partida inventada con capitulo valido (ej 8599.99.99)",
+        "codigo totalmente inventado (ej 9999.99.99)",
+        "formato con guiones (ej 8525-80-90)",
+        "formato sin separadores (ej 85258090)",
+        "10 digitos en vez de 8 (ej 8525.80.90.00)",
+        "ceros faltantes (ej 8525.8.9 -> 8525.08.09)"
+      ],
       "fecha_resolucion": "2026-04-22",
       "commit": "pending"
     }
