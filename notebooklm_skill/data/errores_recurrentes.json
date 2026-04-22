@@ -1,8 +1,8 @@
 {
   "_meta": {
-    "version": "1.0",
+    "version": "2.0",
     "descripcion": "Registro de errores reportados mas de una vez. Fuente para auto-correccion.",
-    "ultima_actualizacion": "2026-04-15"
+    "ultima_actualizacion": "2026-04-21"
   },
   "errores": [
     {
@@ -82,6 +82,76 @@
       "archivos_afectados": ["templates/index.html"],
       "lineas_clave": "abrirModalPass(), passActualWrap",
       "prevencion": "Campos pre-rellenados que no requieren interaccion del usuario deben ocultarse"
+    },
+    {
+      "id": "ERR-007",
+      "titulo": "Invitados bloqueados despues de crear contrasena personal",
+      "componente": "server.py",
+      "tipo": "auth",
+      "reportado": 1,
+      "fechas": ["2026-04-16"],
+      "estado": "corregido",
+      "solucion": "Login de invitado verifica password_hash personal ANTES del hash compartido. Cambio de contrasena guarda hash por usuario en vez de sobrescribir el compartido.",
+      "archivos_afectados": ["server.py", "templates/login.html"],
+      "lineas_clave": "login_invitado(), cambiar_contrasena_invitado(), users[user]['password_hash']",
+      "prevencion": "Hash personal SIEMPRE prevalece sobre hash compartido. Login default tab Invitado, sessionStorage preserva rol",
+      "commit": "8be4e30"
+    },
+    {
+      "id": "ERR-008",
+      "titulo": "Supervisor no accede a los 7616 codigos despues de auto-heal",
+      "componente": "notebooklm_skill/scripts/supervisor_interno.py",
+      "tipo": "cache/datos",
+      "reportado": 1,
+      "fechas": ["2026-04-20"],
+      "estado": "corregido",
+      "solucion": "Usar _cache.get('codigos', _cache) para compatibilidad con formato anidado nuevo (post auto-heal bce7bad).",
+      "archivos_afectados": ["notebooklm_skill/scripts/supervisor_interno.py"],
+      "lineas_clave": "_cache.get('codigos', _cache)",
+      "prevencion": "Auto-heal del cache puede cambiar la estructura. Acceder con .get() defensivo y fallback al objeto raiz",
+      "commit": "dd98a83"
+    },
+    {
+      "id": "ERR-009",
+      "titulo": "Gravamen no es 100% cache-first (depende de variable stale)",
+      "componente": "notebooklm_skill/scripts/ask_gemini.py",
+      "tipo": "clasificacion/datos",
+      "reportado": 1,
+      "fechas": ["2026-04-20"],
+      "estado": "corregido",
+      "solucion": "_compuerta_final_gravamen SIEMPRE inyecta desde cache (no depende de m_grav). _corregir_gravamen_con_cache usa cache_utils directo. 3 patrones extraccion codigo (no solo SUBPARTIDA_NAC). Claude validator opcional con anthropic>=0.50.0.",
+      "archivos_afectados": ["notebooklm_skill/scripts/ask_gemini.py", "notebooklm_skill/scripts/claude_validator.py", "requirements.txt"],
+      "lineas_clave": "_compuerta_final_gravamen(), _corregir_gravamen_con_cache(), claude_validator.py",
+      "prevencion": "Cache-first es OBLIGATORIO no condicional. Nunca depender de variables intermedias para inyectar gravamen",
+      "commit": "d5362e9"
+    },
+    {
+      "id": "ERR-010",
+      "titulo": "ISC NO APLICA en electronicos suntuarios Cap.85 (Videomonitores 8528)",
+      "componente": "notebooklm_skill/scripts/ask_gemini.py",
+      "tipo": "tributario/datos",
+      "reportado": 1,
+      "fechas": ["2026-04-21"],
+      "estado": "corregido",
+      "solucion": "Prompt ISC actualizado con Cap.85 (10% suntuarios). _corregir_isc_con_lookup() gate nuevo ANTES del gate gravamen. isc_lookup.json con 17 codigos verificados 8528/8525/8521.",
+      "archivos_afectados": ["notebooklm_skill/scripts/ask_gemini.py", "notebooklm_skill/data/fuentes_nomenclatura/isc_lookup.json"],
+      "lineas_clave": "_corregir_isc_con_lookup(), prompt ISC Cap.85, Ley 11-92 Art. 375",
+      "prevencion": "ISC gate debe ejecutarse ANTES del gate gravamen. Tabla ISC bienes suntuarios verificada por capitulo",
+      "commit": "4ae6cf0"
+    },
+    {
+      "id": "ERR-011",
+      "titulo": "Error 500 continuo en /consultar por UnicodeEncodeError con emoji",
+      "componente": "server.py + notebooklm_skill/scripts/ask_gemini.py",
+      "tipo": "encoding/produccion",
+      "reportado": 1,
+      "fechas": ["2026-04-21"],
+      "estado": "corregido",
+      "solucion": "4 capas defensa: (1) sys.stdout.reconfigure(encoding=utf-8, errors=replace) al inicio. (2) _safe_print() tolerante a emoji. (3) except UnicodeEncodeError separado. (4) ask_notebooklm() en wrapper try/except con traceback. Tambien: genai.Client() dentro de try/except, fallback automatico thinking_budget=0, fallback response.text via candidates[0].content.parts.",
+      "archivos_afectados": ["server.py", "notebooklm_skill/scripts/ask_gemini.py"],
+      "lineas_clave": "sys.stdout.reconfigure(), _safe_print(), _ejecutar_gemini except UnicodeEncodeError, ask_notebooklm() wrapper",
+      "prevencion": "Railway/Linux usa stdout ASCII por defecto. SIEMPRE reconfigurar UTF-8 con errors=replace al iniciar. Wrapping defensivo en cada print() de respuesta IA",
+      "commit": "292d52a"
     }
   ],
   "reglas_prevencion": [
@@ -90,6 +160,12 @@
     "Campos pre-rellenados sin interaccion deben ocultarse",
     "Siempre verificar cache/blacklist antes de usar respuesta de IA",
     "API calls externas necesitan retry con backoff exponencial",
-    "Codigos arancelarios siempre validar contra fuentes PDF"
+    "Codigos arancelarios siempre validar contra fuentes PDF",
+    "Hash personal SIEMPRE prevalece sobre hash compartido en autenticacion",
+    "Auto-heal cache puede cambiar estructura - usar .get() defensivo",
+    "Cache-first es OBLIGATORIO no condicional para datos arancelarios",
+    "ISC gate ejecuta ANTES del gate gravamen - orden importa",
+    "Reconfigurar stdout a UTF-8 con errors=replace en produccion Railway/Linux",
+    "Toda respuesta IA con emoji debe pasar por _safe_print() defensivo"
   ]
 }
