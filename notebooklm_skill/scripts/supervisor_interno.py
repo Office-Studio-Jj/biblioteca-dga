@@ -1113,6 +1113,23 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
     respuesta, st_pdf, msg_pdf = _check_fuentes_pdf(respuesta, pregunta, notebook_id)
     checks.append(("FuentesPDF", st_pdf, msg_pdf))
 
+    # Check 10: Codigos de alta especificidad — requieren contexto explicito en la consulta
+    # Evita que Gemini clasifique productos genericos bajo partidas muy especificas
+    _CODIGOS_CONTEXTO_OBLIGATORIO = {
+        "8525.89.11": (["termogr", "infrarroj", "térmic", "termica", "thermal", "ir camera"],
+                       "8525.89.11 es cámara termográfica/infrarroja — verifique si el producto es realmente una cámara térmica"),
+        "8525.89.12": (["termogr", "infrarroj", "térmic"],
+                       "8525.89.12 requiere verificación como cámara termográfica"),
+    }
+    m_cod_check10 = re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', respuesta)
+    if m_cod_check10:
+        _cod10 = m_cod_check10.group(1)
+        if _cod10 in _CODIGOS_CONTEXTO_OBLIGATORIO:
+            _kws, _msg = _CODIGOS_CONTEXTO_OBLIGATORIO[_cod10]
+            _pregunta_lower = pregunta.lower()
+            if not any(kw in _pregunta_lower for kw in _kws):
+                checks.append(("ContextoCodigo", "OBSERVACION", _msg))
+
     # ── Determinar resultado ─────────────────────────────────────────────
     errores = [c for c in checks if c[1] == "ERROR"]
     observaciones = [c for c in checks if c[1] == "OBSERVACION"]

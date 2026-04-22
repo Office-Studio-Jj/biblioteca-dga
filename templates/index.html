@@ -1376,6 +1376,37 @@
     <div id="so-loading" style="text-align:center;padding:20px;color:#64748b;">Buscando alternativas...</div>
     <div id="so-lista" style="display:none;"></div>
     <div id="so-error" style="display:none;color:#f87171;font-size:0.78rem;padding:8px;"></div>
+    <!-- Entrada manual de partida -->
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(100,116,139,0.3);">
+      <div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;">¿Conoces el código correcto? Ingrésalo directamente:</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="so-input-manual" type="text" maxlength="10" placeholder="0000.00.00"
+          oninput="this.value=this.value.replace(/[^0-9.]/g,'')"
+          style="flex:1;padding:8px 10px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(234,179,8,0.4);
+                 border-radius:8px;font-size:0.85rem;font-family:monospace;letter-spacing:0.05em;">
+        <button onclick="buscarCodigoManual()"
+          style="padding:8px 14px;background:rgba(234,179,8,0.15);border:1px solid rgba(234,179,8,0.5);
+                 border-radius:8px;color:#fde68a;font-size:0.75rem;cursor:pointer;white-space:nowrap;">
+          🔍 Buscar
+        </button>
+      </div>
+      <div id="so-manual-result" style="display:none;margin-top:8px;background:rgba(15,23,42,0.8);
+           border:1px solid rgba(234,179,8,0.3);border-radius:8px;padding:10px 12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span id="so-manual-codigo" style="color:#fde68a;font-weight:700;font-size:0.9rem;"></span>
+          <span id="so-manual-gravamen" style="background:rgba(234,179,8,0.15);color:#fde68a;
+                padding:2px 8px;border-radius:12px;font-size:0.72rem;"></span>
+        </div>
+        <div id="so-manual-desc" style="font-size:0.73rem;color:#cbd5e1;margin-bottom:8px;"></div>
+        <button onclick="confirmarCodigoManual()"
+          style="width:100%;padding:7px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);
+                 border-radius:6px;color:#86efac;font-size:0.75rem;cursor:pointer;">
+          ✓ Confirmar como correcto
+        </button>
+      </div>
+      <div id="so-manual-error" style="display:none;color:#f87171;font-size:0.75rem;margin-top:6px;padding:6px 8px;
+           background:rgba(248,113,113,0.08);border-radius:6px;"></div>
+    </div>
     <div style="margin-top:12px;text-align:right;">
       <button class="u-btn-cancel" onclick="cerrarSegundaOpinion()">Cancelar</button>
     </div>
@@ -2132,7 +2163,32 @@
       clearTimeout(_tid);
       const data = await res.json();
       if (data.error) {
-        body.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
+        const esTimeout = /tiempo|tardó|tardar|timeout/i.test(data.error);
+        if (esTimeout && _lastQuery) {
+          body.innerHTML = '<div class="loading-row"><div class="spin"></div>Consulta demorada — buscando en cache local...</div>';
+          try {
+            const alt = await fetch('/api/segunda-opinion', {
+              method: 'POST', headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({ query: _lastQuery, codigo_actual: '' })
+            });
+            const altData = await alt.json();
+            if (altData.ok && altData.candidatos?.length) {
+              const lista = altData.candidatos.map(c =>
+                `<div style="padding:6px 0;border-bottom:1px solid rgba(100,116,139,0.2);">
+                  <span style="color:#fde68a;font-weight:700;">${c.codigo}</span>
+                  <span style="color:#64748b;font-size:0.7rem;margin-left:8px;">Grav. ${c.gravamen}%</span>
+                  <div style="color:#94a3b8;font-size:0.72rem;">${c.descripcion.slice(0,90)}</div>
+                </div>`).join('');
+              body.innerHTML = `<div style="color:#f59e0b;font-size:0.8rem;margin-bottom:8px;">⏱ ${data.error}</div>
+                <div style="font-size:0.75rem;color:#64748b;margin-bottom:6px;">Códigos relacionados del Arancel RD:</div>${lista}
+                <div style="margin-top:10px;font-size:0.72rem;color:#475569;">Para resultado completo, vuelve a consultar en unos segundos.</div>`;
+            } else {
+              body.innerHTML = '<span class="error">⏱ ' + data.error + '</span>';
+            }
+          } catch(_) { body.innerHTML = '<span class="error">⏱ ' + data.error + '</span>'; }
+        } else {
+          body.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
+        }
       } else {
         _lastAnswer = data.answer;
         _lastNomenclaturaData = null;
@@ -3461,6 +3517,11 @@
     document.getElementById('so-loading').style.display = 'block';
     document.getElementById('so-lista').style.display = 'none';
     document.getElementById('so-error').style.display = 'none';
+    // Resetear entrada manual
+    document.getElementById('so-input-manual').value = '';
+    document.getElementById('so-manual-result').style.display = 'none';
+    document.getElementById('so-manual-error').style.display = 'none';
+    _soManualCodigo = ''; _soManualGravamen = '';
     modal.classList.add('show');
 
     try {
@@ -3518,6 +3579,52 @@
 
   function cerrarSegundaOpinion() {
     document.getElementById('modalSegundaOpinion').classList.remove('show');
+  }
+
+  let _soManualCodigo = '';
+  let _soManualGravamen = '';
+
+  async function buscarCodigoManual() {
+    const input = document.getElementById('so-input-manual');
+    const codigo = input.value.trim();
+    const errDiv = document.getElementById('so-manual-error');
+    const resDiv = document.getElementById('so-manual-result');
+    errDiv.style.display = 'none';
+    resDiv.style.display = 'none';
+
+    if (!codigo || !/^\d{4}\.\d{2}\.\d{2}$/.test(codigo)) {
+      errDiv.textContent = 'Formato incorrecto. Ejemplo: 9506.91.90';
+      errDiv.style.display = 'block';
+      return;
+    }
+
+    try {
+      const r = await fetch('/api/validar-codigo-manual', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ codigo })
+      });
+      const data = await r.json();
+      if (!data.existe) {
+        errDiv.textContent = data.error || `Código ${codigo} no encontrado en el Arancel RD`;
+        errDiv.style.display = 'block';
+        return;
+      }
+      _soManualCodigo = data.codigo;
+      _soManualGravamen = data.gravamen;
+      document.getElementById('so-manual-codigo').textContent = data.codigo;
+      document.getElementById('so-manual-gravamen').textContent = `Gravamen: ${data.gravamen}%`;
+      document.getElementById('so-manual-desc').textContent = data.descripcion;
+      resDiv.style.display = 'block';
+    } catch(e) {
+      errDiv.textContent = 'Error al buscar. Verifica tu conexión.';
+      errDiv.style.display = 'block';
+    }
+  }
+
+  async function confirmarCodigoManual() {
+    if (!_soManualCodigo) return;
+    await confirmarClasificacion(_soManualCodigo, _soManualGravamen);
   }
 
   async function confirmarClasificacion(codigo, gravamen) {

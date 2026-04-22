@@ -1985,6 +1985,35 @@ def api_confirmar_clasificacion():
     return jsonify({"ok": True, "mensaje": f"Clasificacion {codigo} confirmada y guardada"})
 
 
+@app.route("/api/validar-codigo-manual", methods=["POST"])
+@login_required
+def api_validar_codigo_manual():
+    """Valida y describe un codigo arancelario ingresado manualmente por el usuario."""
+    import re as _re
+    d = request.json or {}
+    codigo = d.get("codigo", "").strip().replace(" ", "")
+    if not _re.match(r'^\d{4}\.\d{2}\.\d{2}$', codigo):
+        return jsonify({"error": "Formato inválido. Usa: XXXX.XX.XX (ej: 9506.91.90)"}), 400
+
+    cache_path = os.path.join(SKILL_DIR, "data", "fuentes_nomenclatura", "arancel_cache.json")
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+        codigos = cache.get("codigos", cache)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    if codigo not in codigos:
+        return jsonify({"existe": False, "codigo": codigo,
+                        "error": f"Código {codigo} no encontrado en el Arancel RD (7,616 códigos verificados)"}), 200
+
+    desc = codigos[codigo]
+    m = _re.search(r'\s+(\d+)\s*$', desc.strip())
+    gravamen = m.group(1) if m else "?"
+    return jsonify({"ok": True, "existe": True, "codigo": codigo,
+                    "descripcion": desc, "gravamen": gravamen})
+
+
 @app.route("/api/generar-informe-pdf", methods=["POST"])
 @login_required
 def api_generar_informe_pdf():
