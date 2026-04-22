@@ -103,21 +103,23 @@ Regla booleana segun la columna EX. ITBIS del Arancel de Aduanas:
 - Si la partida no tiene exencion (campo vacio o sin marcacion): retornar ITBIS = 18% sobre (valor CIF + Gravamen).
 - Productos tipicamente exentos: alimentos basicos de la canasta familiar, medicamentos, insumos agricolas, libros y revistas. En caso de duda sobre la exencion, indicar "18% (verificar exencion en Arancel)".
 
-C. IMPUESTO SELECTIVO AL CONSUMO (ISC) — aplicar segun el capitulo del Arancel:
+C. IMPUESTO SELECTIVO AL CONSUMO (ISC) — aplicar segun el capitulo del Arancel (Ley 11-92 Titulo IV):
 - Capitulo 22 (Bebidas alcoholicas): ISC mixto = Monto Especifico en RD$/litro segun tipo de bebida + Ad Valorem (%) sobre valor CIF.
 - Capitulo 24 (Tabaco y Cigarrillos): ISC mixto = Monto Especifico en RD$/unidad o caja + Ad Valorem (%).
 - Capitulo 27 (Hidrocarburos/Combustibles): ISC = Monto Fijo por unidad de medida segun Ley 112-00 (no es porcentual, es un valor absoluto RD$ por galon/litro).
-- Capitulo 87 (Vehiculos automotores): ISC = Escala progresiva basada en emisiones de CO2 (g/km) y/o cilindrada del motor.
-- Todos los demas capitulos: ISC = NO APLICA.
+- Capitulo 85 (Equipos electronicos — bienes suntuarios): ISC = 10% Ad Valorem sobre CIF. Aplica especificamente a: televisores (8528.7x.xx), monitores (8528.4x-5x-6x), videomonitores (8528.59.10), proyectores (8528.6x), camaras de video (8525.8x), aparatos de grabacion/reproduccion de video (8521.xx). OBLIGATORIO indicar "10% — Ley 11-92 Art. 375, bienes suntuarios" para estos codigos.
+- Capitulo 87 (Vehiculos automotores): ISC = Escala progresiva basada en emisiones de CO2 (g/km) y/o cilindrada del motor segun Ley 253-12.
+- Todos los demas capitulos no listados: ISC = NO APLICA.
+REGLA CRITICA ISC: Nunca pongas "NO APLICA" para partidas del Capitulo 85 listadas arriba. Si el codigo es de la familia 8528.xx o 8525.8x o 8521.xx, el ISC ES 10%.
 
 D. PRESENTACION OBLIGATORIA DE LA CARGA IMPOSITIVA TOTAL:
 Incluir SIEMPRE una tabla con porcentaje y descripcion de cada cargo:
 
-| Impuesto        | Base de Calculo      | Tasa / Monto           | Observacion                        |
-|-----------------|----------------------|------------------------|------------------------------------|
-| Gravamen (NMF)  | Valor CIF            | X%                     | Estandar o preferencial (tratado)  |
-| ITBIS           | CIF + Gravamen       | 18% o EXENTO           | Ley o base de exencion si aplica   |
-| ISC             | Segun tipo (Cap.)    | Monto o % si aplica    | Solo Caps. 22, 24, 27, 87         |
+| Impuesto        | Base de Calculo      | Tasa / Monto           | Observacion                              |
+|-----------------|----------------------|------------------------|------------------------------------------|
+| Gravamen (NMF)  | Valor CIF            | X%                     | Estandar o preferencial (tratado)        |
+| ITBIS           | CIF + Gravamen       | 18% o EXENTO           | Ley o base de exencion si aplica         |
+| ISC             | Segun tipo (Cap.)    | Monto o % si aplica    | Caps. 22, 24, 27, 85 (elec.), 87        |
 
 NOTA CRITICA: Si el Arancel.pdf disponible en la fuente indica una tasa diferente a las estandar, USAR la tasa del Arancel.pdf como fuente primaria. Las tasas de este prompt son orientativas. El Arancel vigente (Septima Enmienda) prevalece siempre.
 
@@ -766,6 +768,73 @@ def _compuerta_final_gravamen(answer: str, notebook_id: str) -> str:
     return answer
 
 
+def _corregir_isc_con_lookup(answer: str, notebook_id: str) -> str:
+    """GATE ISC: Corrige el ISC en la respuesta usando isc_lookup.json.
+    Si Gemini dice 'NO APLICA' para un codigo del Cap. 85 (televisores/monitores),
+    lo corrige a '10% — Ley 11-92 Art. 375, bienes suntuarios'.
+    """
+    if notebook_id != "biblioteca-de-nomenclaturas":
+        return answer
+
+    m = re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', answer)
+    if not m:
+        return answer
+    codigo = m.group(1)
+
+    # Cargar ISC lookup
+    isc_path = os.path.join(os.path.dirname(__file__), '..', 'data',
+                            'fuentes_nomenclatura', 'isc_lookup.json')
+    try:
+        with open(isc_path, 'r', encoding='utf-8') as f:
+            isc_data = json.load(f)
+    except Exception:
+        return answer
+
+    # Buscar ISC verificado para este codigo
+    cap = codigo[:2]
+    cap_data = isc_data.get('capitulos_con_isc', {}).get(cap)
+    if not cap_data:
+        return answer  # capitulo sin ISC — no tocar
+
+    codigos_verificados = cap_data.get('codigos_verificados', {})
+    isc_verificado = None
+    if codigo in codigos_verificados:
+        isc_verificado = codigos_verificados[codigo]['isc']
+    elif 'default' in cap_data.get('tasas', {}):
+        # Verificar si la partida base esta en partidas_afectadas
+        partida_base = codigo[:7]  # XXXX.XX
+        cap_partidas = cap_data.get('partidas_afectadas', [])
+        if any(codigo.startswith(p) for p in cap_partidas):
+            isc_verificado = cap_data['tasas']['default']
+
+    if not isc_verificado:
+        return answer  # codigo especifico no listado — no corregir
+
+    # Ver lo que Gemini puso en ISC:
+    m_isc = re.search(r'ISC:\s*([^\n\r]+)', answer)
+    isc_gemini = m_isc.group(1).strip() if m_isc else ""
+
+    if 'NO APLICA' in isc_gemini.upper() or not isc_gemini:
+        isc_correcto = f"{isc_verificado} — Ley 11-92 Art. 375, bienes suntuarios electronicos"
+        print(f"[ISC-GATE] CORRECCION: '{isc_gemini}' -> '{isc_correcto}' para {codigo}")
+        if m_isc:
+            answer = answer[:m_isc.start()] + f"ISC: {isc_correcto}" + answer[m_isc.end():]
+        else:
+            answer = answer.replace('---FIN_CLASIFICACION---',
+                                    f'ISC: {isc_correcto}\n---FIN_CLASIFICACION---')
+        answer += (
+            f"\n\n---CORRECCION_ISC_AUTOMATICA---"
+            f"\nCODIGO: {codigo}"
+            f"\nISC_CORREGIDO: {isc_correcto}"
+            f"\nFUENTE: isc_lookup.json — Ley 11-92 Titulo IV"
+            f"\n---FIN_CORRECCION_ISC---"
+        )
+    else:
+        print(f"[ISC-GATE] OK: ISC '{isc_gemini}' para {codigo}")
+
+    return answer
+
+
 # ── Arancel PDF: contexto real para consultas de nomenclatura ─────────────
 _ARANCEL_PDF = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "arancel_7ma_enmienda.pdf")
 _ARANCEL_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "arancel_gemini_cache.json")
@@ -1004,6 +1073,9 @@ def ask_gemini(question, notebook_id, _intento=1):
                               "---FIN_SUPERVISION---")
 
         print("[GEMINI] Supervision completada")
+
+        # ── GATE ISC: corregir ISC antes del gate de gravamen ──
+        answer = _corregir_isc_con_lookup(answer, notebook_id)
 
         # ── COMPUERTA FINAL DE SEGURIDAD LEGAL — ultimo paso siempre ──
         answer = _compuerta_final_gravamen(answer, notebook_id)

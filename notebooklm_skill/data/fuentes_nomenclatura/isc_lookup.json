@@ -1,0 +1,91 @@
+{
+  "_meta": {
+    "descripcion": "Lookup de ISC (Impuesto Selectivo al Consumo) para partidas arancelarias RD",
+    "fuente_legal": "Ley 11-92 Codigo Tributario RD, Titulo IV Arts. 361-400; Ley 253-12",
+    "ultima_actualizacion": "2026-04-21",
+    "nota": "ISC aplica sobre CIF + Gravamen como base imponible salvo indicacion especial"
+  },
+  "capitulos_con_isc": {
+    "22": {
+      "descripcion": "Bebidas alcoholicas",
+      "tipo": "mixto",
+      "nota": "Monto Especifico RD$/litro segun tipo + Ad Valorem sobre CIF",
+      "tasas": {
+        "cerveza": "RD$8.72/litro + 7% CIF",
+        "vinos": "RD$22.87/litro + 10% CIF",
+        "ron": "RD$102.57/litro + 7% CIF",
+        "whisky_brandy": "RD$102.57/litro + 7% CIF",
+        "otras_bebidas_alc": "RD$102.57/litro + 7% CIF"
+      }
+    },
+    "24": {
+      "descripcion": "Tabaco y cigarrillos",
+      "tipo": "mixto",
+      "nota": "Monto Especifico RD$/caja o unidad + Ad Valorem",
+      "tasas": {
+        "cigarrillos": "RD$5.50/cajetilla + 20% CIF",
+        "puros": "RD$5.50/unidad + 20% CIF",
+        "tabaco_procesado": "20% CIF"
+      }
+    },
+    "27": {
+      "descripcion": "Hidrocarburos y combustibles",
+      "tipo": "especifico",
+      "nota": "Monto fijo por unidad de medida segun Ley 112-00",
+      "tasas": {
+        "gasolina_premium": "RD$50.63/galon",
+        "gasolina_regular": "RD$47.58/galon",
+        "gasoil_optimo": "RD$22.38/galon",
+        "gasoil_regular": "RD$19.47/galon",
+        "kerosene": "RD$8.06/galon",
+        "gas_licuado": "RD$0.00 (exento)"
+      }
+    },
+    "85": {
+      "descripcion": "Maquinas, aparatos electricos, electronicos y sus partes",
+      "tipo": "ad_valorem",
+      "nota": "Bienes suntuarios electronicos — ISC 10% sobre CIF segun Titulo IV Ley 11-92",
+      "tasas": {
+        "default": "10%"
+      },
+      "partidas_afectadas": [
+        "8521", "8525", "8527", "8528"
+      ],
+      "codigos_verificados": {
+        "8521.10.00": {"isc": "10%", "descripcion": "Aparatos de grabacion o reproduccion de video"},
+        "8525.89.10": {"isc": "10%", "descripcion": "Camaras de television — las demas"},
+        "8525.89.11": {"isc": "10%", "descripcion": "Camaras termograficas (infrarrojas)"},
+        "8525.89.19": {"isc": "10%", "descripcion": "Las demas camaras de television"},
+        "8527.21.00": {"isc": "10%", "descripcion": "Receptores combinados con aparato de grabacion"},
+        "8528.42.00": {"isc": "10%", "descripcion": "Monitores aptos para conectar directamente a maquinas"},
+        "8528.49.00": {"isc": "10%", "descripcion": "Los demas monitores de los tipos usados solo con ADP"},
+        "8528.52.00": {"isc": "10%", "descripcion": "Monitores aptos para conectar directamente a maquinas — capaces de recibir TV"},
+        "8528.59.10": {"isc": "10%", "descripcion": "Videomonitores"},
+        "8528.59.90": {"isc": "10%", "descripcion": "Los demas monitores"},
+        "8528.62.00": {"isc": "10%", "descripcion": "Proyectores aptos para conectar a ADP"},
+        "8528.69.00": {"isc": "10%", "descripcion": "Los demas proyectores"},
+        "8528.71.11": {"isc": "10%", "descripcion": "Cajas decodificadoras para TV"},
+        "8528.71.19": {"isc": "10%", "descripcion": "Los demas receptores con decodificador"},
+        "8528.72.00": {"isc": "10%", "descripcion": "Los demas, en colores"},
+        "8528.73.00": {"isc": "10%", "descripcion": "Los demas, monocromos"}
+      }
+    },
+    "87": {
+      "descripcion": "Vehiculos automoviles",
+      "tipo": "progresivo_CO2",
+      "nota": "Escala progresiva basada en emisiones CO2 g/km y/o cilindrada — Ley 253-12",
+      "tasas": {
+        "0_99_g_km_CO2": "0%",
+        "100_149_g_km_CO2": "1% por g/km sobre CIF",
+        "150_199_g_km_CO2": "1.5% por g/km sobre CIF",
+        "200_249_g_km_CO2": "2% por g/km sobre CIF",
+        "250_mas_g_km_CO2": "2.5% por g/km sobre CIF",
+        "cilindraje_1500cc_o_menos": "10%",
+        "cilindraje_1501_2000cc": "16%",
+        "cilindraje_2001_3000cc": "22%",
+        "cilindraje_3001_mas": "25%"
+      }
+    }
+  },
+  "regla_general": "Para capitulos NO listados aqui: ISC = NO APLICA"
+}
