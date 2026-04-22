@@ -2014,6 +2014,58 @@ def api_validar_codigo_manual():
                     "descripcion": desc, "gravamen": gravamen})
 
 
+@app.route("/api/consultar-isc-partida", methods=["POST"])
+@login_required
+def api_consultar_isc_partida():
+    """Sub-agente ISC: consulta si una partida arancelaria lleva ISC u otros impuestos.
+    Flujo: cache local → Gemini cuaderno legal → DGII tabla codificada.
+    """
+    import re as _re
+    d = request.json or {}
+    codigo = d.get("codigo", "").strip()
+    descripcion = d.get("descripcion", "").strip()[:120]
+    usar_gemini = d.get("usar_gemini", False)  # Por defecto rapido (sin Gemini) en UI
+
+    if not codigo or not _re.match(r'^\d{4}\.\d{2}\.\d{2}$', codigo):
+        return jsonify({"error": "Codigo invalido"}), 400
+
+    try:
+        sys.path.insert(0, str(Path(__file__).parent / "notebooklm_skill" / "scripts"))
+        from consultor_isc import consultar_isc
+        resultado = consultar_isc(codigo, descripcion, usar_gemini=usar_gemini)
+        return jsonify({"ok": True, **resultado})
+    except Exception as e:
+        print(f"[ISC-ENDPOINT] Error: {e}")
+        # Fallback: buscar directamente en isc_lookup.json
+        try:
+            isc_path = os.path.join(SKILL_DIR, "data", "fuentes_nomenclatura", "isc_lookup.json")
+            with open(isc_path, "r", encoding="utf-8") as f:
+                isc_data = json.load(f)
+            cap = codigo[:2]
+            cap_data = isc_data.get("capitulos_con_isc", {}).get(cap)
+            if cap_data:
+                verificados = cap_data.get("codigos_verificados", {})
+                if codigo in verificados:
+                    entry = verificados[codigo]
+                    return jsonify({"ok": True, "codigo": codigo,
+                                    "isc": entry.get("isc", "NO APLICA"),
+                                    "base_legal": "Ley 11-92 Art. 375",
+                                    "fuente": "isc_lookup.json",
+                                    "certeza": "ALTA", "otros_cargos": "NINGUNO"})
+                partidas_afectadas = cap_data.get("partidas_afectadas", [])
+                if any(codigo.startswith(p) for p in partidas_afectadas):
+                    return jsonify({"ok": True, "codigo": codigo,
+                                    "isc": cap_data.get("tasas", {}).get("default", "NO APLICA"),
+                                    "base_legal": f"Ley 11-92 — Cap. {cap}",
+                                    "fuente": "isc_lookup.json (cap. verificado)",
+                                    "certeza": "MEDIA", "otros_cargos": "NINGUNO"})
+        except Exception:
+            pass
+        return jsonify({"ok": True, "codigo": codigo, "isc": "NO APLICA",
+                        "base_legal": "No determinado", "fuente": "Error en consulta",
+                        "certeza": "BAJA", "otros_cargos": "NINGUNO"})
+
+
 @app.route("/api/generar-informe-pdf", methods=["POST"])
 @login_required
 def api_generar_informe_pdf():

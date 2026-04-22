@@ -2085,6 +2085,29 @@
           ⚠️ Restricciones: <span style="color:#e2e8f0;">${_esc(rest)}</span>
           &nbsp;·&nbsp; Auditoría: <span style="color:${auditColor};font-weight:700;">${_esc(auditVal)}</span>
         </div>
+        <!-- Botón sub-agente ISC -->
+        <div id="isc-result-${_esc(code)}" style="display:none;margin:6px 0 4px;padding:9px 12px;
+             background:rgba(147,197,253,0.08);border:1px solid rgba(147,197,253,0.3);
+             border-radius:8px;font-size:0.75rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="color:#93c5fd;font-weight:700;">⚖️ Verificación ISC</span>
+            <span id="isc-certeza-${_esc(code)}" style="font-size:0.65rem;padding:1px 6px;border-radius:10px;"></span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+            <div><span style="color:#64748b;font-size:0.65rem;">ISC</span><br>
+                 <span id="isc-val-${_esc(code)}" style="color:#93c5fd;font-weight:700;font-size:0.82rem;"></span></div>
+            <div><span style="color:#64748b;font-size:0.65rem;">Otros</span><br>
+                 <span id="isc-otros-${_esc(code)}" style="color:#cbd5e1;font-size:0.72rem;"></span></div>
+          </div>
+          <div style="color:#475569;font-size:0.65rem;margin-top:4px;" id="isc-legal-${_esc(code)}"></div>
+          <div style="color:#334155;font-size:0.62rem;margin-top:2px;" id="isc-fuente-${_esc(code)}"></div>
+        </div>
+        <button onclick="verificarISC('${_esc(code)}','${_esc(nd.descripcionVerificada||'')}',this)"
+          style="width:100%;margin:4px 0 2px;padding:8px;background:rgba(147,197,253,0.1);
+                 border:1px solid rgba(147,197,253,0.3);border-radius:8px;color:#93c5fd;
+                 font-size:0.76rem;cursor:pointer;letter-spacing:0.02em;">
+          ⚖️ Verificar ISC y otros impuestos
+        </button>
         <button onclick="abrirSegundaOpinion('${_esc(code)}')"
           style="width:100%;margin:6px 0 2px;padding:8px;background:rgba(234,179,8,0.12);
                  border:1px solid rgba(234,179,8,0.35);border-radius:8px;color:#fde68a;
@@ -3504,6 +3527,52 @@
 
   function cerrarModalCuaderno() {
     document.getElementById('modalCuaderno').classList.remove('show');
+  }
+
+  // ── Sub-agente ISC ───────────────────────────────────────────────────────
+  async function verificarISC(codigo, descripcion, btn) {
+    const resultDiv  = document.getElementById(`isc-result-${codigo}`);
+    const valEl      = document.getElementById(`isc-val-${codigo}`);
+    const otrosEl    = document.getElementById(`isc-otros-${codigo}`);
+    const legalEl    = document.getElementById(`isc-legal-${codigo}`);
+    const fuenteEl   = document.getElementById(`isc-fuente-${codigo}`);
+    const certezaEl  = document.getElementById(`isc-certeza-${codigo}`);
+
+    if (!resultDiv) return;
+    const txtOrig = btn.textContent;
+    btn.textContent = '⏳ Consultando...';
+    btn.disabled = true;
+
+    try {
+      const r = await fetch('/api/consultar-isc-partida', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ codigo, descripcion, usar_gemini: false })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || 'Error');
+
+      const isc      = data.isc || 'NO APLICA';
+      const certeza  = data.certeza || 'MEDIA';
+      const colorMap = { ALTA:'rgba(34,197,94,0.2)', MEDIA:'rgba(234,179,8,0.2)', BAJA:'rgba(248,113,113,0.2)' };
+      const txtMap   = { ALTA:'✓ Alta', MEDIA:'~ Media', BAJA:'⚠ Baja' };
+
+      valEl.textContent      = isc;
+      otrosEl.textContent    = data.otros_cargos || 'NINGUNO';
+      legalEl.textContent    = data.base_legal   || '';
+      fuenteEl.textContent   = '📌 ' + (data.fuente || '');
+      certezaEl.textContent  = txtMap[certeza] || certeza;
+      certezaEl.style.background  = colorMap[certeza] || colorMap.MEDIA;
+      certezaEl.style.color       = certeza === 'ALTA' ? '#86efac' : certeza === 'BAJA' ? '#fca5a5' : '#fde68a';
+
+      resultDiv.style.display = 'block';
+      btn.style.display = 'none';   // ocultar botón tras mostrar resultado
+    } catch(e) {
+      btn.textContent = txtOrig;
+      btn.disabled    = false;
+      valEl && (valEl.textContent = 'Error al consultar');
+      resultDiv && (resultDiv.style.display = 'block');
+    }
   }
 
   // ── Segunda Opinion ──────────────────────────────────────────────────────
