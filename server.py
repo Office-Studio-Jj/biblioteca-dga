@@ -599,6 +599,35 @@ def consultar():
             print(f"[CACHE_HIT] '{question[:60]}' — devuelto sin llamar a Gemini")
             return jsonify({"answer": cached, "from_cache": True})
 
+    # ── Sub-agente merceológico: cache-first con fichas previas ──
+    # Si hay ficha merceológica del producto, respuesta en <500ms sin llamar a Gemini.
+    # Solo para texto (no imágenes) y cuaderno de nomenclaturas.
+    if not archivo:
+        try:
+            import sys as _sys
+            _ag_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     "notebooklm_skill", "scripts")
+            if _ag_path not in _sys.path:
+                _sys.path.insert(0, _ag_path)
+            from merceologia_agent import intentar_respuesta_cache
+            hit = intentar_respuesta_cache(question, notebook_id, umbral=0.5)
+            if hit:
+                respuesta_cache, meta_cache = hit
+                print(f"[MERCEOLOGIA_HIT] slug={meta_cache['slug']} "
+                      f"codigo={meta_cache['codigo']} score={meta_cache['score']} "
+                      f"tiempo={meta_cache['elapsed_ms']}ms")
+                # Guardar en cache general de consultas
+                _set_cached(question, notebook_id, respuesta_cache)
+                return jsonify({
+                    "answer": respuesta_cache,
+                    "from_cache": True,
+                    "cache_via": "merceologia_agent",
+                    "meta": meta_cache,
+                })
+        except Exception as _e:
+            print(f"[MERCEOLOGIA_AGENT] Error no critico: {_e}")
+            # Continuar con flujo normal (Gemini)
+
     # Si hay archivo adjunto, extraer texto / analizar imagen y añadirlo a la pregunta
     producto_identificado = ""
     if archivo:
