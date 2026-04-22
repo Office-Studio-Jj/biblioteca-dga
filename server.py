@@ -1700,6 +1700,48 @@ def _guardar_blacklist(bl):
         json.dump(bl, f, ensure_ascii=False, indent=2)
 
 
+@app.route("/admin/compress-status", methods=["GET"])
+@admin_or_master_required
+def admin_compress_status():
+    """Estado del sub-agente de compresion y metricas del pipeline."""
+    status_file = os.path.join(SKILL_DIR, "data", "compressed", "subagent_status.json")
+    stats_file = os.path.join(SKILL_DIR, "data", "compressed", "stats.json")
+    zip_file = os.path.join(SKILL_DIR, "data", "compressed", "master_notebooklm.zip")
+    try:
+        estado = {}
+        if os.path.exists(status_file):
+            with open(status_file, "r", encoding="utf-8") as f:
+                estado = json.load(f)
+        if os.path.exists(stats_file):
+            with open(stats_file, "r", encoding="utf-8") as f:
+                estado["pipeline_stats"] = json.load(f)
+        estado["zip_existe"] = os.path.exists(zip_file)
+        if estado["zip_existe"]:
+            estado["zip_kb"] = round(os.path.getsize(zip_file) / 1024, 1)
+        return jsonify(estado)
+    except Exception as e:
+        return jsonify({"error": str(e), "estado": "sin_datos"}), 200
+
+
+@app.route("/admin/compress-run", methods=["POST"])
+@admin_or_master_required
+def admin_compress_run():
+    """Dispara el pipeline de compresion manualmente desde el panel admin."""
+    import subprocess
+    pipeline = os.path.join(SKILL_DIR, "scripts", "auto_compress_pipeline.py")
+    modo = request.json.get("modo", "incremental") if request.is_json else "incremental"
+    try:
+        proc = subprocess.Popen(
+            [sys.executable, pipeline, f"--modo={modo}"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return jsonify({"iniciado": True, "pid": proc.pid, "modo": modo})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/admin/auditar-cache", methods=["GET"])
 @admin_or_master_required
 def admin_auditar_cache():
