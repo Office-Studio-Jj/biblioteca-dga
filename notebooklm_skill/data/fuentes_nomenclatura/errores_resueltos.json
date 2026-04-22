@@ -2,8 +2,8 @@
   "_meta": {
     "version": "1.0",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
-    "ultima_actualizacion": "2026-04-21",
-    "total_errores": 11,
+    "ultima_actualizacion": "2026-04-22",
+    "total_errores": 12,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -160,6 +160,20 @@
       "verificacion": "grep 'sys.stdout.reconfigure' server.py && grep '_safe_print' server.py",
       "fecha_resolucion": "2026-04-21",
       "commit": "292d52a"
+    },
+    {
+      "id": "ERR-012",
+      "titulo": "Partida HS obsoleta emitida como valida (8525.80.90 ya no existe en HS2022)",
+      "sintomas_usuario": ["partidas erroneas", "codigo no existe en el arancel PDF", "partida inventada", "8525.80", "codigo emitido no existe"],
+      "keywords_match": ["partida erronea", "no existe en el arancel", "partida inventada", "HS obsoleto", "HS2017", "8525.80", "codigo emitido invalido"],
+      "componente": "notebooklm_skill/scripts/supervisor_interno.py",
+      "tipo": "clasificacion/datos",
+      "fix_resumen": "Fallback 2 niveles en verificar_codigo_en_fuentes y _check_fuentes_pdf: subpartida 6 dig -> partida 4 dig para detectar codigos HS obsoletos (ej 8525.80 HS2017 -> 8525.8x HS2022). Cache>=5000 rechaza codigos faltantes.",
+      "archivos": ["notebooklm_skill/scripts/supervisor_interno.py"],
+      "lineas_clave": ["verificar_codigo_en_fuentes()", "_check_fuentes_pdf()", "extensiones_partida fallback", "cache_completo >= 5000"],
+      "verificacion": "python -c \"import sys; sys.path.insert(0,'notebooklm_skill/scripts'); from supervisor_interno import verificar_codigo_en_fuentes; print(verificar_codigo_en_fuentes('8525.80.90'))\" — debe retornar (False, ...codigo HS obsoleto...)",
+      "fecha_resolucion": "2026-04-22",
+      "commit": "pending"
     }
   ]
 }

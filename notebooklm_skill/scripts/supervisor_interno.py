@@ -198,22 +198,44 @@ def verificar_codigo_en_fuentes(codigo: str) -> Tuple[bool, str]:
     """
     Verifica si un codigo arancelario existe en las fuentes PDF locales.
     100% Python, 0% IA.
+
+    Estrategia de fallback cuando el codigo exacto no existe:
+      1. Buscar por subpartida SA 6 dig (ej: 8525.80)
+      2. Si no hay extensiones, buscar por partida SA 4 dig (ej: 8525)
+         — cubre casos de codigos HS obsoletos (HS2017 → HS2022)
+      3. Si cache >= 5000 codigos (completo), NO aprobar codigos faltantes
     """
     _cargar_fuentes_pdf()  # Lazy load
     # Buscar codigo exacto en el indice
     if codigo in _CODIGOS_PDF:
         return True, f"{codigo} ENCONTRADO en fuentes: {_CODIGOS_PDF[codigo]}"
 
-    # Buscar la subpartida SA (6 digitos)
+    cache_completo = len(_CODIGOS_PDF) >= 5000
+
+    # Buscar por subpartida SA (6 digitos) y partida SA (4 digitos)
     partes = codigo.split(".")
     if len(partes) == 3:
-        sub_sa = f"{partes[0]}.{partes[1]}"
-        # Buscar cualquier extension de esta subpartida
-        extensiones = {c: d for c, d in _CODIGOS_PDF.items() if c.startswith(sub_sa)}
+        sub_sa = f"{partes[0]}.{partes[1]}"          # 8525.80
+        partida_sa = partes[0]                        # 8525
+
+        # Paso 1: extensiones por subpartida 6 dig (prefijo "8525.80.")
+        extensiones = {c: d for c, d in _CODIGOS_PDF.items()
+                       if c.startswith(sub_sa + ".")}
         if extensiones:
             ext_list = "; ".join(f"{c} = {d}" for c, d in list(extensiones.items())[:5])
             return False, (f"{codigo} NO encontrado en fuentes PDF. "
                           f"Subpartida {sub_sa} tiene estas extensiones: {ext_list}")
+
+        # Paso 2: fallback por partida 4 dig (codigo HS obsoleto HS2017 -> HS2022)
+        # "8525.80.90" no existe pero la partida "8525" si tiene codigos vigentes
+        extensiones_partida = {c: d for c, d in _CODIGOS_PDF.items()
+                               if c.startswith(partida_sa + ".")}
+        if extensiones_partida:
+            ext_list = "; ".join(f"{c} = {d}"
+                                  for c, d in list(sorted(extensiones_partida.items()))[:8])
+            return False, (f"{codigo} NO existe en Arancel RD (posible codigo HS obsoleto). "
+                          f"Subpartida SA {sub_sa} no existe en RD. "
+                          f"Partida {partida_sa} tiene estos codigos vigentes: {ext_list}")
 
     # Buscar directamente en texto de PDFs (por si el indice no lo capturo)
     hits = buscar_en_fuentes(codigo, max_resultados=2)
@@ -221,8 +243,12 @@ def verificar_codigo_en_fuentes(codigo: str) -> Tuple[bool, str]:
         ctx = hits[0]["contexto"][:80]
         return True, f"{codigo} encontrado en {hits[0]['fuente']}: {ctx}"
 
-    # El cache solo tiene ~666 codigos de miles existentes.
-    # No encontrarlo aqui NO significa que sea invalido.
+    # Si el cache esta completo (>= 5000 codigos), un codigo faltante ES invalido
+    if cache_completo:
+        return False, (f"{codigo} NO existe en Arancel RD. "
+                      f"Cache completo ({len(_CODIGOS_PDF)} codigos) — codigo invalido.")
+
+    # Cache incompleto: no bloquear por prudencia
     return True, (f"{codigo} no esta en el indice local (limitado a {len(_CODIGOS_PDF)} codigos). "
                   f"Codigo puede ser valido — verificado por Gemini contra Arancel")
 
@@ -959,26 +985,36 @@ def _check_fuentes_pdf(respuesta: str, pregunta: str, notebook_id: str) -> Tuple
                 return respuesta, "OK", f"Fuentes PDF: {msg}"
             else:
                 # ── AUTO-CORRECCION: promover extension correcta ──
-                # El codigo NO existe en PDF pero la subpartida SI tiene
-                # extensiones validas. Extraer la mejor extension y corregir.
+                # El codigo NO existe en PDF. Busqueda en 2 niveles:
+                #   1. Subpartida SA 6 dig (ej: 8525.80) — caso estandar
+                #   2. Partida SA 4 dig (ej: 8525)       — HS obsoleto HS2017->HS2022
                 partes = codigo.split(".")
                 if len(partes) == 3:
                     sub_sa = f"{partes[0]}.{partes[1]}"
+                    partida_sa = partes[0]
+
                     extensiones = {c: d for c, d in _CODIGOS_PDF.items()
                                    if c.startswith(sub_sa + ".")}
+                    nivel_correccion = "subpartida"
+
+                    # Fallback: codigo HS obsoleto — buscar en partida 4 dig
+                    if not extensiones:
+                        extensiones = {c: d for c, d in _CODIGOS_PDF.items()
+                                       if c.startswith(partida_sa + ".")}
+                        nivel_correccion = "partida (codigo HS obsoleto)"
+
                     if extensiones:
-                        # Seleccionar mejor extension: preferir la unica si solo hay 1,
-                        # o la primera disponible (ordenada por codigo)
                         ext_ordenadas = sorted(extensiones.items())
                         mejor_codigo = ext_ordenadas[0][0]
                         mejor_desc = ext_ordenadas[0][1]
 
                         disponibles = "; ".join(
-                            f"{c}" for c, d in ext_ordenadas[:5])
+                            f"{c}" for c, d in ext_ordenadas[:8])
 
                         nota = (f"{mejor_codigo} — {mejor_desc} "
                                 f"[CORREGIDO por FuentesPDF: {codigo} NO EXISTE "
-                                f"en Arancel RD. Extension correcta: {disponibles}]")
+                                f"en Arancel RD ({nivel_correccion}). "
+                                f"Codigos vigentes: {disponibles}]")
 
                         # Reemplazar SUBPARTIDA_NAC en la respuesta
                         old_line = re.search(r'SUBPARTIDA_NAC:.*', bloque)
@@ -997,15 +1033,16 @@ def _check_fuentes_pdf(respuesta: str, pregunta: str, notebook_id: str) -> Tuple
                         _registrar_error_resuelto(
                             codigo_original=codigo,
                             codigo_corregido=mejor_codigo,
-                            motivo=f"NO encontrado en fuentes PDF. Corregido a {mejor_codigo}",
+                            motivo=f"NO encontrado en fuentes PDF ({nivel_correccion}). "
+                                   f"Corregido a {mejor_codigo}",
                             fuente="CHECK_FuentesPDF"
                         )
 
-                        print(f"[SUPERVISOR_INTERNO] FuentesPDF AUTO-CORRECCION: "
-                              f"{codigo} -> {mejor_codigo}")
+                        print(f"[SUPERVISOR_INTERNO] FuentesPDF AUTO-CORRECCION "
+                              f"[{nivel_correccion}]: {codigo} -> {mejor_codigo}")
                         return (respuesta, "ERROR",
-                                f"OBSERVACION: Fuentes PDF: {codigo} NO encontrado. "
-                                f"CORREGIDO a {mejor_codigo} — {mejor_desc}")
+                                f"OBSERVACION: Fuentes PDF: {codigo} NO encontrado "
+                                f"({nivel_correccion}). CORREGIDO a {mejor_codigo} — {mejor_desc}")
 
                 # Sin extensiones para corregir — solo observacion
                 return respuesta, "OBSERVACION", f"Fuentes PDF: {msg}"
