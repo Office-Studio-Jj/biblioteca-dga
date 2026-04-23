@@ -1,0 +1,100 @@
+{
+  "_meta": {
+    "descripcion": "Cache de Notas Legales y Notas Explicativas por capitulo del Arancel RD 7ma Enmienda. Usado por consultor_notas_arancel.py en paralelo con Gemini para confirmar aplicabilidad de ISC/gravamen antes de entregar respuesta.",
+    "fuente_primaria": "Arancel 7ma Enmienda de la Republica Dominicana.pdf (secciones por capitulo)",
+    "fuentes_secundarias": [
+      "146-00_de_reforma_arancelaria.pdf",
+      "ESPECIFICACIONES TÉCNICAS PARA IDENTIFICAR CARGAS DE IMPUESTOS.pdf",
+      "Notas Explicativas del Sistema Armonizado — OMA (https://www.wcoomd.org)"
+    ],
+    "base_legal_isc": "Ley 11-92 Codigo Tributario RD, Titulo IV — Impuesto Selectivo al Consumo (Arts. 361-400). Ley 253-12 (vehiculos). Ley 112-00 (hidrocarburos).",
+    "ultima_actualizacion": "2026-04-22",
+    "version": "1.0"
+  },
+  "capitulos": {
+    "22": {
+      "titulo": "Bebidas, liquidos alcoholicos y vinagre",
+      "notas_legales": [
+        "1. Este Capitulo no comprende: (a) los productos del Capitulo 22 preparados para usos culinarios.",
+        "2. En este Capitulo y en los Capitulos 20 y 21, el grado alcoholico volumetrico se determinara a la temperatura de 20 grados Celsius.",
+        "3. En la partida 22.02, se entiende por 'bebidas no alcoholicas' las bebidas de grado alcoholico volumetrico inferior o igual a 0.5% vol."
+      ],
+      "aplica_isc": true,
+      "partidas_con_isc": ["2203", "2204", "2205", "2206", "2207", "2208"],
+      "tipo_isc": "Mixto: monto especifico RD$/litro + ad valorem sobre CIF",
+      "base_legal_isc": "Ley 11-92 Arts. 367-370",
+      "notas_aplicacion_isc": [
+        "ISC aplica a bebidas con grado alcoholico volumetrico > 0.5% vol.",
+        "Tasas variables segun tipo (cerveza, vino, ron, whisky)."
+      ]
+    },
+    "24": {
+      "titulo": "Tabaco y sucedaneos del tabaco elaborados",
+      "notas_legales": [
+        "1. Este Capitulo no comprende los cigarrillos medicinales (Capitulo 30).",
+        "2. En la partida 2402, los cigarros (puros) incluso despuntados y los cigarritos contendran tabaco."
+      ],
+      "aplica_isc": true,
+      "partidas_con_isc": ["2402", "2403"],
+      "tipo_isc": "Mixto: monto especifico por cajetilla/unidad + 20% ad valorem",
+      "base_legal_isc": "Ley 11-92 Arts. 371-374"
+    },
+    "27": {
+      "titulo": "Combustibles minerales, aceites minerales y productos de su destilacion",
+      "notas_legales": [
+        "1. Este Capitulo no comprende los productos organicos definidos quimicamente salvo excepciones.",
+        "2. Las expresiones aceites de petroleo y aceites de minerales bituminosos comprenden no solo los productos brutos sino tambien los obtenidos por destilacion."
+      ],
+      "aplica_isc": true,
+      "partidas_con_isc": ["2710", "2711"],
+      "tipo_isc": "Monto fijo RD$/galon",
+      "base_legal_isc": "Ley 112-00 sobre Hidrocarburos"
+    },
+    "85": {
+      "titulo": "Maquinas, aparatos y material electrico, y sus partes; aparatos de grabacion o reproduccion de sonido, aparatos de grabacion o reproduccion de imagen y sonido en television, y las partes y accesorios de estos aparatos",
+      "notas_legales": [
+        "1. Este Capitulo no comprende: (a) las mantas, almohadillas, calientapies y articulos similares electrocalentados; prendas de vestir, calzado, orejeras y otros articulos personales electrocalentados (se clasifican segun su naturaleza).",
+        "2. Las partidas 8501 a 8504 no comprenden los articulos descritos en las partidas 8511, 8512, 8540, 8541 o 8542.",
+        "3. En la partida 8507, la expresion acumuladores electricos comprende los presentados con elementos auxiliares.",
+        "4. Los aparatos y material de la partida 8517 se clasifican alli aunque esten combinados con otros aparatos.",
+        "5. En la partida 8523, la expresion soportes comprende los preparados para grabar o los que ya contienen grabaciones."
+      ],
+      "notas_explicativas_clave": [
+        "Las camaras de video digitales se clasifican en 85.25 (8525.80 - 8525.89) segun capacidad de grabacion.",
+        "Los televisores (receptores) se clasifican en 85.28 (8528.71 - 8528.73 segun coloridad y tecnologia).",
+        "Los monitores de uso exclusivo con ADP se clasifican en 8528.42 / 8528.52; los demas monitores en 8528.49 / 8528.59 / 8528.69.",
+        "Las maquinas con funcion propia no expresadas ni comprendidas en otras partidas del Capitulo se clasifican en 8543 (NO son bienes suntuarios)."
+      ],
+      "aplica_isc": "parcial",
+      "partidas_con_isc": ["8521", "8525", "8527", "8528"],
+      "partidas_sin_isc_explicito": ["8501", "8502", "8504", "8506", "8507", "8508", "8511", "8512", "8517", "8519", "8522", "8523", "8526", "8529", "8530", "8531", "8532", "8533", "8534", "8535", "8536", "8537", "8538", "8539", "8540", "8541", "8542", "8543", "8544", "8545", "8546", "8547", "8548"],
+      "tipo_isc": "10% ad valorem sobre CIF + gravamen",
+      "base_legal_isc": "Ley 11-92 Art. 375 — bienes suntuarios electronicos importados",
+      "advertencia_aplicacion": "ISC del 10% NO aplica a TODAS las partidas del Capitulo 85. Solo aplica a televisores, monitores, cameras de video y aparatos de grabacion/reproduccion de video/sonido listados en 8521/8525/8527/8528. Partidas como 8543 (maquinas con funcion propia), 8544 (cables), 8536 (interruptores), etc. NO son bienes suntuarios y NO aplican ISC.",
+      "notas_aplicacion_isc": [
+        "8543.70.00 (Las demas maquinas y aparatos con funcion propia) NO aplica ISC 10% — no es bien suntuario.",
+        "Todo sistema de seguridad/camara de vigilancia que clasifique en 8525.8x si aplica ISC 10%.",
+        "Las partes y accesorios (8529, 8538, etc.) NO aplican ISC del bien principal."
+      ]
+    },
+    "87": {
+      "titulo": "Vehiculos automoviles, tractores, velocipedos y demas vehiculos terrestres; sus partes y accesorios",
+      "notas_legales": [
+        "1. Este Capitulo no comprende los vehiculos sobre rieles.",
+        "2. En este Capitulo, se considera tractor el vehiculo con motor concebido esencialmente para tirar o empujar."
+      ],
+      "aplica_isc": true,
+      "partidas_con_isc": ["8703", "8711"],
+      "tipo_isc": "Escala progresiva segun emisiones CO2 g/km + cilindrada",
+      "base_legal_isc": "Ley 253-12"
+    }
+  },
+  "regla_general_isc_rd": {
+    "descripcion": "ISC en Republica Dominicana aplica EXCLUSIVAMENTE a los capitulos listados en Ley 11-92 Titulo IV y sus partidas afectadas. Cualquier inferencia fuera de este lookup es incorrecta.",
+    "capitulos_con_isc": ["22", "24", "27", "85", "87"],
+    "capitulos_sin_isc_general": [
+      "01-21", "23", "25-26", "28-84", "86", "88-97"
+    ],
+    "regla_de_oro": "Si el capitulo no esta en el listado de capitulos_con_isc, NO AGREGAR ISC aunque Gemini sugiera lo contrario."
+  }
+}

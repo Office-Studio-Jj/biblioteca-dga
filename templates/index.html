@@ -3543,6 +3543,23 @@
     btn.textContent = '⏳ Consultando...';
     btn.disabled = true;
 
+    const rellenar = ({ isc, otros, legal, fuente, certeza, color }) => {
+      valEl    && (valEl.textContent    = isc    || 'NO APLICA');
+      otrosEl  && (otrosEl.textContent  = otros  || 'NINGUNO');
+      legalEl  && (legalEl.textContent  = legal  || 'Sin base legal registrada en la fuente consultada');
+      fuenteEl && (fuenteEl.textContent = '📌 Fuente: ' + (fuente || 'No disponible'));
+      if (certezaEl) {
+        const txtMap = { ALTA:'✓ Alta', MEDIA:'~ Media', BAJA:'⚠ Baja' };
+        const colorMap = { ALTA:'rgba(34,197,94,0.2)', MEDIA:'rgba(234,179,8,0.2)', BAJA:'rgba(248,113,113,0.2)' };
+        certezaEl.textContent = txtMap[certeza] || (certeza || '~');
+        certezaEl.style.background = color || colorMap[certeza] || colorMap.MEDIA;
+        certezaEl.style.color = certeza === 'ALTA' ? '#86efac'
+                               : certeza === 'BAJA' ? '#fca5a5'
+                               : '#fde68a';
+      }
+      resultDiv.style.display = 'block';
+    };
+
     try {
       const r = await fetch('/api/consultar-isc-partida', {
         method: 'POST',
@@ -3550,28 +3567,30 @@
         body: JSON.stringify({ codigo, descripcion, usar_gemini: false })
       });
       const data = await r.json();
-      if (!data.ok) throw new Error(data.error || 'Error');
+      if (!data.ok) throw new Error(data.error || `HTTP ${r.status}`);
 
-      const isc      = data.isc || 'NO APLICA';
-      const certeza  = data.certeza || 'MEDIA';
-      const colorMap = { ALTA:'rgba(34,197,94,0.2)', MEDIA:'rgba(234,179,8,0.2)', BAJA:'rgba(248,113,113,0.2)' };
-      const txtMap   = { ALTA:'✓ Alta', MEDIA:'~ Media', BAJA:'⚠ Baja' };
-
-      valEl.textContent      = isc;
-      otrosEl.textContent    = data.otros_cargos || 'NINGUNO';
-      legalEl.textContent    = data.base_legal   || '';
-      fuenteEl.textContent   = '📌 ' + (data.fuente || '');
-      certezaEl.textContent  = txtMap[certeza] || certeza;
-      certezaEl.style.background  = colorMap[certeza] || colorMap.MEDIA;
-      certezaEl.style.color       = certeza === 'ALTA' ? '#86efac' : certeza === 'BAJA' ? '#fca5a5' : '#fde68a';
-
-      resultDiv.style.display = 'block';
-      btn.style.display = 'none';   // ocultar botón tras mostrar resultado
+      // El backend siempre devuelve fuente y base_legal. Si no aplica,
+      // mostrar explicitamente la razon en vez de dejar la card en blanco.
+      rellenar({
+        isc:     data.isc,
+        otros:   data.otros_cargos,
+        legal:   data.base_legal,
+        fuente:  data.fuente,
+        certeza: data.certeza || 'MEDIA',
+      });
+      btn.style.display = 'none';
     } catch(e) {
-      btn.textContent = txtOrig;
+      // Fallback visible: nunca dejar la card en blanco. Explicar el error
+      // y apuntar al endpoint/fuente que no respondio.
+      rellenar({
+        isc:     'NO DISPONIBLE',
+        otros:   'No se pudo consultar',
+        legal:   'No fue posible determinar la base legal en esta consulta',
+        fuente:  `/api/consultar-isc-partida (${(e && e.message) || 'error de red'}) — reintenta en unos segundos`,
+        certeza: 'BAJA',
+      });
+      btn.textContent = '⚖️ Reintentar verificación ISC';
       btn.disabled    = false;
-      valEl && (valEl.textContent = 'Error al consultar');
-      resultDiv && (resultDiv.style.display = 'block');
     }
   }
 

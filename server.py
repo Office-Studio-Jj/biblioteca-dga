@@ -1994,7 +1994,14 @@ def manual_pdf(rol):
 @app.route("/api/segunda-opinion", methods=["POST"])
 @login_required
 def api_segunda_opinion():
-    """Busca los top-5 codigos del cache que mejor coinciden con la consulta del usuario."""
+    """Busca top-5 codigos del cache priorizando mismo CAPITULO del codigo primario
+    y mismo capitulo de la ficha merceologica (si existe).
+
+    Regla tecnica: primero se determina la merceologia del producto (titulo/capitulo
+    del Arancel 7ma Enmienda), luego se buscan codigos candidatos dentro de ese
+    mismo capitulo con caracteristicas similares. Solo si no hay candidatos
+    suficientes dentro del capitulo se abre a otros capitulos, penalizando el score.
+    """
     import re as _re
     d = request.json or {}
     query = d.get("query", "").strip()
@@ -2010,31 +2017,87 @@ def api_segunda_opinion():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+    # Capitulo del codigo primario (prioridad maxima)
+    cap_primario = codigo_actual[:2] if _re.match(r'^\d{4}\.\d{2}\.\d{2}$', codigo_actual) else ""
+    # Partida (4 dig) del codigo primario (bonus de cercania dentro del capitulo)
+    partida_primaria = codigo_actual[:4] if cap_primario else ""
+
+    # Capitulo desde ficha merceologica (si existe para el query)
+    cap_merceologia = ""
+    try:
+        sys.path.insert(0, str(Path(__file__).parent / "notebooklm_skill" / "scripts"))
+        from merceologia_agent import buscar_ficha_para_consulta as _buscar_ficha
+        match = _buscar_ficha(query, umbral=0.35)
+        if match:
+            _slug, _ficha, _score = match
+            cod_ficha = _ficha.get("codigo") or ""
+            if _re.match(r'^\d{4}\.\d{2}\.\d{2}$', cod_ficha):
+                cap_merceologia = cod_ficha[:2]
+    except Exception as _e:
+        print(f"[SEGUNDA-OPINION] ficha merceologica no disponible: {_e}")
+
     # Normalizar query: extraer palabras clave significativas (>=4 chars)
     palabras = [w.lower() for w in _re.findall(r'[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]{4,}', query)]
     if not palabras:
         return jsonify({"error": "Consulta muy corta"}), 400
 
-    # Calcular score por codigo
+    # Scoring jerarquico por capitulo
     scores = []
     for codigo, desc in codigos.items():
         if codigo == codigo_actual:
             continue
         desc_lower = desc.lower()
-        score = sum(2 if p in desc_lower else 0 for p in palabras)
-        # Bonus: palabras del inicio de la descripcion (mas especifica)
-        score += sum(1 if p in desc_lower[:60] else 0 for p in palabras)
-        if score > 0:
-            m = _re.search(r'\s+(\d+)\s*$', desc.strip())
-            grav = m.group(1) if m else "?"
-            scores.append((score, codigo, desc, grav))
+        score_texto = sum(2 if p in desc_lower else 0 for p in palabras)
+        score_texto += sum(1 if p in desc_lower[:60] else 0 for p in palabras)
+        if score_texto == 0:
+            continue
+
+        # Boost por afinidad de capitulo/partida
+        cap_cand = codigo[:2]
+        partida_cand = codigo[:4]
+        boost = 0
+        if cap_primario and cap_cand == cap_primario:
+            boost += 10  # mismo capitulo que primario
+            if partida_primaria and partida_cand == partida_primaria:
+                boost += 5  # misma partida 4-dig (hermanos)
+        if cap_merceologia and cap_cand == cap_merceologia:
+            boost += 8
+        # Penalizar codigos de capitulos totalmente distintos al primario y a merceologia
+        if cap_primario and cap_cand != cap_primario and cap_cand != cap_merceologia:
+            boost -= 6
+
+        score_total = score_texto + boost
+        if score_total <= 0:
+            continue
+        m = _re.search(r'\s+(\d+)\s*$', desc.strip())
+        grav = m.group(1) if m else "?"
+        scores.append((score_total, codigo, desc, grav, cap_cand))
 
     scores.sort(reverse=True)
+
+    # Preferencia estricta: si hay >=3 candidatos del mismo capitulo primario, mostrar solo esos.
+    # Si no, completar con otros respetando el score.
+    mismo_cap = [s for s in scores if cap_primario and s[4] == cap_primario]
+    if len(mismo_cap) >= 3:
+        finales = mismo_cap[:5]
+    else:
+        vistos = {s[1] for s in mismo_cap}
+        restantes = [s for s in scores if s[1] not in vistos]
+        finales = (mismo_cap + restantes)[:5]
+
     top5 = [
-        {"codigo": c, "descripcion": d[:120], "gravamen": g, "score": s}
-        for s, c, d, g in scores[:5]
+        {"codigo": c, "descripcion": d[:120], "gravamen": g,
+         "score": s, "capitulo": cap, "mismo_capitulo": bool(cap_primario and cap == cap_primario)}
+        for s, c, d, g, cap in finales
     ]
-    return jsonify({"ok": True, "candidatos": top5, "query": query, "palabras_clave": palabras})
+    return jsonify({
+        "ok": True,
+        "candidatos": top5,
+        "query": query,
+        "palabras_clave": palabras,
+        "capitulo_primario": cap_primario,
+        "capitulo_merceologia": cap_merceologia,
+    })
 
 
 @app.route("/api/confirmar-clasificacion", methods=["POST"])
@@ -2116,6 +2179,17 @@ def api_consultar_isc_partida():
         sys.path.insert(0, str(Path(__file__).parent / "notebooklm_skill" / "scripts"))
         from consultor_isc import consultar_isc
         resultado = consultar_isc(codigo, descripcion, usar_gemini=usar_gemini)
+        # Garantizar que fuente y base_legal nunca sean vacios (la card del
+        # frontend debe poder mostrar el origen incluso cuando NO APLICA).
+        if not resultado.get("fuente"):
+            resultado["fuente"] = f"consultor_isc.py (capa fallback, cap. {codigo[:2]})"
+        if not resultado.get("base_legal"):
+            resultado["base_legal"] = (
+                "Sin disposicion especifica en isc_lookup.json para esta partida. "
+                "ISC aplica solo a capitulos 22, 24, 27, 85 (partidas afectadas), 87 — Ley 11-92 Titulo IV"
+            )
+        if not resultado.get("otros_cargos"):
+            resultado["otros_cargos"] = "NINGUNO"
         return jsonify({"ok": True, **resultado})
     except Exception as e:
         print(f"[ISC-ENDPOINT] Error: {e}")
@@ -2132,21 +2206,186 @@ def api_consultar_isc_partida():
                     entry = verificados[codigo]
                     return jsonify({"ok": True, "codigo": codigo,
                                     "isc": entry.get("isc", "NO APLICA"),
-                                    "base_legal": "Ley 11-92 Art. 375",
-                                    "fuente": "isc_lookup.json",
+                                    "base_legal": "Ley 11-92 Art. 375, bienes suntuarios electronicos",
+                                    "fuente": f"isc_lookup.json[cap.{cap}].codigos_verificados[{codigo}]",
                                     "certeza": "ALTA", "otros_cargos": "NINGUNO"})
                 partidas_afectadas = cap_data.get("partidas_afectadas", [])
                 if any(codigo.startswith(p) for p in partidas_afectadas):
                     return jsonify({"ok": True, "codigo": codigo,
                                     "isc": cap_data.get("tasas", {}).get("default", "NO APLICA"),
-                                    "base_legal": f"Ley 11-92 — Cap. {cap}",
-                                    "fuente": "isc_lookup.json (cap. verificado)",
+                                    "base_legal": f"Ley 11-92 — Cap. {cap} ({cap_data.get('descripcion','')})",
+                                    "fuente": f"isc_lookup.json[cap.{cap}].partidas_afectadas",
                                     "certeza": "MEDIA", "otros_cargos": "NINGUNO"})
+                # Capitulo tiene ISC pero esta partida NO aplica — responder explicito
+                return jsonify({"ok": True, "codigo": codigo, "isc": "NO APLICA",
+                                "base_legal": (f"Cap. {cap} tiene ISC solo para partidas "
+                                               f"{cap_data.get('partidas_afectadas', [])}; "
+                                               f"{codigo} no esta afectada."),
+                                "fuente": f"isc_lookup.json[cap.{cap}] (partida fuera de afectadas)",
+                                "certeza": "ALTA", "otros_cargos": "NINGUNO"})
+            # Capitulo sin ISC
+            return jsonify({"ok": True, "codigo": codigo, "isc": "NO APLICA",
+                            "base_legal": (f"Capitulo {cap} no figura en isc_lookup.json. "
+                                           "ISC RD aplica a 22 (alcoholes), 24 (tabaco), 27 (combustibles), "
+                                           "85 (electronicos suntuarios), 87 (vehiculos)."),
+                            "fuente": "isc_lookup.json (capitulo sin ISC registrado) — Ley 11-92 Titulo IV",
+                            "certeza": "ALTA", "otros_cargos": "NINGUNO"})
+        except Exception as _e2:
+            pass
+        return jsonify({"ok": True, "codigo": codigo, "isc": "NO DISPONIBLE",
+                        "base_legal": ("No fue posible cargar isc_lookup.json en este momento. "
+                                       "Reintente la verificacion en unos segundos."),
+                        "fuente": f"/api/consultar-isc-partida error interno: {str(e)[:80]}",
+                        "certeza": "BAJA", "otros_cargos": "NINGUNO"})
+
+
+@app.route("/api/consultar-notas-arancel", methods=["POST"])
+@login_required
+def api_consultar_notas_arancel():
+    """Consultor paralelo de Notas Legales/Explicativas del Arancel RD.
+    Body: {codigo: "XXXX.XX.XX"}
+    Devuelve veredicto ISC + base legal + razon citando notas del capitulo.
+    """
+    d = request.json or {}
+    codigo = (d.get("codigo") or "").strip()
+    if not codigo:
+        return jsonify({"error": "codigo requerido"}), 400
+    try:
+        sys.path.insert(0, str(Path(__file__).parent / "notebooklm_skill" / "scripts"))
+        from consultor_notas_arancel import analizar_codigo
+        resultado = analizar_codigo(codigo)
+        resultado["ok"] = "error" not in resultado
+        return jsonify(resultado)
+    except Exception as e:
+        print(f"[NOTAS-ARANCEL-ENDPOINT] Error: {e}")
+        return jsonify({"ok": False, "codigo": codigo, "error": str(e),
+                        "veredicto": "ERROR",
+                        "fuente": "/api/consultar-notas-arancel (sin cache disponible)"}), 200
+
+
+# ─────────────────────────────────────────────────────────────────
+# VIBEVOICE-ASR — Transcripcion + Highlights + Clips Virales
+# ─────────────────────────────────────────────────────────────────
+
+_VIBEVOICE_UPLOAD_DIR = os.path.join(
+    os.path.dirname(__file__), "notebooklm_skill", "data", "vibevoice_tmp"
+)
+os.makedirs(_VIBEVOICE_UPLOAD_DIR, exist_ok=True)
+
+
+@app.route("/api/transcribir-audio", methods=["POST"])
+@login_required
+def api_transcribir_audio():
+    """Transcribe audio/video con VibeVoice-ASR.
+    Form-data: file=<audio.mp3/mp4/wav/webm>, language=es (opcional), vocab=csv (opcional)
+    """
+    if "file" not in request.files:
+        return jsonify({"ok": False, "error": "Debe adjuntar archivo en el campo 'file'"}), 400
+    f = request.files["file"]
+    if not f.filename:
+        return jsonify({"ok": False, "error": "Archivo sin nombre"}), 400
+
+    import uuid
+    safe_name = f"{uuid.uuid4().hex}_{os.path.basename(f.filename)}"
+    upload_path = os.path.join(_VIBEVOICE_UPLOAD_DIR, safe_name)
+    try:
+        f.save(upload_path)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"No se pudo guardar: {e}"}), 500
+
+    language = (request.form.get("language") or "es").strip()
+    vocab_raw = (request.form.get("vocab") or "").strip()
+    vocabulary = [v.strip() for v in vocab_raw.split(",") if v.strip()] or None
+
+    try:
+        sys.path.insert(0, str(Path(__file__).parent / "notebooklm_skill" / "scripts"))
+        from vibevoice_asr import transcribir
+        resultado = transcribir(upload_path, language=language, vocabulary=vocabulary)
+        return jsonify(resultado)
+    except Exception as e:
+        print(f"[VIBEVOICE-ENDPOINT] Error: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 200
+    finally:
+        try:
+            os.remove(upload_path)
         except Exception:
             pass
-        return jsonify({"ok": True, "codigo": codigo, "isc": "NO APLICA",
-                        "base_legal": "No determinado", "fuente": "Error en consulta",
-                        "certeza": "BAJA", "otros_cargos": "NINGUNO"})
+
+
+@app.route("/api/highlights-video", methods=["POST"])
+@login_required
+def api_highlights_video():
+    """Identifica momentos virales dentro de una transcripcion ya hecha.
+    Body JSON: {segments: [{speaker, start, end, text}, ...], max_highlights?: 5}
+    """
+    d = request.json or {}
+    segments = d.get("segments") or []
+    max_h = int(d.get("max_highlights") or 5)
+    if not segments:
+        return jsonify({"ok": False, "error": "segments requerido"}), 400
+    try:
+        sys.path.insert(0, str(Path(__file__).parent / "notebooklm_skill" / "scripts"))
+        from vibevoice_asr import extraer_highlights
+        highlights = extraer_highlights(segments, max_highlights=max_h)
+        return jsonify({"ok": True, "highlights": highlights, "total": len(highlights)})
+    except Exception as e:
+        print(f"[VIBEVOICE-HIGHLIGHTS] Error: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 200
+
+
+@app.route("/api/generar-clip-viral", methods=["POST"])
+@login_required
+def api_generar_clip_viral():
+    """Exporta clip MP4 9:16 con subtitulos quemados via ffmpeg.
+    Body JSON: {video_url | video_path, start: float, end: float, titulo: str, subtitulos: [seg,...]}
+    Requiere ffmpeg disponible en PATH. Si no esta, devuelve instrucciones.
+    """
+    import shutil
+    if not shutil.which("ffmpeg"):
+        return jsonify({
+            "ok": False,
+            "error": "ffmpeg no instalado en el servidor",
+            "setup": "Instalar ffmpeg en el entorno Railway (nixpacks.toml -> packages = ['ffmpeg']) o local (apt install ffmpeg)"
+        }), 200
+
+    d = request.json or {}
+    video_path = d.get("video_path") or ""
+    start = float(d.get("start") or 0)
+    end = float(d.get("end") or 0)
+    titulo = (d.get("titulo") or "Clip DGA").strip()
+    if not video_path or end <= start:
+        return jsonify({"ok": False, "error": "Se requiere video_path y rango start<end"}), 400
+    if not os.path.exists(video_path):
+        return jsonify({"ok": False, "error": f"No existe {video_path}"}), 404
+
+    import uuid, subprocess
+    out_path = os.path.join(_VIBEVOICE_UPLOAD_DIR, f"clip_{uuid.uuid4().hex}.mp4")
+    dur = end - start
+    # Crop a 9:16 + escalar a 1080x1920 + subtitulo fijo con titulo
+    cmd = [
+        "ffmpeg", "-y",
+        "-ss", str(start), "-i", video_path, "-t", str(dur),
+        "-vf", (
+            "crop=ih*9/16:ih,scale=1080:1920,"
+            f"drawtext=text='{titulo.replace(chr(39), '')}'"
+            ":fontcolor=white:fontsize=56:x=(w-text_w)/2:y=80"
+            ":box=1:boxcolor=black@0.55:boxborderw=20"
+        ),
+        "-c:a", "aac", "-b:a", "128k", "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        out_path,
+    ]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if r.returncode != 0:
+            return jsonify({"ok": False, "error": "ffmpeg fallo",
+                            "stderr": r.stderr[-1000:]}), 200
+        return jsonify({"ok": True, "clip_path": out_path,
+                        "duracion": round(dur, 2),
+                        "formato": "MP4 9:16 1080x1920 (vertical redes sociales)"})
+    except subprocess.TimeoutExpired:
+        return jsonify({"ok": False, "error": "ffmpeg excedio 5min"}), 200
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 200
 
 
 @app.route("/api/generar-informe-pdf", methods=["POST"])
@@ -2446,15 +2685,64 @@ def _consultar_cache_fallback(question: str, notebook_id: str) -> "str | None":
 
 
 def ask_notebooklm(question, notebook_id, timeout=60):
-    """Wrapper de seguridad — siempre retorna string, nunca propaga excepciones."""
+    """Wrapper de seguridad — siempre retorna string, nunca propaga excepciones.
+
+    Capas de proteccion (para eliminar el error generico en movil):
+      1. Intento normal (_ask_notebooklm_internal)
+      2. Categorizacion de excepcion (Timeout/Network/API/Otros) para log claro
+      3. Fallback a cache arancelario verificado (si notebook de nomenclaturas)
+      4. Mensaje final categorizado (nunca generico opaco)
+    """
+    _tipo_err = None
+    _detalle_err = None
     try:
         return _ask_notebooklm_internal(question, notebook_id, timeout)
     except Exception as _e:
         import traceback as _tb
-        print(f"[ASK_FATAL] {type(_e).__name__}: {_e}")
+        nombre = type(_e).__name__
+        msg = str(_e)
+        if "timeout" in msg.lower() or "timed out" in msg.lower() or nombre in ("TimeoutError", "socket.timeout"):
+            _tipo_err = "TIMEOUT"
+        elif any(k in msg.lower() for k in ("connection", "network", "resolve", "dns")):
+            _tipo_err = "RED"
+        elif any(k in msg.lower() for k in ("api key", "quota", "429", "403", "permission")):
+            _tipo_err = "API"
+        elif "json" in msg.lower() or nombre in ("JSONDecodeError", "ValueError"):
+            _tipo_err = "FORMATO"
+        else:
+            _tipo_err = "INTERNO"
+        _detalle_err = f"{nombre}: {msg[:200]}"
+        print(f"[ASK_FATAL] tipo={_tipo_err} {_detalle_err}")
         print(f"[ASK_FATAL_TRACEBACK]\n{_tb.format_exc()}")
-        return ("El sistema encontró un error inesperado procesando tu consulta. "
-                "Por favor intenta de nuevo en unos segundos.")
+
+    # ── Capa 3: fallback a cache verificado (solo nomenclaturas) ──
+    try:
+        fallback = _consultar_cache_fallback(question, notebook_id)
+        if fallback:
+            print(f"[ASK_FALLBACK_CACHE] Recuperado para notebook={notebook_id} tipo_err={_tipo_err}")
+            encabezado = (
+                f"[Info: recuperamos tu consulta desde el cache verificado "
+                f"porque la IA tuvo un problema temporal ({_tipo_err}).]\n\n"
+            )
+            return encabezado + fallback
+    except Exception as _e2:
+        print(f"[ASK_FALLBACK_CACHE_ERROR] {type(_e2).__name__}: {_e2}")
+
+    # ── Capa 4: mensaje categorizado final ──
+    mensajes = {
+        "TIMEOUT": ("La IA tardó más de lo esperado en responder. "
+                    "Intenta de nuevo en unos segundos — si persiste, simplifica la consulta."),
+        "RED":     ("Problema temporal de red al conectar con la IA. "
+                    "Verifica tu conexión y vuelve a intentar."),
+        "API":     ("El servicio de IA reportó un límite temporal (cuota/permiso). "
+                    "Vuelve a intentar en 30-60 segundos."),
+        "FORMATO": ("La IA devolvió una respuesta con formato inesperado. "
+                    "Reformula la pregunta con más detalle del producto."),
+        "INTERNO": ("El sistema encontró un error interno procesando tu consulta. "
+                    "Intenta de nuevo — si persiste, reporta el error en la app."),
+    }
+    prefijo = mensajes.get(_tipo_err or "INTERNO", mensajes["INTERNO"])
+    return f"{prefijo}\n\n[detalle_tecnico: {_tipo_err} — {_detalle_err}]"
 
 
 def _ask_notebooklm_internal(question, notebook_id, timeout=60):

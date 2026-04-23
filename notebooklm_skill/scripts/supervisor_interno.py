@@ -1306,10 +1306,33 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
     correccion_text = "; ".join(correcciones) if correcciones else "NINGUNA"
 
     # ── Construir check lines ────────────────────────────────────────────
+    # Cada OK debe nombrar la fuente o criterio aplicado (no queda "OK" pelado)
+    _FUENTES_POR_CHECK = {
+        "Codigo": "arancel_cache.json (7,616 codigos, pdfplumber 0% IA) + CODIGOS_VERIFICADOS_RD",
+        "Capitulo": "INCOHERENCIAS_CONOCIDAS (reglas producto-capitulo confirmadas en campo)",
+        "Dominio": "DOMINIOS[notebook_id].palabras_clave",
+        "Leyes": "LEYES_RD (base verificada de leyes vigentes/derogadas)",
+        "Coherencia": "Heuristica de estructura + frases de incertidumbre",
+        "Fuente": "Indicadores de contexto RD (DGA, arancel, aduana, Ley 168...)",
+        "Seguridad": "Sanitizacion anti-inyeccion + HMAC firma",
+        "Gravamen": "correcciones_manuales.json -> arancel_cache.json -> gravamenes_lookup.json",
+        "FuentesPDF": "Arancel 7ma Enmienda + 9 PDFs nomenclatura (fuentes_nomenclatura/*.pdf)",
+        "ContextoCodigo": "_CODIGOS_CONTEXTO_OBLIGATORIO (alta especificidad)",
+    }
     check_lines = []
     for nombre, estado, mensaje in checks:
         tag = f"CHECK_{nombre.upper()}"
-        check_lines.append(f"{tag}: {estado}" if estado == "OK" else f"{tag}: {estado}: {mensaje}")
+        fuente = _FUENTES_POR_CHECK.get(nombre, "")
+        if estado == "OK":
+            detalle = mensaje if mensaje and mensaje != "OK" else "validado"
+            linea = f"{tag}: OK — {detalle}"
+            if fuente:
+                linea += f" [FUENTE: {fuente}]"
+        else:
+            linea = f"{tag}: {estado}: {mensaje}"
+            if fuente:
+                linea += f" [FUENTE: {fuente}]"
+        check_lines.append(linea)
 
     dominio = DOMINIOS.get(notebook_id, {})
     nombre_cuaderno = dominio.get("nombre", notebook_id)

@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "version": "1.0",
+    "version": "1.1",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
     "ultima_actualizacion": "2026-04-22",
-    "total_errores": 12,
+    "total_errores": 16,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -203,6 +203,77 @@
         "10 digitos en vez de 8 (ej 8525.80.90.00)",
         "ceros faltantes (ej 8525.8.9 -> 8525.08.09)"
       ],
+      "fecha_resolucion": "2026-04-22",
+      "commit": "pending"
+    },
+    {
+      "id": "ERR-013",
+      "titulo": "ISC Cap.85 aplicado a partidas no suntuarias (falso positivo)",
+      "sintomas_usuario": ["ISC incorrecto capitulo 85", "da 10% ISC pero no aplica", "8543 no es suntuario", "ISC aplicado mal"],
+      "keywords_match": ["ISC", "capitulo 85", "suntuario", "8543", "8521", "Ley 11-92", "falso positivo"],
+      "componente": "notebooklm_skill/scripts/ask_gemini.py",
+      "tipo": "tributario/ISC",
+      "fix_resumen": "ISC gate bidireccional: si lookup tiene tasa pero Gemini puso NO APLICA -> corregir a APLICA. Si lookup no tiene tasa pero Gemini puso 10% -> corregir a NO APLICA con razon. Solo 8521/8525/8527/8528 son suntuarios del Cap.85.",
+      "archivos": [
+        "notebooklm_skill/scripts/ask_gemini.py",
+        "notebooklm_skill/scripts/consultor_notas_arancel.py",
+        "notebooklm_skill/data/fuentes_nomenclatura/notas_capitulos_cache.json"
+      ],
+      "lineas_clave": [
+        "_corregir_isc_con_lookup() bidireccional",
+        "thread paralelo consultor_notas_arancel",
+        "partidas_con_isc vs partidas_sin_isc_explicito"
+      ],
+      "verificacion": "python notebooklm_skill/scripts/consultor_notas_arancel.py --codigo 8543.70.00 -> VEREDICTO_ISC: NO_APLICA_ISC",
+      "fecha_resolucion": "2026-04-22",
+      "commit": "pending"
+    },
+    {
+      "id": "ERR-014",
+      "titulo": "Partidas de segunda opinion no coinciden con ficha merceologica",
+      "sintomas_usuario": ["partidas sugeridas no coinciden", "capitulo diferente", "merceologia distinta", "segunda opinion irrelevante"],
+      "keywords_match": ["segunda opinion", "partidas alternativas", "merceologia", "capitulo", "no coincide"],
+      "componente": "server.py",
+      "tipo": "clasificacion/merceologia",
+      "fix_resumen": "Scoring con boost: +10 mismo capitulo, +8 capitulo de merceologia, +5 misma partida, -6 capitulo diferente. Prioriza ficha merceologica cuando existe.",
+      "archivos": ["server.py", "notebooklm_skill/scripts/merceologia_utils.py"],
+      "lineas_clave": ["api_segunda_opinion()", "buscar_ficha_para_consulta(umbral=0.35)"],
+      "verificacion": "Endpoint /api/segunda-opinion con producto que tenga ficha merceologica -> partidas deben compartir cap. con ficha",
+      "fecha_resolucion": "2026-04-22",
+      "commit": "pending"
+    },
+    {
+      "id": "ERR-015",
+      "titulo": "Error inesperado en movil (iPhone/iPad) al consultar producto",
+      "sintomas_usuario": ["error inesperado procesando tu consulta", "falla en movil", "falla en iPad", "consulta desde celular no funciona"],
+      "keywords_match": ["error inesperado", "movil", "iphone", "ipad", "celular", "procesando consulta"],
+      "componente": "server.py (ask_notebooklm wrapper)",
+      "tipo": "ux/mobile",
+      "fix_resumen": "Wrapper con 4 capas: 1) intento normal 2) categorizacion TIMEOUT/RED/API/FORMATO/INTERNO 3) fallback cache arancelario 4) mensaje categorizado con detalle_tecnico. Nunca devuelve mensaje opaco.",
+      "archivos": ["server.py"],
+      "lineas_clave": [
+        "ask_notebooklm() lineas 2562-2624",
+        "_consultar_cache_fallback() lineas 2477+",
+        "_tipo_err TIMEOUT/RED/API/FORMATO/INTERNO"
+      ],
+      "verificacion": "Simular excepcion en _ask_notebooklm_internal -> respuesta debe incluir tipo+detalle_tecnico, no generica",
+      "fecha_resolucion": "2026-04-22",
+      "commit": "pending"
+    },
+    {
+      "id": "ERR-016",
+      "titulo": "Supervisor Interno reporta OK sin nombrar fuente",
+      "sintomas_usuario": ["supervisor dice OK sin fuente", "no se sabe de donde viene el dato", "checks sin origen"],
+      "keywords_match": ["supervisor", "OK sin fuente", "transparencia", "check origen"],
+      "componente": "notebooklm_skill/scripts/supervisor_interno.py",
+      "tipo": "transparencia/auditoria",
+      "fix_resumen": "Cada check emite '[FUENTE: <origen>]' al final de la linea OK. Diccionario _FUENTES_POR_CHECK mapea cada check a su fuente de datos (arancel_cache.json, LEYES_RD, HMAC, etc.).",
+      "archivos": ["notebooklm_skill/scripts/supervisor_interno.py"],
+      "lineas_clave": [
+        "_FUENTES_POR_CHECK lineas 1308-1335",
+        "construir_bloque_supervisor() formato 'CHECK_X: OK - <detalle> [FUENTE: <fuente>]'"
+      ],
+      "verificacion": "Ejecutar supervisor sobre respuesta ok -> cada linea CHECK_ debe terminar con [FUENTE: ...]",
       "fecha_resolucion": "2026-04-22",
       "commit": "pending"
     }

@@ -769,9 +769,16 @@ def _compuerta_final_gravamen(answer: str, notebook_id: str) -> str:
 
 
 def _corregir_isc_con_lookup(answer: str, notebook_id: str) -> str:
-    """GATE ISC: Corrige el ISC en la respuesta usando isc_lookup.json.
-    Si Gemini dice 'NO APLICA' para un codigo del Cap. 85 (televisores/monitores),
-    lo corrige a '10% — Ley 11-92 Art. 375, bienes suntuarios'.
+    """GATE ISC BIDIRECCIONAL: Corrige el ISC en la respuesta usando isc_lookup.json.
+
+    Dos correcciones posibles:
+      (A) FALSO NEGATIVO: Gemini dice NO APLICA para un codigo del Cap.85 que SI aplica
+          (8521/8525/8527/8528 — televisores/monitores). Corrige a '10% Ley 11-92 Art.375'.
+      (B) FALSO POSITIVO: Gemini aplica 10% a un codigo del Cap.85 que NO aplica
+          (ej. 8543.70.00 Las demas maquinas). Corrige a 'NO APLICA' citando fuente.
+
+    La lista de partidas con ISC proviene de isc_lookup.json (Ley 11-92 Titulo IV).
+    Cualquier codigo fuera de esa lista se fuerza a NO APLICA para evitar inventos.
     """
     if notebook_id != "biblioteca-de-nomenclaturas":
         return answer
@@ -790,33 +797,33 @@ def _corregir_isc_con_lookup(answer: str, notebook_id: str) -> str:
     except Exception:
         return answer
 
-    # Buscar ISC verificado para este codigo
     cap = codigo[:2]
     cap_data = isc_data.get('capitulos_con_isc', {}).get(cap)
-    if not cap_data:
-        return answer  # capitulo sin ISC — no tocar
 
-    codigos_verificados = cap_data.get('codigos_verificados', {})
+    # Determinar ISC verificado por el lookup (None si no aplica)
     isc_verificado = None
-    if codigo in codigos_verificados:
-        isc_verificado = codigos_verificados[codigo]['isc']
-    elif 'default' in cap_data.get('tasas', {}):
-        # Verificar si la partida base esta en partidas_afectadas
-        partida_base = codigo[:7]  # XXXX.XX
-        cap_partidas = cap_data.get('partidas_afectadas', [])
-        if any(codigo.startswith(p) for p in cap_partidas):
-            isc_verificado = cap_data['tasas']['default']
+    fuente_lookup = "isc_lookup.json"
+    if cap_data:
+        codigos_verificados = cap_data.get('codigos_verificados', {})
+        if codigo in codigos_verificados:
+            isc_verificado = codigos_verificados[codigo]['isc']
+            fuente_lookup = f"isc_lookup.json[cap.{cap}].codigos_verificados[{codigo}]"
+        elif 'default' in cap_data.get('tasas', {}):
+            cap_partidas = cap_data.get('partidas_afectadas', [])
+            if any(codigo.startswith(p) for p in cap_partidas):
+                isc_verificado = cap_data['tasas']['default']
+                fuente_lookup = f"isc_lookup.json[cap.{cap}].partidas_afectadas"
 
-    if not isc_verificado:
-        return answer  # codigo especifico no listado — no corregir
-
-    # Ver lo que Gemini puso en ISC:
+    # Ver lo que Gemini puso en ISC
     m_isc = re.search(r'ISC:\s*([^\n\r]+)', answer)
     isc_gemini = m_isc.group(1).strip() if m_isc else ""
+    tiene_tasa_positiva = bool(re.search(r'\b\d+\s*%', isc_gemini))
+    dice_no_aplica = ('NO APLICA' in isc_gemini.upper()) or not isc_gemini
 
-    if 'NO APLICA' in isc_gemini.upper() or not isc_gemini:
+    # (A) FALSO NEGATIVO: lookup tiene tasa, Gemini dijo NO APLICA
+    if isc_verificado and dice_no_aplica:
         isc_correcto = f"{isc_verificado} — Ley 11-92 Art. 375, bienes suntuarios electronicos"
-        print(f"[ISC-GATE] CORRECCION: '{isc_gemini}' -> '{isc_correcto}' para {codigo}")
+        print(f"[ISC-GATE-A] FALSO NEG: '{isc_gemini}' -> '{isc_correcto}' para {codigo}")
         if m_isc:
             answer = answer[:m_isc.start()] + f"ISC: {isc_correcto}" + answer[m_isc.end():]
         else:
@@ -824,14 +831,42 @@ def _corregir_isc_con_lookup(answer: str, notebook_id: str) -> str:
                                     f'ISC: {isc_correcto}\n---FIN_CLASIFICACION---')
         answer += (
             f"\n\n---CORRECCION_ISC_AUTOMATICA---"
+            f"\nTIPO: falso_negativo"
             f"\nCODIGO: {codigo}"
             f"\nISC_CORREGIDO: {isc_correcto}"
-            f"\nFUENTE: isc_lookup.json — Ley 11-92 Titulo IV"
+            f"\nFUENTE: {fuente_lookup}"
             f"\n---FIN_CORRECCION_ISC---"
         )
-    else:
-        print(f"[ISC-GATE] OK: ISC '{isc_gemini}' para {codigo}")
+        return answer
 
+    # (B) FALSO POSITIVO: lookup NO aplica, pero Gemini puso una tasa positiva
+    if not isc_verificado and tiene_tasa_positiva:
+        # Razon documentada segun se haya encontrado o no capitulo
+        if cap_data:
+            partidas_ok = cap_data.get('partidas_afectadas', [])
+            codigos_ok = list(cap_data.get('codigos_verificados', {}).keys())
+            razon = (f"Cap.{cap} tiene ISC solo para partidas {partidas_ok}; "
+                     f"{codigo} NO esta afectado")
+        else:
+            razon = f"Capitulo {cap} no figura en isc_lookup.json (sin ISC registrado)"
+        isc_correcto = f"NO APLICA — {razon}"
+        print(f"[ISC-GATE-B] FALSO POS: '{isc_gemini}' -> 'NO APLICA' para {codigo} ({razon})")
+        if m_isc:
+            answer = answer[:m_isc.start()] + f"ISC: {isc_correcto}" + answer[m_isc.end():]
+        answer += (
+            f"\n\n---CORRECCION_ISC_AUTOMATICA---"
+            f"\nTIPO: falso_positivo"
+            f"\nCODIGO: {codigo}"
+            f"\nISC_ORIGINAL: {isc_gemini}"
+            f"\nISC_CORREGIDO: {isc_correcto}"
+            f"\nFUENTE: {fuente_lookup}"
+            f"\n---FIN_CORRECCION_ISC---"
+        )
+        return answer
+
+    # Caso coherente: no hay correccion necesaria
+    print(f"[ISC-GATE] COHERENTE: ISC '{isc_gemini}' para {codigo} "
+          f"(lookup={isc_verificado or 'no aplica'})")
     return answer
 
 
@@ -1071,10 +1106,21 @@ def ask_gemini(question, notebook_id, _intento=1):
         # 1. Extraer codigo del borrador
         # 2. Si existe en cache (7,616 codigos) → CONFIRMADO + validar gravamen
         # 3. Si NO existe en cache → verificar con Gemini + Arancel PDF
+        _notas_slot: dict = {}
+        _notas_thread = None
         if notebook_id == "biblioteca-de-nomenclaturas":
             _m_cod = re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', answer)
             _cod_borrador = _m_cod.group(1) if _m_cod else None
             _en_cache = _codigo_en_cache(_cod_borrador) if _cod_borrador else False
+
+            # Consultor paralelo de Notas Legales/Explicativas — lanzar ASAP
+            if _cod_borrador:
+                try:
+                    from consultor_notas_arancel import analizar_codigo_async
+                    _notas_thread = analizar_codigo_async(_cod_borrador, _notas_slot)
+                    print(f"[NOTAS-ARANCEL] Consultor paralelo lanzado para {_cod_borrador}")
+                except Exception as _e:
+                    print(f"[NOTAS-ARANCEL] No disponible: {_e}")
 
             if _en_cache:
                 print(f"[GEMINI] Codigo {_cod_borrador} CONFIRMADO en cache Arancel")
@@ -1105,6 +1151,24 @@ def ask_gemini(question, notebook_id, _intento=1):
                     if _corregido:
                         print("[GEMINI] Verificador corrigio codigo y/o cargos")
                 print(f"[GEMINI] Verificacion completada ({time.time()-t0:.1f}s total)")
+
+        # ── Consolidar consultor paralelo de Notas Arancel ─────────────────
+        # El thread se lanzo al obtener el codigo borrador. Si ya termino, se
+        # anexa el bloque ---NOTAS_ARANCEL--- ANTES del supervisor para que sus
+        # checks y los gates posteriores (ISC, gravamen) lo tengan en cuenta.
+        if _notas_thread is not None:
+            try:
+                _notas_thread.join(timeout=2.5)
+                _notas_resultado = _notas_slot.get("notas")
+                if _notas_resultado and not _notas_resultado.get("error"):
+                    from consultor_notas_arancel import formatear_para_respuesta
+                    _bloque_notas = formatear_para_respuesta(_notas_resultado)
+                    if _bloque_notas:
+                        answer = answer + "\n\n" + _bloque_notas
+                        print(f"[NOTAS-ARANCEL] Veredicto: {_notas_resultado.get('veredicto')} "
+                              f"- ISC aplica: {_notas_resultado.get('aplica_isc')}")
+            except Exception as _e:
+                print(f"[NOTAS-ARANCEL] Error consolidando: {_e}")
 
         # ── SUPERVISOR GENERAL INTERNO — controla TODOS los cuadernos ──
         print("[GEMINI] Enviando borrador al Supervisor General Interno...")
