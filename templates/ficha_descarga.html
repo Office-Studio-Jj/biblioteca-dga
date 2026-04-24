@@ -295,9 +295,9 @@
   <div class="section">
     <div class="section-title">Como instalar en tu dispositivo</div>
     <div class="steps-tabs">
-      <div class="stab active" onclick="showG('android',this)">Android</div>
-      <div class="stab" onclick="showG('ios',this)">iPhone</div>
-      <div class="stab" onclick="showG('pc',this)">PC</div>
+      <div class="stab active" data-guide="android">Android</div>
+      <div class="stab" data-guide="ios">iPhone</div>
+      <div class="stab" data-guide="pc">PC</div>
     </div>
     <div class="sguide active" id="sg-android">
       <div class="step"><div class="step-n">1</div><div class="step-t"><strong>Toca "Instalar App" arriba</strong><span>Se abre la app en Chrome automaticamente</span></div></div>
@@ -323,7 +323,7 @@
       <a class="btn-share btn-wa" id="shareWa" href="#">WhatsApp</a>
       <a class="btn-share btn-email" id="shareEmail" href="#">Correo</a>
       <a class="btn-share btn-telegram" id="shareTg" href="#">Telegram</a>
-      <button class="btn-share btn-link" id="shareLink" onclick="copyLink()">Copiar enlace</button>
+      <button class="btn-share btn-link" id="shareLink" type="button">Copiar enlace</button>
     </div>
   </div>
 
@@ -477,6 +477,38 @@ function showG(name, el) {
   document.getElementById('sg-' + name).classList.add('active');
   el.classList.add('active');
 }
+
+// Bindings CSP-friendly (sin onclick inline)
+document.querySelectorAll('.stab').forEach(function(tab) {
+  tab.addEventListener('click', function() { showG(tab.dataset.guide, tab); });
+});
+document.getElementById('shareLink').addEventListener('click', copyLink);
+
+// ── Detector de in-app browsers (WhatsApp, FB, IG, TikTok, etc.) ──
+// Estos WebViews limitados causan pantalla blanca con SW + CSP estrictos.
+(function() {
+  const ua = navigator.userAgent || '';
+  const isInApp = /WhatsApp|FBAN|FBAV|FB_IAB|Instagram|Line|Twitter|TikTok|MicroMessenger/i.test(ua);
+  if (!isInApp) return;
+  const banner = document.createElement('div');
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#d4af37;color:#0f172a;padding:12px 14px;font-size:.78rem;font-weight:700;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.4);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.35';
+  const isAndroid = /Android/i.test(ua);
+  const externalUrl = FICHA_URL;
+  banner.innerHTML =
+    '⚠️ Estas dentro del navegador de la app. Para instalar la PWA toca:' +
+    '<br><a id="openExt" style="display:inline-block;margin-top:8px;background:#0f172a;color:#d4af37;padding:8px 16px;border-radius:8px;text-decoration:none;font-weight:800">Abrir en navegador externo →</a>';
+  document.body.appendChild(banner);
+  document.body.style.paddingTop = (banner.offsetHeight + 4) + 'px';
+  const linkEl = document.getElementById('openExt');
+  if (isAndroid) {
+    const u = externalUrl.replace(/^https?:\/\//, '');
+    linkEl.href = 'intent://' + u + '#Intent;scheme=https;package=com.android.chrome;end';
+  } else {
+    linkEl.href = externalUrl;
+    linkEl.target = '_blank';
+    linkEl.rel = 'noopener';
+  }
+})();
 </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const CACHE = 'biblioteca-dga-v5';
+const CACHE = 'biblioteca-dga-v6';
 const STATIC_ASSETS = ['/static/manifest.json', '/static/icons/icon-192.png', '/static/icons/icon-512.png'];
 
 self.addEventListener('install', e => {

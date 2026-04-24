@@ -234,6 +234,10 @@
       cursor: pointer;
       border-bottom: 2px solid transparent;
       transition: all 0.2s;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
     .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
 
@@ -274,11 +278,16 @@
       text-align: center;
       transition: all 0.15s;
       user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: rgba(212,175,55,0.25);
+      font-family: inherit;
+      color: inherit;
     }
     .nb-btn:active { transform: scale(0.94); }
     .nb-btn.sel    { border-color: var(--gold); background: #162030; }
-    .nb-btn .ico   { font-size: 1.6rem; line-height: 1; display: block; margin-bottom: 5px; }
-    .nb-btn .txt   { font-size: 0.68rem; color: var(--muted); line-height: 1.3; }
+    .nb-btn .ico   { font-size: 1.6rem; line-height: 1; display: block; margin-bottom: 5px; pointer-events: none; }
+    .nb-btn .txt   { font-size: 0.68rem; color: var(--muted); line-height: 1.3; pointer-events: none; }
     .nb-btn.sel .txt { color: var(--gold); }
 
     /* ── Input card ── */
@@ -4597,6 +4606,20 @@
       setTimeout(_tutorStart, 1200);
     }
   });
+
+  // ── Backup robusto mobile: bind delegado para nb-btn y tabs ──
+  // (algunos browsers movil + CSP estricto pueden fallar onclick inline; este listener es CSP-friendly)
+  document.addEventListener('click', function(ev) {
+    const nb = ev.target.closest('#nbGrid .nb-btn');
+    if (nb && typeof selectNb === 'function') { selectNb(nb); return; }
+    const nbRetry = ev.target.closest('#otherNbGrid .nb-btn');
+    if (nbRetry && typeof selectRetryNb === 'function') { selectRetryNb(nbRetry); return; }
+    const tab = ev.target.closest('.tabs .tab');
+    if (tab) {
+      const m = (tab.getAttribute('onclick') || '').match(/showTab\('([^']+)'/);
+      if (m && typeof showTab === 'function') showTab(m[1], tab);
+    }
+  }, false);
 </script>
 </body>
 </html>
