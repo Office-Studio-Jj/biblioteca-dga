@@ -1968,6 +1968,33 @@ def admin_proteger_correccion():
     return jsonify({"ok": True, "mensaje": f"{codigo} protegido con gravamen {gravamen}%"})
 
 
+# ── Capa 2: Sync Notion → SQLite ─────────────────────────────────────────
+@app.route("/admin/sync-notion", methods=["POST"])
+@master_required
+def admin_sync_notion():
+    """Sincroniza jurisprudencia, SOPs y fichas merceológicas desde Notion a SQLite."""
+    dry_run = request.json.get("dry_run", False) if request.is_json else False
+    try:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location(
+            "sync_notion",
+            os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "notion_service", "sync_notion_to_sqlite.py")
+        )
+        _mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        result = _mod.sync(dry_run=dry_run)
+        return jsonify({"ok": True, **result})
+    except EnvironmentError as e:
+        return jsonify({"ok": False, "error": str(e),
+                        "hint": "Configura NOTION_API_KEY en Railway Variables"}), 503
+    except ImportError as e:
+        return jsonify({"ok": False, "error": str(e),
+                        "hint": "Agrega notion-client>=2.2.1 a requirements.txt"}), 503
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 # ── Diagnóstico del sistema de consultas (Gemini + NotebookLM) ───────────
 @app.route("/admin/diagnostico-notebooklm")
 @master_required

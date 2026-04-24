@@ -591,6 +591,51 @@ from verificador_arancelario import codigo_existe_en_cache as _codigo_en_cache
 from verificador_arancelario import _extraer_gravamen_de_cache, _CACHE_CODIGOS, _cargar_cache_arancel
 # ──────────────────────────────────────────────────────────────────────────
 
+# ── Capa 1: SQLite FTS5 (fuente de verdad única para gravamen/ITBIS/ISC) ──
+def _capa1_lookup(codigo: str) -> "dict | None":
+    """Lookup en arancel_rd.db (Capa 1 SQLite). Fallback silencioso a None."""
+    try:
+        import sys as _sys
+        _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        _capa1_path = os.path.join(_root, "capa1_sqlite")
+        if _capa1_path not in _sys.path:
+            _sys.path.insert(0, _capa1_path)
+        # Import relativo al root del proyecto
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location(
+            "orquestador_capa3",
+            os.path.join(_capa1_path, "orquestador_capa3.py")
+        )
+        _mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        return _mod.consultar_son_exacto(codigo)
+    except Exception as _e:
+        print(f"[CAPA1] No disponible ({_e}) — usando cache JSON")
+        return None
+
+# Cache del modulo para no re-importar en cada llamada
+_capa1_mod = None
+
+def _capa1_grav(codigo: str) -> "float | None":
+    """Gravamen desde Capa 1 SQLite. Prioridad máxima, 0% IA."""
+    global _capa1_mod
+    try:
+        if _capa1_mod is None:
+            import importlib.util as _ilu
+            _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            _spec = _ilu.spec_from_file_location(
+                "orquestador_capa3",
+                os.path.join(_root, "capa1_sqlite", "orquestador_capa3.py")
+            )
+            _capa1_mod = _ilu.module_from_spec(_spec)
+            _spec.loader.exec_module(_capa1_mod)
+        result = _capa1_mod.consultar_son_exacto(codigo)
+        if result and result.get("gravamen") is not None and result["gravamen"] != "":
+            return float(result["gravamen"])
+    except Exception as _e:
+        print(f"[CAPA1-GRAV] {_e}")
+    return None
+
 
 def _get_gravamen_manual(codigo: str) -> "int | None":
     """Lee correcciones_manuales.json — maxima prioridad, verificado por humano."""
@@ -633,11 +678,17 @@ def _corregir_gravamen_con_cache(answer: str, codigo: str) -> str:
     fuente_grav = "correcciones_manuales.json (verificado por humano)"
 
     if grav_verificado is None:
-        # PRIORIDAD 2: Cache principal — acceso directo (evita variable global stale)
-        from cache_utils import cargar_codigos as _get_codigos_cache
-        desc_cache = _get_codigos_cache().get(codigo, "")
-        grav_verificado = _extraer_gravamen_de_cache(desc_cache)
-        fuente_grav = "arancel_cache.json (pdfplumber, 0% IA)"
+        # PRIORIDAD 2: Capa 1 SQLite (0.16ms, 0% IA, fuente de verdad unica)
+        grav_capa1 = _capa1_grav(codigo)
+        if grav_capa1 is not None:
+            grav_verificado = grav_capa1
+            fuente_grav = "arancel_rd.db SQLite/FTS5 (pdfplumber, 0% IA)"
+        else:
+            # Fallback: cache JSON legacy
+            from cache_utils import cargar_codigos as _get_codigos_cache
+            desc_cache = _get_codigos_cache().get(codigo, "")
+            grav_verificado = _extraer_gravamen_de_cache(desc_cache)
+            fuente_grav = "arancel_cache.json (pdfplumber, 0% IA)"
 
     if grav_verificado is None:
         # PRIORIDAD 3: Lookup posicional (cobertura extendida)
@@ -711,17 +762,20 @@ def _compuerta_final_gravamen(answer: str, notebook_id: str) -> str:
     if not codigo:
         return answer
 
-    # FUENTE DE VERDAD: cache directo (evita variable global stale)
-    from cache_utils import cargar_codigos as _get_codigos_cache
-    _codigos = _get_codigos_cache()
-
+    # FUENTE DE VERDAD: Capa 1 SQLite (0.16ms, 0% IA)
     grav_verificado = _get_gravamen_manual(codigo)
     fuente = "correcciones_manuales.json"
 
     if grav_verificado is None:
-        desc = _codigos.get(codigo, "")
-        grav_verificado = _extraer_gravamen_de_cache(desc)
-        fuente = "arancel_cache.json"
+        grav_capa1 = _capa1_grav(codigo)
+        if grav_capa1 is not None:
+            grav_verificado = grav_capa1
+            fuente = "arancel_rd.db SQLite/FTS5 (pdfplumber 0% IA)"
+        else:
+            from cache_utils import cargar_codigos as _get_codigos_cache
+            desc = _get_codigos_cache().get(codigo, "")
+            grav_verificado = _extraer_gravamen_de_cache(desc)
+            fuente = "arancel_cache.json (fallback)"
 
     if grav_verificado is None:
         grav_verificado = _get_gravamen_lookup(codigo)

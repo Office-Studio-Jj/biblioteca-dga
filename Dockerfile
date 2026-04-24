@@ -1,14 +1,8 @@
 FROM python:3.11-slim
 
-# ── Dependencias del sistema para Chromium headless en Railway ────────────
+# ── Dependencias mínimas del sistema (sin Chromium — patchright eliminado) ─
 RUN apt-get update && apt-get install -y \
-    wget curl gnupg ca-certificates \
-    libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
-    libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
-    libxfixes3 libxrandr2 libgbm1 libasound2 \
-    libpango-1.0-0 libcairo2 libatspi2.0-0 libx11-6 \
-    libx11-xcb1 libxcb1 libxext6 libxfixes3 libxi6 \
-    fonts-liberation xdg-utils \
+    ca-certificates curl \
     --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 # ── Directorio de trabajo ─────────────────────────────────────────────────
@@ -22,23 +16,20 @@ WORKDIR /app
 ENV PYTHONIOENCODING=utf-8
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-# NO establecer DISPLAY — causa crash de Chromium en modo headless en Linux
 
 # ── Instalar dependencias Python ──────────────────────────────────────────
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ── Instalar Chromium en /ms-playwright (PLAYWRIGHT_BROWSERS_PATH ya está) ──
-RUN python -m patchright install chromium --with-deps
-
 # ── Copiar código ─────────────────────────────────────────────────────────
 COPY . .
 
-# ── Crear directorios de datos y perfil del navegador ────────────────────
-RUN mkdir -p /app/data \
- && mkdir -p /app/notebooklm_skill/data/browser_state/browser_profile \
- && chmod -R 777 /app/notebooklm_skill/data
+# ── Crear directorio de datos ─────────────────────────────────────────────
+RUN mkdir -p /app/data && chmod -R 777 /app/notebooklm_skill/data
+
+# ── Construir base de datos Capa 1 SQLite FTS5 (arancel_rd.db) ───────────
+# Tarda ~2s. Genera lookup determinista de 7,616 codigos, 0% IA.
+RUN python capa1_sqlite/build_arancel_db.py
 
 # ── Exponer puerto ────────────────────────────────────────────────────────
 EXPOSE 8080
