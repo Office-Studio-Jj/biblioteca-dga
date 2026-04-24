@@ -2,12 +2,14 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Logistica de Puertos y Aduanas RD</title>
   <meta name="theme-color" content="#1e3a5f">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Puertos y Aduanas">
+  <meta name="format-detection" content="telephone=no">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="manifest" href="/static/manifest.json">
   <style>
@@ -30,7 +32,9 @@
       cursor: pointer; transition: all 0.2s; text-align: center;
       touch-action: manipulation; -webkit-user-select: none; user-select: none;
       font-family: inherit; line-height: 1.2;
+      min-height: 56px; -webkit-appearance: none; appearance: none;
     }
+    .role-btn .rico { pointer-events: none; }
     .role-btn:active { transform: scale(0.97); }
     .role-btn .rico { font-size: 1.3rem; display: block; margin-bottom: 3px; }
     .role-btn.active-master   { border-color: #d4af37; color: #d4af37; background: #162030; }

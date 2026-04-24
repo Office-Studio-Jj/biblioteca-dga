@@ -2,7 +2,8 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="format-detection" content="telephone=no">
   <title>Biblioteca DGA — {{ rol_titulo }}</title>
   <meta name="theme-color" content="#0f172a">
   <link rel="manifest" href="/static/manifest.json">
@@ -305,9 +306,10 @@
       <div class="step"><div class="step-n">3</div><div class="step-t"><strong>Selecciona "Agregar a pantalla de inicio"</strong><span>La app aparece como icono en tu pantalla</span></div></div>
     </div>
     <div class="sguide" id="sg-ios">
-      <div class="step"><div class="step-n">1</div><div class="step-t"><strong>Abre este enlace en Safari</strong><span>En iPhone solo funciona desde Safari</span></div></div>
-      <div class="step"><div class="step-n">2</div><div class="step-t"><strong>Toca el icono Compartir (cuadro con flecha)</strong><span>Esta en la barra inferior del navegador</span></div></div>
-      <div class="step"><div class="step-n">3</div><div class="step-t"><strong>Selecciona "Agregar a inicio"</strong><span>Confirma con "Agregar" y aparece el icono</span></div></div>
+      <div class="step"><div class="step-n">1</div><div class="step-t"><strong>Abre el enlace en Safari (NO Chrome ni WhatsApp)</strong><span>iOS solo permite instalar PWA desde Safari nativo</span></div></div>
+      <div class="step"><div class="step-n">2</div><div class="step-t"><strong>Toca Compartir ⬆ en la barra inferior</strong><span>iPhone: barra inferior · iPad: arriba a la derecha</span></div></div>
+      <div class="step"><div class="step-n">3</div><div class="step-t"><strong>Selecciona "Agregar a Inicio"</strong><span>Desplazate en el menu si no la ves. Confirma con "Agregar"</span></div></div>
+      <div class="step"><div class="step-n">4</div><div class="step-t"><strong>Abre la app desde el icono nuevo</strong><span>Se ejecuta a pantalla completa como una app nativa</span></div></div>
     </div>
     <div class="sguide" id="sg-pc">
       <div class="step"><div class="step-n">1</div><div class="step-t"><strong>Abre el enlace en Chrome o Edge</strong><span>Toca "Instalar App" arriba para abrir</span></div></div>
@@ -484,27 +486,86 @@ document.querySelectorAll('.stab').forEach(function(tab) {
 });
 document.getElementById('shareLink').addEventListener('click', copyLink);
 
-// ── Detector de in-app browsers (WhatsApp, FB, IG, TikTok, etc.) ──
-// Estos WebViews limitados causan pantalla blanca con SW + CSP estrictos.
+// ── Deteccion de plataforma + in-app browser ──
+// iOS: solo Safari instala PWA. WebView de WhatsApp/Chrome iOS NO puede.
+// Android: Chrome/Samsung Internet instalan; WebView de WhatsApp NO.
 (function() {
   const ua = navigator.userAgent || '';
-  const isInApp = /WhatsApp|FBAN|FBAV|FB_IAB|Instagram|Line|Twitter|TikTok|MicroMessenger/i.test(ua);
-  if (!isInApp) return;
-  const banner = document.createElement('div');
-  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#d4af37;color:#0f172a;padding:12px 14px;font-size:.78rem;font-weight:700;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.4);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.35';
   const isAndroid = /Android/i.test(ua);
-  const externalUrl = FICHA_URL;
-  banner.innerHTML =
-    '⚠️ Estas dentro del navegador de la app. Para instalar la PWA toca:' +
-    '<br><a id="openExt" style="display:inline-block;margin-top:8px;background:#0f172a;color:#d4af37;padding:8px 16px;border-radius:8px;text-decoration:none;font-weight:800">Abrir en navegador externo →</a>';
+  // iPad iOS 13+ se identifica como Macintosh con touch — detectar con maxTouchPoints
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) ||
+                (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+  const isInApp = /WhatsApp|FBAN|FBAV|FB_IAB|Instagram|Line|Twitter|TikTok|MicroMessenger/i.test(ua);
+  // Chrome iOS (CriOS) y Firefox iOS (FxiOS) tampoco pueden instalar PWA
+  const isIOSNonSafari = isIOS && /CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
+
+  // iOS Safari: oculta el boton "Instalar App" y muestra instrucciones nativas
+  if (isIOS && !isInApp && !isIOSNonSafari && !isInstalled()) {
+    const hint = document.getElementById('installHint');
+    const btn  = document.getElementById('btnInstall');
+    btn.textContent = 'Como instalar en iPhone/iPad';
+    hint.innerHTML = 'Toca <b>Compartir</b> <span style="display:inline-block;border:1px solid #d4af37;border-radius:4px;padding:1px 5px;color:#d4af37">⬆</span> y elige <b>"Agregar a Inicio"</b>';
+    btn.addEventListener('click', function(ev) {
+      ev.preventDefault();
+      hint.style.color = '#d4af37';
+      hint.style.fontSize = '.8rem';
+      hint.style.fontWeight = '700';
+    });
+  }
+
+  if (!isInApp && !isIOSNonSafari) return;
+
+  // Banner: WebView/in-app o Chrome iOS — necesita salir a Safari/Chrome real
+  const banner = document.createElement('div');
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#d4af37;color:#0f172a;padding:12px 14px;font-size:.78rem;font-weight:700;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.4);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.4';
+
+  let title, instructions, ctaText;
+  if (isIOS) {
+    title = '⚠️ Para instalar en iPhone/iPad necesitas <b>Safari</b>';
+    if (isInApp) {
+      instructions = 'Toca <b>•••</b> abajo a la derecha y elige <b>"Abrir en Safari"</b>';
+    } else {
+      instructions = 'Toca <b>Compartir</b> <span style="border:1px solid #0f172a;border-radius:4px;padding:0 4px">⬆</span> y elige <b>"Abrir en Safari"</b>';
+    }
+    ctaText = 'Copiar enlace para Safari';
+  } else if (isAndroid) {
+    title = '⚠️ Para instalar la PWA necesitas <b>Chrome</b>';
+    instructions = 'Toca el boton para abrir en Chrome';
+    ctaText = 'Abrir en Chrome →';
+  } else {
+    title = '⚠️ Estas dentro del navegador de la app';
+    instructions = 'Para instalar abre el enlace en tu navegador externo';
+    ctaText = 'Abrir en navegador externo →';
+  }
+
+  banner.innerHTML = title + '<br><span style="font-weight:500;font-size:.72rem;display:block;margin-top:4px;color:#1a2744">' + instructions + '</span>' +
+    '<a id="openExt" style="display:inline-block;margin-top:10px;background:#0f172a;color:#d4af37;padding:8px 16px;border-radius:8px;text-decoration:none;font-weight:800">' + ctaText + '</a>';
+
   document.body.appendChild(banner);
   document.body.style.paddingTop = (banner.offsetHeight + 4) + 'px';
+
   const linkEl = document.getElementById('openExt');
   if (isAndroid) {
-    const u = externalUrl.replace(/^https?:\/\//, '');
+    const u = FICHA_URL.replace(/^https?:\/\//, '');
     linkEl.href = 'intent://' + u + '#Intent;scheme=https;package=com.android.chrome;end';
+  } else if (isIOS) {
+    // En iOS no hay forma programatica fiable de forzar Safari
+    // (ni x-safari-https://, ni intent://). La unica opcion robusta es copiar.
+    linkEl.href = '#';
+    linkEl.addEventListener('click', function(ev) {
+      ev.preventDefault();
+      navigator.clipboard.writeText(FICHA_URL).then(function() {
+        linkEl.textContent = '✓ Enlace copiado — pegalo en Safari';
+        linkEl.style.background = '#16a34a';
+        linkEl.style.color = '#fff';
+      }).catch(function() {
+        // Fallback: mostrar URL para copia manual
+        linkEl.textContent = FICHA_URL;
+        linkEl.style.userSelect = 'all';
+      });
+    });
   } else {
-    linkEl.href = externalUrl;
+    linkEl.href = FICHA_URL;
     linkEl.target = '_blank';
     linkEl.rel = 'noopener';
   }
