@@ -1995,6 +1995,58 @@ def admin_sync_notion():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+# ── Clasificador merceológico automático (7 etapas) ──────────────────────
+@app.route("/merceologia/clasificar-auto", methods=["POST"])
+def merceologia_clasificar_auto():
+    """
+    Pipeline 7 etapas: ficha → capítulo → notas → biblioteca RAG → SON → validar → Notion.
+
+    Body JSON:
+      {
+        "descripcion": "Cámara videoconferencia 4K...",
+        "publicar_notion": false       // opcional (default false)
+      }
+    """
+    if not session.get("usuario"):
+        return jsonify({"ok": False, "error": "login requerido"}), 401
+    data = request.get_json(silent=True) or {}
+    descripcion = (data.get("descripcion") or "").strip()
+    if not descripcion or len(descripcion) < 5:
+        return jsonify({"ok": False, "error": "descripcion requerida (>= 5 chars)"}), 400
+    publicar = bool(data.get("publicar_notion", False))
+    try:
+        from sub_agentes.clasificador_merceologico_auto import clasificar_producto
+        result = clasificar_producto(descripcion, publicar=publicar)
+        return jsonify({"ok": True, **result})
+    except Exception as e:
+        import traceback
+        return jsonify({"ok": False, "error": str(e),
+                        "trace": traceback.format_exc()[:2000]}), 500
+
+
+@app.route("/biblioteca/buscar")
+def biblioteca_buscar():
+    """Busqueda FTS5 sobre los 11 PDFs de biblioteca-nomenclatura."""
+    if not session.get("usuario"):
+        return jsonify({"ok": False, "error": "login requerido"}), 401
+    q = (request.args.get("q") or "").strip()
+    cap = (request.args.get("capitulo") or "").strip() or None
+    try:
+        limit = max(1, min(int(request.args.get("limit", 5)), 20))
+    except ValueError:
+        limit = 5
+    if not q:
+        return jsonify({"ok": False, "error": "q requerido"}), 400
+    try:
+        from sub_agentes.investigador_biblioteca import investigar
+        keywords = [w for w in re.split(r"\s+", q) if len(w) >= 3]
+        res = investigar(keywords, capitulo=cap, limit=limit)
+        return jsonify({"ok": True, "q": q, "capitulo": cap,
+                        "resultados": res, "total": len(res)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 # ── Diagnóstico del sistema de consultas (Gemini + NotebookLM) ───────────
 @app.route("/admin/diagnostico-notebooklm")
 @master_required

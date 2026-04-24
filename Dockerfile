@@ -31,6 +31,10 @@ RUN mkdir -p /app/data && chmod -R 777 /app/notebooklm_skill/data
 # Tarda ~2s. Genera lookup determinista de 7,616 codigos, 0% IA.
 RUN python capa1_sqlite/build_arancel_db.py
 
+# ── Indexar biblioteca-nomenclatura FTS5 (11 PDFs → ~23 chunks) ──────────
+# Tarda ~25s. Permite RAG determinista en clasificador merceologico auto.
+RUN python capa1_sqlite/build_biblioteca_fts.py
+
 # ── Exponer puerto ────────────────────────────────────────────────────────
 EXPOSE 8080
 
