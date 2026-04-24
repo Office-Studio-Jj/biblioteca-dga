@@ -11,6 +11,8 @@ import secrets
 import json
 import uuid
 import time
+import bcrypt
+from decimal import Decimal, InvalidOperation
 from collections import defaultdict
 from datetime import datetime, timedelta
 from functools import wraps
@@ -77,6 +79,17 @@ app.config['SESSION_COOKIE_HTTPONLY']    = True
 app.config['SESSION_COOKIE_SECURE']     = bool(_IS_CLOUD)
 app.config['MAX_CONTENT_LENGTH']        = 5 * 1024 * 1024  # 5 MB máx para uploads
 
+# ── Nonce CSP por request ───────────────────────────────────────────────
+from flask import g as _flask_g
+
+@app.before_request
+def _generate_csp_nonce():
+    _flask_g.csp_nonce = secrets.token_urlsafe(16)
+
+@app.context_processor
+def _inject_csp_nonce():
+    return {"csp_nonce": getattr(_flask_g, "csp_nonce", "")}
+
 # ── Cabeceras de seguridad HTTP ─────────────────────────────────────────
 @app.after_request
 def _security_headers(response):
@@ -87,9 +100,10 @@ def _security_headers(response):
     response.headers['Permissions-Policy'] = 'camera=(self), microphone=(), geolocation=()'
     if _IS_CLOUD:
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    nonce = getattr(_flask_g, "csp_nonce", "")
     csp = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+        f"script-src 'self' 'nonce-{nonce}' https://cdnjs.cloudflare.com; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data:; "
         "connect-src 'self'; "
@@ -97,6 +111,39 @@ def _security_headers(response):
     )
     response.headers['Content-Security-Policy'] = csp
     return response
+
+# ── Validación de uploads: extensión + magic bytes ──────────────────────
+_ALLOWED_CONSULTAR = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic"}
+_ALLOWED_AUDIO     = {".mp3", ".mp4", ".wav", ".webm", ".m4a", ".ogg", ".flac"}
+_MAGIC_BYTES = {
+    b"\x25\x50\x44\x46": "pdf",
+    b"\xff\xd8\xff":      "jpeg",
+    b"\x89\x50\x4e\x47": "png",
+    b"\x52\x49\x46\x46": "webp",
+}
+
+def _validar_upload(file_obj, allowed_exts):
+    """Valida extensión y magic bytes. Devuelve (ok: bool, error: str)."""
+    filename = file_obj.filename or ""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in allowed_exts:
+        return False, f"Tipo no permitido. Usa: {', '.join(sorted(allowed_exts))}"
+    header = file_obj.stream.read(12)
+    file_obj.stream.seek(0)
+    if len(header) < 4:
+        return False, "Archivo vacío o corrupto."
+    for magic in _MAGIC_BYTES:
+        if header[:len(magic)] == magic:
+            return True, ""
+    if ext in {".heic"}:
+        return True, ""
+    if ext in {".jpg", ".jpeg"} and header[:3] != b"\xff\xd8\xff":
+        return False, "El archivo no es una imagen JPEG válida."
+    if ext == ".pdf" and header[:4] != b"\x25\x50\x44\x46":
+        return False, "El archivo no es un PDF válido."
+    if ext == ".webp" and (len(header) < 12 or header[8:12] != b"WEBP"):
+        return False, "El archivo no es un WebP válido."
+    return True, ""
 
 # ── Cache de consultas frecuentes ──────────────────────────────────────────
 _CACHE_CONSULTAS_PATH = Path(__file__).parent / "notebooklm_skill" / "data" / "fuentes_nomenclatura" / "consultas_cache.json"
@@ -165,9 +212,58 @@ def _rate_limited(key, action='login'):
 def _get_client_ip():
     return request.headers.get('X-Forwarded-For', request.remote_addr or '127.0.0.1').split(',')[0].strip()
 
-# ── Contraseñas por defecto (hash SHA-256) ───────────────────────────────
+# ── Contraseñas por defecto (hash SHA-256 legacy, se rehashean a bcrypt
+# en el primer login exitoso). Mantener hex asegura compat con passwords.json
+# existentes en producción. ─────────────────────────────────────────────
 _DEFAULT_MASTER_HASH = hashlib.sha256(b"DGA2024*").hexdigest()
-_DEFAULT_GUEST_HASH = hashlib.sha256(b"Puertos2024").hexdigest()
+_DEFAULT_GUEST_HASH  = hashlib.sha256(b"Puertos2024").hexdigest()
+
+# ── Password hashing (bcrypt con pre-hash SHA-256 para sortear el límite
+# de 72 bytes y evitar truncamiento silencioso). Verifica ambos formatos:
+# legacy (SHA-256 hex de 64 chars) y bcrypt. Devuelve needs_rehash=True
+# cuando el hash almacenado es legacy, para migración perezosa. ────────
+_BCRYPT_ROUNDS = 12  # ~250ms por verificación en hardware moderno
+
+def _pw_hash(pw: str) -> str:
+    digest = hashlib.sha256(pw.encode("utf-8")).digest()
+    return bcrypt.hashpw(digest, bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)).decode("ascii")
+
+def _pw_verify(pw: str, stored: str):
+    """Devuelve (ok: bool, needs_rehash: bool). Soporta legacy SHA-256 hex + bcrypt."""
+    if not pw or not stored:
+        return (False, False)
+    # Legacy SHA-256 hex (64 chars hex)
+    if len(stored) == 64 and all(c in "0123456789abcdefABCDEF" for c in stored):
+        legacy = hashlib.sha256(pw.encode("utf-8")).hexdigest()
+        return (secrets.compare_digest(legacy, stored.lower()), True)
+    # Bcrypt ($2a$ / $2b$ / $2y$)
+    try:
+        digest = hashlib.sha256(pw.encode("utf-8")).digest()
+        return (bcrypt.checkpw(digest, stored.encode("ascii")), False)
+    except Exception:
+        return (False, False)
+
+# ── Validación SON DGA (8 dígitos estándar con apertura nacional opcional) ─
+_SON_RE = re.compile(r"^\d{4}\.\d{2}\.\d{2}(\.\d{2})?$")
+
+def _validar_son(codigo: str) -> bool:
+    return bool(codigo and _SON_RE.match(codigo.strip()))
+
+# ── Parseo de gravamen con Decimal (evita errores de coma flotante en
+# tasas como 18.5%). Acepta "18", "18.5", "18,5". Devuelve None si inválido. ─
+def _parse_gravamen(valor: str):
+    if valor is None:
+        return None
+    s = str(valor).strip().replace("%", "").replace(",", ".")
+    if not s:
+        return None
+    try:
+        d = Decimal(s)
+    except InvalidOperation:
+        return None
+    if d < 0 or d > 100:
+        return None
+    return d
 
 USERS_FILE       = str(_DATA_DIR / "usuarios.json")
 SOLICITUDES_FILE = str(_DATA_DIR / "solicitudes.json")
@@ -436,7 +532,6 @@ def login():
         pwd      = request.form.get("password", "")
         role_req = request.form.get("role", "admin")
         correo   = request.form.get("correo", "").strip().lower()
-        pwd_hash = hashlib.sha256(pwd.encode()).hexdigest()
         referer  = request.headers.get("Referer", "")
         from_invitado = role_req == "invitado" and "/invitado" in referer
 
@@ -444,7 +539,16 @@ def login():
         if role_req == "admin":
             role_req = "master"
 
-        if role_req == "master" and pwd_hash == get_master_hash():
+        master_stored = get_master_hash()
+        ok_master, master_needs_rehash = _pw_verify(pwd, master_stored)
+        if role_req == "master" and ok_master:
+            if master_needs_rehash:
+                try:
+                    pwds = load_passwords()
+                    pwds["master"] = _pw_hash(pwd)
+                    save_passwords(pwds)
+                except Exception as e:
+                    print(f"[AUTH] Rehash master falló: {e}")
             if correo:
                 # Master con correo → verificar si quiere entrar como operativo
                 usuario = find_user_by_email(correo)
@@ -481,22 +585,34 @@ def login():
                     user_pw_hash = usuario.get("password_hash", "")
                     if not user_pw_hash:
                         error = "Tu cuenta operativa aún no tiene contraseña asignada. Contacta al administrador."
-                    elif pwd_hash != user_pw_hash:
-                        error = "Contraseña incorrecta. Intenta de nuevo."
                     else:
-                        primer_acceso_op = not usuario.get("password_changed", False)
-                        session.permanent    = True
-                        session["logged_in"] = True
-                        session["role"]      = "operativo"
-                        session["correo"]    = correo
-                        session["nombre"]    = usuario["nombre"]
-                        session["must_change_password"] = primer_acceso_op
-                        if primer_acceso_op:
-                            session["_first_access_pwd"] = pwd
-                        evento_op = "primer_acceso" if primer_acceso_op else "inicio_sesion"
-                        detalle_op = "Primer acceso operativo — debe cambiar contraseña" if primer_acceso_op else "Inicio de sesión operativo"
-                        log_historial(correo, usuario["nombre"], evento_op, detalle_op)
-                        return redirect(url_for("index"))
+                        ok_op, op_needs_rehash = _pw_verify(pwd, user_pw_hash)
+                        if not ok_op:
+                            error = "Contraseña incorrecta. Intenta de nuevo."
+                        else:
+                            if op_needs_rehash:
+                                try:
+                                    data = load_users()
+                                    for u in data["usuarios"]:
+                                        if u["correo"].lower() == correo.lower():
+                                            u["password_hash"] = _pw_hash(pwd)
+                                            break
+                                    save_users(data)
+                                except Exception as e:
+                                    print(f"[AUTH] Rehash operativo falló: {e}")
+                            primer_acceso_op = not usuario.get("password_changed", False)
+                            session.permanent    = True
+                            session["logged_in"] = True
+                            session["role"]      = "operativo"
+                            session["correo"]    = correo
+                            session["nombre"]    = usuario["nombre"]
+                            session["must_change_password"] = primer_acceso_op
+                            if primer_acceso_op:
+                                session["_first_access_pwd"] = pwd
+                            evento_op = "primer_acceso" if primer_acceso_op else "inicio_sesion"
+                            detalle_op = "Primer acceso operativo — debe cambiar contraseña" if primer_acceso_op else "Inicio de sesión operativo"
+                            log_historial(correo, usuario["nombre"], evento_op, detalle_op)
+                            return redirect(url_for("index"))
 
         elif role_req == "invitado":
             if not correo:
@@ -509,14 +625,38 @@ def login():
                     error = "Tu acceso ha sido bloqueado por el administrador."
                 else:
                     primer_acceso = not usuario.get("password_changed", False)
-                    user_pw_hash = usuario.get("password_hash", "")
-                    # Check personal password first, then shared password
-                    pwd_ok = (user_pw_hash and pwd_hash == user_pw_hash) or \
-                             (not user_pw_hash and pwd_hash == get_guest_hash()) or \
-                             (primer_acceso and pwd_hash == get_guest_hash())
+                    user_pw_hash  = usuario.get("password_hash", "")
+                    guest_stored  = get_guest_hash()
+
+                    ok_personal   = False
+                    personal_rehash = False
+                    if user_pw_hash:
+                        ok_personal, personal_rehash = _pw_verify(pwd, user_pw_hash)
+
+                    ok_shared    = False
+                    shared_rehash = False
+                    if not user_pw_hash or primer_acceso:
+                        ok_shared, shared_rehash = _pw_verify(pwd, guest_stored)
+
+                    pwd_ok = ok_personal or ok_shared
                     if not pwd_ok:
                         error = "Contraseña incorrecta. Intenta de nuevo."
                     else:
+                        # Migración perezosa del hash que validó
+                        try:
+                            if ok_personal and personal_rehash:
+                                data_u = load_users()
+                                for u in data_u["usuarios"]:
+                                    if u["correo"].lower() == correo.lower():
+                                        u["password_hash"] = _pw_hash(pwd)
+                                        break
+                                save_users(data_u)
+                            elif ok_shared and shared_rehash:
+                                pwds = load_passwords()
+                                pwds["invitado"] = _pw_hash(pwd)
+                                save_passwords(pwds)
+                        except Exception as e:
+                            print(f"[AUTH] Rehash invitado falló: {e}")
                         session.permanent             = True
                         session["logged_in"]          = True
                         session["role"]               = "invitado"
@@ -631,6 +771,9 @@ def consultar():
     # Si hay archivo adjunto, extraer texto / analizar imagen y añadirlo a la pregunta
     producto_identificado = ""
     if archivo:
+        ok_up, err_up = _validar_upload(archivo, _ALLOWED_CONSULTAR)
+        if not ok_up:
+            return jsonify({"error": err_up}), 400
         try:
             import tempfile, os as _os
             ext = _os.path.splitext(archivo.filename or "")[1].lower()
@@ -986,7 +1129,7 @@ def admin_crear_usuario():
     if tipo == "operativo" and role == "master":
         pw_raw = d.get("password", "").strip()
         if pw_raw:
-            nuevo["password_hash"]      = hashlib.sha256(pw_raw.encode()).hexdigest()
+            nuevo["password_hash"]      = _pw_hash(pw_raw)
             nuevo["password_changed"]   = False   # forzar cambio en primer login
             nuevo["must_change_password"] = True
         else:
@@ -1070,9 +1213,8 @@ def cambiar_contrasena():
     if len(nueva) < 6:
         return jsonify({"error": "La contraseña debe tener al menos 6 caracteres."}), 400
 
-    actual_hash = hashlib.sha256(actual.encode()).hexdigest() if actual else ""
-    nueva_hash  = hashlib.sha256(nueva.encode()).hexdigest()
-    passwords   = load_passwords()
+    nueva_hash = _pw_hash(nueva)
+    passwords  = load_passwords()
 
     correo_session = session.get("correo", "")
     nombre_session = session.get("nombre", "")
@@ -1081,7 +1223,8 @@ def cambiar_contrasena():
     if tipoPassCambiar in ("admin", "master"):
         if role != "master":
             return jsonify({"error": "Solo el master puede cambiar esta contraseña."}), 403
-        if actual_hash != passwords.get("master", _DEFAULT_MASTER_HASH):
+        ok_cur, _ = _pw_verify(actual, passwords.get("master", _DEFAULT_MASTER_HASH))
+        if not ok_cur:
             return jsonify({"error": "La contraseña actual es incorrecta."}), 400
         passwords["master"] = nueva_hash
         save_passwords(passwords)
@@ -1097,7 +1240,8 @@ def cambiar_contrasena():
             return jsonify({"error": "Usuario no encontrado."}), 404
         # Solo verificar contraseña actual si NO es primer acceso
         if not es_primer_acceso:
-            if actual_hash != usuario.get("password_hash", ""):
+            ok_cur, _ = _pw_verify(actual, usuario.get("password_hash", ""))
+            if not ok_cur:
                 return jsonify({"error": "La contraseña actual es incorrecta."}), 400
         # Actualizar password_hash y marcar que ya cambio la contrasena
         data = load_users()
@@ -1129,13 +1273,11 @@ def cambiar_contrasena():
                 usuario = find_user_by_email(correo_session)
                 user_pw_hash = usuario.get("password_hash", "") if usuario else ""
                 if user_pw_hash:
-                    # User has personal password — verify against it
-                    if actual_hash != user_pw_hash:
-                        return jsonify({"error": "La contraseña actual es incorrecta."}), 400
+                    ok_cur, _ = _pw_verify(actual, user_pw_hash)
                 else:
-                    # No personal password yet — verify against shared
-                    if actual_hash != passwords.get("invitado", _DEFAULT_GUEST_HASH):
-                        return jsonify({"error": "La contraseña actual es incorrecta."}), 400
+                    ok_cur, _ = _pw_verify(actual, passwords.get("invitado", _DEFAULT_GUEST_HASH))
+                if not ok_cur:
+                    return jsonify({"error": "La contraseña actual es incorrecta."}), 400
             # Store personal password_hash per user (NOT changing shared password)
             data = load_users()
             for u in data["usuarios"]:
@@ -1566,21 +1708,20 @@ def admin_corregir_gravamen():
     if not codigo or gravamen == "":
         return jsonify({"error": "Codigo y gravamen son requeridos"}), 400
 
-    # Validar formato
-    import re as _re
-    if not _re.match(r'^\d{4}\.\d{2}\.\d{2}$', codigo):
-        return jsonify({"error": "Formato de codigo invalido (XXXX.XX.XX)"}), 400
+    # Formato SON DGA: 8 dígitos (XXXX.XX.XX) o con apertura nacional (XXXX.XX.XX.XX)
+    if not _validar_son(codigo):
+        return jsonify({"error": "Formato SON invalido. Use XXXX.XX.XX o XXXX.XX.XX.XX"}), 400
 
-    try:
-        grav_num = int(gravamen)
-        if grav_num < 0 or grav_num > 100:
-            return jsonify({"error": "Gravamen debe estar entre 0 y 100"}), 400
-    except ValueError:
-        return jsonify({"error": "Gravamen debe ser un numero entero"}), 400
+    grav_dec = _parse_gravamen(gravamen)
+    if grav_dec is None:
+        return jsonify({"error": "Gravamen debe ser un numero entre 0 y 100 (ej: 18, 18.5, 0)"}), 400
 
-    ok = _aplicar_correccion_gravamen(codigo, gravamen, f"manual-{codigo}")
+    # Normalizar para persistencia: entero si no tiene decimales, sino Decimal str
+    grav_str = str(int(grav_dec)) if grav_dec == grav_dec.to_integral_value() else format(grav_dec.normalize(), "f")
+
+    ok = _aplicar_correccion_gravamen(codigo, grav_str, f"manual-{codigo}")
     if ok:
-        return jsonify({"ok": True, "mensaje": f"Gravamen de {codigo} actualizado a {gravamen}%"})
+        return jsonify({"ok": True, "mensaje": f"Gravamen de {codigo} actualizado a {grav_str}%"})
     return jsonify({"error": f"No se pudo corregir {codigo}. Verifica que exista en el cache."}), 404
 
 
@@ -2285,8 +2426,12 @@ def api_transcribir_audio():
     if not f.filename:
         return jsonify({"ok": False, "error": "Archivo sin nombre"}), 400
 
+    _audio_ext = os.path.splitext(f.filename)[1].lower()
+    if _audio_ext not in _ALLOWED_AUDIO:
+        return jsonify({"ok": False, "error": f"Formato de audio no soportado. Usa: {', '.join(sorted(_ALLOWED_AUDIO))}"}), 400
+
     import uuid
-    safe_name = f"{uuid.uuid4().hex}_{os.path.basename(f.filename)}"
+    safe_name = f"{uuid.uuid4().hex}{_audio_ext}"  # no usar basename del usuario — path traversal
     upload_path = os.path.join(_VIBEVOICE_UPLOAD_DIR, safe_name)
     try:
         f.save(upload_path)

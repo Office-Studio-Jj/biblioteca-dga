@@ -108,7 +108,7 @@
   <div class="back"><a href="/login">← Volver al inicio de sesión</a></div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
   function setTipo(t) {
     document.getElementById('tipoInput').value = t;
     document.getElementById('btnRoleAdmin').classList.toggle('active', t === 'admin');

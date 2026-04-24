@@ -250,7 +250,7 @@
   }
 </style>
 
-<script>
+<script nonce="{{ csp_nonce }}">
   function togglePwd() {
     const f = document.getElementById('pwd');
     f.type = f.type === 'password' ? 'text' : 'password';

@@ -222,7 +222,7 @@
   <a class="btn-back" href="/">← Volver a la App</a>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
   const IS_ADMIN = "{{ role }}" === "admin";
   const APP_URL  = {% if role == 'admin' %}"{{ server_url }}"{% else %}window.location.origin{% endif %};
 

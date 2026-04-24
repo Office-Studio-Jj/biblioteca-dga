@@ -650,16 +650,16 @@ def _corregir_gravamen_con_cache(answer: str, codigo: str) -> str:
 
     # Buscar el gravamen que Gemini puso en el borrador
     grav_patterns = [
-        r'GRAVAMEN[:\s]*(\d+)\s*%',
-        r'Gravamen[^:]*:\s*(\d+)\s*%',
-        r'Ad[\s\-]*Valorem[^:]*:\s*(\d+)\s*%',
-        r'Derecho\s+Ad[\s\-]*Valorem[^:]*:\s*(\d+)\s*%',
+        r'GRAVAMEN[:\s]*([\d.]+)\s*%',
+        r'Gravamen[^:]*:\s*([\d.]+)\s*%',
+        r'Ad[\s\-]*Valorem[^:]*:\s*([\d.]+)\s*%',
+        r'Derecho\s+Ad[\s\-]*Valorem[^:]*:\s*([\d.]+)\s*%',
     ]
     for pat in grav_patterns:
         m = re.search(pat, answer, re.IGNORECASE)
         if m:
-            grav_gemini = int(m.group(1))
-            if grav_gemini != grav_verificado:
+            grav_gemini = float(m.group(1))
+            if grav_gemini != float(grav_verificado):
                 print(f"[GEMINI-CACHE] CORRECCION gravamen: Gemini={grav_gemini}% "
                       f"→ Verificado={grav_verificado}% para {codigo} (fuente: {fuente_grav})")
                 # Reemplazar en todos los formatos
@@ -735,10 +735,10 @@ def _compuerta_final_gravamen(answer: str, notebook_id: str) -> str:
         )
 
     # SIEMPRE inyectar el gravamen correcto, sin importar lo que Gemini escribio
-    m_grav = re.search(r'(?:GRAVAMEN|Gravamen|gravamen)[^:]*:\s*(\d+)\s*%', answer)
-    grav_respuesta = int(m_grav.group(1)) if m_grav else None
+    m_grav = re.search(r'(?:GRAVAMEN|Gravamen|gravamen)[^:]*:\s*([\d.]+)\s*%', answer)
+    grav_respuesta = float(m_grav.group(1)) if m_grav else None
 
-    if grav_respuesta != grav_verificado:
+    if grav_respuesta != float(grav_verificado) if grav_respuesta is not None else True:
         print(f"[GATE-FINAL] CORRECCION: {grav_respuesta}% -> {grav_verificado}% para {codigo} ({fuente})")
         # Reemplazar en todos los formatos posibles
         answer = re.sub(
@@ -978,7 +978,9 @@ def ask_gemini(question, notebook_id, _intento=1):
         return None
 
     try:
-        client = genai.Client(api_key=api_key)
+        # timeout=30s: si Gemini no responde en 30s, TimeoutError propaga hacia
+        # server.py que lo captura como error 500 y reintenta con pregunta reformulada.
+        client = genai.Client(api_key=api_key, http_options={"timeout": 30})
     except Exception as _ce:
         print(f"[GEMINI] ERROR al crear cliente: {_ce}")
         return None

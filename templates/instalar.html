@@ -194,7 +194,7 @@
   <div class="back-link"><a href="/login">← Ir al inicio de sesión</a></div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
   const APP_URL = {% if role == 'admin' %}"{{ server_url }}"{% else %}window.location.origin{% endif %};
 
   // Asignar href del botón principal dinámicamente (nunca en el HTML estático)

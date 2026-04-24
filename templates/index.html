@@ -1655,7 +1655,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
   /* ── Sanitizador anti-XSS ── */
   function _esc(t) { const d = document.createElement('div'); d.textContent = t || ''; return d.innerHTML; }
   function _escAttr(t) { return (t || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }

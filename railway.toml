@@ -3,6 +3,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "sh -c 'gunicorn --bind 0.0.0.0:${PORT:-8080} --timeout 1800 --workers 1 --threads 2 server:app'"
+# Debe coincidir con Dockerfile. Timeout 60s para que cuelgues se reinicien
+# rapido en vez de ocupar un thread 30 min (--timeout 1800 anterior).
+startCommand = "sh -c 'gunicorn --bind 0.0.0.0:${PORT:-8080} --timeout 60 --workers 1 --worker-class gthread --threads 4 --preload server:app'"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
