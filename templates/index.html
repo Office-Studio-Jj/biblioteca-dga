@@ -4308,45 +4308,56 @@
     {
       target: '#nbGrid',
       childSelector: '[data-id="biblioteca-de-nomenclaturas"]',
-      title: '📖 Paso 1: Selecciona el cuaderno',
-      body: 'Toca el cuaderno <strong>"Nomenclaturas"</strong> para clasificar productos. Este cuaderno te da el codigo arancelario, impuestos y permisos.',
-      action: 'highlight-child'
+      title: '📖 Paso 1: Selecciona un cuaderno',
+      body: 'Toca el cuaderno <strong>"Nomenclaturas"</strong> que esta resaltado. Esperare a que lo toques.',
+      action: 'highlight-child',
+      interactive: true,
+      waitFor: () => !!(typeof selId !== 'undefined' && selId)
     },
     {
       target: '#qInput',
       title: '✏️ Paso 2: Escribe tu consulta',
-      body: 'Tienes <strong>4 formas</strong> de consultar un producto. La primera es <strong>escribir una descripcion</strong>. Ejemplo: <em>"Ventanas de aluminio con vidrio templado"</em>',
+      body: 'Escribe la descripcion del producto en este campo. Ejemplo: <em>"Dron aereo para agricultura"</em>. Avanzo cuando escribas algo.',
+      interactive: true,
+      waitFor: () => {
+        const q = document.getElementById('qInput');
+        return q && q.value.trim().length >= 3;
+      }
     },
     {
       target: '.attach-btn-gal',
-      title: '🖼️ Paso 3: O sube una imagen',
-      body: 'Si tienes una <strong>foto del producto</strong> en tu galeria, toca aqui para subirla. El sistema la analiza automaticamente con inteligencia artificial.',
+      title: '🖼️ Paso 3 (opcional): Sube una imagen',
+      body: 'Si tienes una <strong>foto del producto</strong> en tu galeria, puedes adjuntarla aqui. Toca <em>Siguiente</em> si no quieres adjuntar nada.',
     },
     {
       target: '.attach-btn-cam',
-      title: '📸 Paso 4: O toma una foto',
-      body: 'Toca aqui para abrir la <strong>camara</strong> y fotografiar el producto directamente. Ideal cuando tienes la mercancia frente a ti.',
+      title: '📸 Paso 4 (opcional): Toma una foto',
+      body: 'Tambien puedes abrir la <strong>camara</strong> y fotografiar el producto. Toca <em>Siguiente</em> para continuar.',
     },
     {
       target: '.attach-btn',
-      title: '📎 Paso 5: O adjunta un PDF',
-      body: 'Si tienes una <strong>ficha tecnica en PDF</strong>, subela aqui. El sistema extrae la informacion tecnica y la usa para clasificar.',
+      title: '📎 Paso 5 (opcional): Adjunta un PDF',
+      body: 'Si tienes una <strong>ficha tecnica en PDF</strong> del producto, adjuntala aqui para mas precision. Toca <em>Siguiente</em>.',
     },
     {
       target: '#btnSend',
-      title: '🚀 Paso 6: Enviar consulta',
-      body: 'Cuando estes listo, presiona <strong>"Consultar"</strong>. El sistema analiza tu pregunta usando el Arancel oficial de la RD y el protocolo merceologico de 8 fases.',
+      title: '🚀 Paso 6: Toca Consultar',
+      body: 'Ahora toca el boton <strong>"Consultar →"</strong> resaltado para enviar tu consulta. Esperare a que lo toques.',
+      interactive: true,
+      waitFor: () => {
+        const r = document.getElementById('respCard');
+        return r && r.classList.contains('show');
+      }
     },
     {
       target: '#respCard',
       title: '📋 Paso 7: Tu resultado',
-      body: 'Aqui aparecera una <strong>tarjeta con el codigo arancelario</strong> (XXXX.XX.XX), los impuestos (Gravamen, ITBIS, ISC), permisos VUCERD, y el analisis completo del protocolo.',
-      virtual: true
+      body: 'Aqui aparece la <strong>tarjeta con el codigo arancelario</strong> (XXXX.XX.XX), impuestos (Gravamen, ITBIS, ISC), permisos VUCERD y analisis del protocolo merceologico de 8 fases.',
     },
     {
       target: '#conformitySection',
-      title: '✅ Paso 8: Confirmar o refinar',
-      body: 'Si estas <strong>conforme</strong>, puedes guardar la consulta y descargar un informe PDF. Si <strong>no</strong>, puedes adjuntar una ficha tecnica o repetir la busqueda en otro cuaderno.',
+      title: '✅ Paso 8: Confirma o refina',
+      body: 'Si estas <strong>conforme</strong>, guarda la consulta y descarga el informe PDF. Si <strong>no</strong>, adjunta una ficha tecnica o repite en otro cuaderno.',
       virtual: true
     }
   ];
@@ -4354,6 +4365,7 @@
   let _tutorIdx = 0;
   let _tutorOn = false;
   let _tutorPointer = null;
+  let _tutorWatcher = null;
 
   function _tutorInit() {
     // Crear FAB si no existe
@@ -4402,11 +4414,11 @@
       position: 'fixed', inset: '0', zIndex: '9500', display: 'none', pointerEvents: 'none'
     });
     ov.innerHTML = `
-      <div id="tutorBackdrop" style="position:absolute;inset:0;background:rgba(0,0,0,0.55);"></div>
+      <div id="tutorBackdrop" style="position:absolute;inset:0;background:transparent;pointer-events:none;"></div>
       <div id="tutorTooltip" style="
         position:absolute; z-index:9700; background:#1e293b; border:2px solid #d4af37;
         border-radius:16px; padding:16px 18px; max-width:320px; width:calc(100% - 40px);
-        box-shadow:0 8px 30px rgba(0,0,0,0.5); display:none;
+        box-shadow:0 8px 30px rgba(0,0,0,0.5); display:none; pointer-events:auto;
       "></div>
     `;
     document.body.appendChild(ov);
@@ -4422,10 +4434,11 @@
       .tutor-hl {
         position: relative; z-index: 9600 !important;
         animation: tutorGlow 1.5s infinite !important;
+        pointer-events: auto !important;
       }
       @keyframes tutorGlow {
-        0%,100% { box-shadow: 0 0 0 4px rgba(212,175,55,0.4); }
-        50% { box-shadow: 0 0 0 8px rgba(212,175,55,0.2); }
+        0%,100% { box-shadow: 0 0 0 4px rgba(212,175,55,0.7), 0 0 0 9999px rgba(0,0,0,0.55); }
+        50%     { box-shadow: 0 0 0 8px rgba(212,175,55,0.4), 0 0 0 9999px rgba(0,0,0,0.55); }
       }
       .tutor-ptr {
         position: absolute; z-index: 9650; font-size: 1.8rem;
@@ -4463,6 +4476,16 @@
         background: none; border: none; color: #64748b;
         font-size: 0.72rem; cursor: pointer; padding: 4px;
       }
+      .tutor-waiting {
+        font-size: 0.78rem; font-weight: 700; color: #d4af37;
+        background: #2a2418; border: 1px solid #d4af3744;
+        border-radius: 999px; padding: 6px 12px;
+        animation: tutorWait 1.4s infinite;
+      }
+      @keyframes tutorWait {
+        0%,100% { opacity: 0.7; }
+        50% { opacity: 1; }
+      }
     `;
     document.body.appendChild(style);
   }
@@ -4476,17 +4499,24 @@
 
     const ov = document.getElementById('tutorOverlay');
     ov.style.display = 'block';
-    ov.style.pointerEvents = 'auto';
+    ov.style.pointerEvents = 'none'; // permite que el usuario toque el target
+    const bd = document.getElementById('tutorBackdrop');
+    if (bd) bd.style.pointerEvents = 'none';
     document.getElementById('tutorFab').style.display = 'none';
     setTimeout(() => _tutorShow(), 300);
+  }
+
+  function _tutorClearWatcher() {
+    if (_tutorWatcher) { clearInterval(_tutorWatcher); _tutorWatcher = null; }
   }
 
   function _tutorShow() {
     const step = _TUTOR_STEPS[_tutorIdx];
 
-    // Limpiar highlights anteriores
+    // Limpiar highlights y watchers anteriores
     document.querySelectorAll('.tutor-hl').forEach(e => e.classList.remove('tutor-hl'));
     if (_tutorPointer) { _tutorPointer.remove(); _tutorPointer = null; }
+    _tutorClearWatcher();
 
     // Encontrar elemento target
     let el;
@@ -4499,10 +4529,11 @@
     // Para pasos virtuales (elementos que no estan visibles aun)
     if (!el || step.virtual) {
       _tutorShowVirtual(step);
+      _tutorArmWaiter(step);
       return;
     }
 
-    // Highlight
+    // Highlight (CSS clase añade glow + spotlight)
     el.classList.add('tutor-hl');
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
@@ -4517,23 +4548,49 @@
       _tutorPointer.style.left = (rect.left + rect.width / 2 - 14) + 'px';
       _tutorPointer.style.top = (rect.top + window.scrollY - 36) + 'px';
       _tutorRenderTooltip(step, rect);
+      _tutorArmWaiter(step);
     }, 400);
   }
 
-  function _tutorShowVirtual(step) {
-    // Para pasos donde el elemento no esta visible, mostrar tooltip centrado
-    const tooltip = document.getElementById('tutorTooltip');
+  // Si el paso es interactivo, vigilar que se cumpla la condicion
+  // y avanzar automaticamente cuando el usuario haga la accion.
+  function _tutorArmWaiter(step) {
+    if (!step.interactive || typeof step.waitFor !== 'function') return;
+    _tutorWatcher = setInterval(function() {
+      try {
+        if (step.waitFor()) {
+          _tutorClearWatcher();
+          // Pequeño delay para que se vea el feedback visual
+          setTimeout(() => { if (_tutorOn) _tutorNext(); }, 350);
+        }
+      } catch (e) { /* ignore */ }
+    }, 300);
+  }
+
+  function _tutorTooltipHTML(step) {
     const isLast = _tutorIdx === _TUTOR_STEPS.length - 1;
     const isFirst = _tutorIdx === 0;
-    tooltip.innerHTML = `
+    const interactive = !!step.interactive;
+    const nextBtn = interactive
+      ? '<span class="tutor-waiting">⏳ Esperando tu accion...</span>'
+      : `<button class="tutor-btn-n" data-tutor="next">${isLast ? 'Comenzar!' : 'Siguiente →'}</button>`;
+    const leftBtn = !isFirst
+      ? '<button class="tutor-btn-p" data-tutor="prev">Anterior</button>'
+      : '<button class="tutor-btn-s" data-tutor="end">Saltar</button>';
+    return `
       <div class="tutor-tt-title">${step.title}</div>
       <div class="tutor-tt-body">${step.body}</div>
       <div class="tutor-tt-footer">
         <span class="tutor-tt-prog">Paso ${_tutorIdx + 1} de ${_TUTOR_STEPS.length}</span>
-        ${!isFirst ? '<button class="tutor-btn-p" onclick="_tutorPrev()">Anterior</button>' : '<button class="tutor-btn-s" onclick="_tutorEnd()">Saltar</button>'}
-        <button class="tutor-btn-n" onclick="_tutorNext()">${isLast ? 'Comenzar!' : 'Siguiente →'}</button>
+        ${leftBtn}
+        ${nextBtn}
       </div>
     `;
+  }
+
+  function _tutorShowVirtual(step) {
+    const tooltip = document.getElementById('tutorTooltip');
+    tooltip.innerHTML = _tutorTooltipHTML(step);
     tooltip.style.top = '50%';
     tooltip.style.left = '50%';
     tooltip.style.transform = 'translate(-50%, -50%)';
@@ -4543,18 +4600,7 @@
 
   function _tutorRenderTooltip(step, rect) {
     const tooltip = document.getElementById('tutorTooltip');
-    const isLast = _tutorIdx === _TUTOR_STEPS.length - 1;
-    const isFirst = _tutorIdx === 0;
-
-    tooltip.innerHTML = `
-      <div class="tutor-tt-title">${step.title}</div>
-      <div class="tutor-tt-body">${step.body}</div>
-      <div class="tutor-tt-footer">
-        <span class="tutor-tt-prog">Paso ${_tutorIdx + 1} de ${_TUTOR_STEPS.length}</span>
-        ${!isFirst ? '<button class="tutor-btn-p" onclick="_tutorPrev()">Anterior</button>' : '<button class="tutor-btn-s" onclick="_tutorEnd()">Saltar</button>'}
-        <button class="tutor-btn-n" onclick="_tutorNext()">${isLast ? 'Comenzar!' : 'Siguiente →'}</button>
-      </div>
-    `;
+    tooltip.innerHTML = _tutorTooltipHTML(step);
 
     // Posicionar debajo del elemento
     const spaceBelow = window.innerHeight - rect.bottom;
@@ -4588,6 +4634,7 @@
 
   function _tutorEnd() {
     _tutorOn = false;
+    _tutorClearWatcher();
     const ov = document.getElementById('tutorOverlay');
     if (ov) { ov.style.display = 'none'; ov.style.pointerEvents = 'none'; }
     document.querySelectorAll('.tutor-hl').forEach(e => e.classList.remove('tutor-hl'));
@@ -4595,9 +4642,20 @@
     const tt = document.getElementById('tutorTooltip');
     if (tt) tt.style.display = 'none';
     const fab = document.getElementById('tutorFab');
-    if (fab) fab.style.display = 'block';
+    if (fab) fab.style.display = 'flex';
     localStorage.setItem('dga_tutor_consulta_done', '1');
   }
+
+  // Delegate CSP-friendly para botones del tutorial (data-tutor)
+  document.addEventListener('click', function(ev) {
+    const t = ev.target.closest('[data-tutor]');
+    if (!t) return;
+    ev.preventDefault();
+    const a = t.getAttribute('data-tutor');
+    if (a === 'next') _tutorNext();
+    else if (a === 'prev') _tutorPrev();
+    else if (a === 'end') _tutorEnd();
+  });
 
   // Inicializar tutorial al cargar
   document.addEventListener('DOMContentLoaded', () => {
@@ -4624,6 +4682,20 @@
       if (m && typeof showTab === 'function') showTab(m[1], tab);
     }
   }, false);
+
+  // Backup CSP-friendly para textarea/inputs con oninput inline
+  (function bindInputBackups() {
+    const q = document.getElementById('qInput');
+    if (q) ['input','change','keyup','paste'].forEach(ev => q.addEventListener(ev, _updateSendBtn));
+    ['fileInput','galleryInput','cameraInput'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', () => onFileSelected(el));
+    });
+    const ficha = document.getElementById('fichaInput');
+    if (ficha) ficha.addEventListener('change', () => onFichaSelected(ficha));
+    // Recalcular estado inicial
+    if (typeof _updateSendBtn === 'function') _updateSendBtn();
+  })();
 </script>
 </body>
 </html>
