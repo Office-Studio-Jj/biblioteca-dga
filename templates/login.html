@@ -28,7 +28,10 @@
       flex: 1; padding: 10px 6px; border-radius: 14px; border: 2px solid #334155;
       background: #1e293b; color: #94a3b8; font-size: 0.7rem; font-weight: 600;
       cursor: pointer; transition: all 0.2s; text-align: center;
+      touch-action: manipulation; -webkit-user-select: none; user-select: none;
+      font-family: inherit; line-height: 1.2;
     }
+    .role-btn:active { transform: scale(0.97); }
     .role-btn .rico { font-size: 1.3rem; display: block; margin-bottom: 3px; }
     .role-btn.active-master   { border-color: #d4af37; color: #d4af37; background: #162030; }
     .role-btn.active-operativo { border-color: #22c55e; color: #22c55e; background: #0a2218; }
@@ -94,22 +97,22 @@
   <!-- Badge sesión guardada -->
   <div class="saved-badge" id="savedBadge">
     ✅ <span id="savedNombre">Sesión guardada</span>
-    <span class="saved-clear" onclick="borrarSesionGuardada()">✕ Olvidar</span>
+    <span class="saved-clear" id="btnOlvidar">✕ Olvidar</span>
   </div>
 
   <form method="POST" action="/login">
     <input type="hidden" name="role" id="roleInput" value="master">
 
     <div class="roles">
-      <div class="role-btn" id="btnMaster" onclick="setRole('master')">
+      <button type="button" class="role-btn" id="btnMaster" data-role="master">
         <span class="rico">👑</span>Master
-      </div>
-      <div class="role-btn" id="btnOperativo" onclick="setRole('operativo')">
+      </button>
+      <button type="button" class="role-btn" id="btnOperativo" data-role="operativo">
         <span class="rico">🛡️</span>Operativo
-      </div>
-      <div class="role-btn" id="btnGuest" onclick="setRole('invitado')">
+      </button>
+      <button type="button" class="role-btn" id="btnGuest" data-role="invitado">
         <span class="rico">👤</span>Usuario
-      </div>
+      </button>
     </div>
 
     <!-- Correo -->
@@ -123,7 +126,7 @@
     <div class="field-label">Contraseña</div>
     <div class="input-wrap">
       <input type="password" id="pwd" name="password" placeholder="••••••••" autocomplete="current-password" autofocus>
-      <button type="button" class="eye" onclick="togglePwd()">👁</button>
+      <button type="button" class="eye" id="btnTogglePwd">👁</button>
     </div>
 
     <!-- Recordarme -->
@@ -189,6 +192,14 @@
     }
   }
 
+  // ── Bind de role buttons (event delegation, robusto en mobile/PWA) ──
+  document.querySelectorAll('.role-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(ev) {
+      ev.preventDefault();
+      setRole(btn.getAttribute('data-role'));
+    });
+  });
+
   // ── Al cargar: rellenar desde localStorage ──
   (function() {
     const savedRole   = localStorage.getItem(LS_ROLE);
@@ -250,6 +261,11 @@
     const f = document.getElementById('pwd');
     f.type = f.type === 'password' ? 'text' : 'password';
   }
+
+  // Bind seguro (CSP-friendly) de controles auxiliares
+  document.getElementById('btnTogglePwd').addEventListener('click', togglePwd);
+  const olvidarEl = document.getElementById('btnOlvidar');
+  if (olvidarEl) olvidarEl.addEventListener('click', borrarSesionGuardada);
 </script>
 </body>
 </html>
