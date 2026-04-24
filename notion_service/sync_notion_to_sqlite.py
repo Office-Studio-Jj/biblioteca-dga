@@ -107,6 +107,37 @@ def _extract_select(select_prop) -> str:
     return ""
 
 
+def _resolver_data_source(notion, db_id: str) -> str:
+    """
+    Notion API 2025-09-03+: los databases tienen data_sources dentro.
+    Retrieve database para obtener el data_source_id (usado por .query()).
+    """
+    try:
+        db = notion.databases.retrieve(database_id=db_id)
+        ds_list = db.get("data_sources", [])
+        if ds_list:
+            return ds_list[0]["id"]
+    except Exception as e:
+        print(f"[NOTION-SYNC] retrieve {db_id[:8]} fallo: {e}")
+    # Fallback: en APIs antiguas el propio database_id funciona como data_source
+    return db_id
+
+
+def _query_paginado(notion, ds_id: str):
+    """Yield paginas consultando un data_source."""
+    cursor = None
+    while True:
+        kwargs = {"data_source_id": ds_id, "page_size": 100}
+        if cursor:
+            kwargs["start_cursor"] = cursor
+        response = notion.data_sources.query(**kwargs)
+        for page in response.get("results", []):
+            yield page
+        if not response.get("has_more"):
+            return
+        cursor = response.get("next_cursor")
+
+
 # ── Sincronizadores por tipo ─────────────────────────────────────────────────
 
 def _sync_jurisprudencia(notion, con: sqlite3.Connection, db_id: str, dry_run=False) -> int:
@@ -114,36 +145,28 @@ def _sync_jurisprudencia(notion, con: sqlite3.Connection, db_id: str, dry_run=Fa
         print("[NOTION-SYNC] NOTION_DB_JURISPRUDENCIA no configurada — skip")
         return 0
     count = 0
-    cursor = None
-    while True:
-        kwargs = {"database_id": db_id, "page_size": 100}
-        if cursor:
-            kwargs["start_cursor"] = cursor
-        response = notion.databases.query(**kwargs)
-        for page in response.get("results", []):
-            props = page.get("properties", {})
-            notion_id   = page["id"]
-            titulo      = _extract_text(props.get("Título", {}).get("title", []))
-            fecha       = _extract_date(props.get("Fecha", {}).get("date", {}))
-            tipo        = _extract_select(props.get("Tipo", {}).get("select", {}))
-            son         = _extract_text(props.get("SON", {}).get("rich_text", []))
-            resumen     = _extract_text(props.get("Resumen", {}).get("rich_text", []))
-            url_notion  = f"https://notion.so/{notion_id.replace('-', '')}"
-            if not dry_run:
-                con.execute(
-                    """INSERT OR REPLACE INTO notion_jurisprudencia
-                       (notion_id, titulo, fecha, tipo, son, resumen, url_notion, synced_at)
-                       VALUES (?,?,?,?,?,?,?,datetime('now'))""",
-                    (notion_id, titulo, fecha, tipo, son, resumen, url_notion)
-                )
-                con.execute(
-                    "INSERT INTO notion_fts(tipo, titulo, contenido) VALUES (?,?,?)",
-                    ("jurisprudencia", titulo, resumen)
-                )
-            count += 1
-        if not response.get("has_more"):
-            break
-        cursor = response.get("next_cursor")
+    ds_id = _resolver_data_source(notion, db_id)
+    for page in _query_paginado(notion, ds_id):
+        props = page.get("properties", {})
+        notion_id   = page["id"]
+        titulo      = _extract_text(props.get("Título", {}).get("title", []))
+        fecha       = _extract_date(props.get("Fecha", {}).get("date", {}))
+        tipo        = _extract_select(props.get("Tipo", {}).get("select", {}))
+        son         = _extract_text(props.get("SON", {}).get("rich_text", []))
+        resumen     = _extract_text(props.get("Resumen", {}).get("rich_text", []))
+        url_notion  = f"https://notion.so/{notion_id.replace('-', '')}"
+        if not dry_run:
+            con.execute(
+                """INSERT OR REPLACE INTO notion_jurisprudencia
+                   (notion_id, titulo, fecha, tipo, son, resumen, url_notion, synced_at)
+                   VALUES (?,?,?,?,?,?,?,datetime('now'))""",
+                (notion_id, titulo, fecha, tipo, son, resumen, url_notion)
+            )
+            con.execute(
+                "INSERT INTO notion_fts(tipo, titulo, contenido) VALUES (?,?,?)",
+                ("jurisprudencia", titulo, resumen)
+            )
+        count += 1
     return count
 
 
@@ -152,35 +175,27 @@ def _sync_sops(notion, con: sqlite3.Connection, db_id: str, dry_run=False) -> in
         print("[NOTION-SYNC] NOTION_DB_SOPS no configurada — skip")
         return 0
     count = 0
-    cursor = None
-    while True:
-        kwargs = {"database_id": db_id, "page_size": 100}
-        if cursor:
-            kwargs["start_cursor"] = cursor
-        response = notion.databases.query(**kwargs)
-        for page in response.get("results", []):
-            props = page.get("properties", {})
-            notion_id  = page["id"]
-            titulo     = _extract_text(props.get("Título", {}).get("title", []))
-            version    = _extract_text(props.get("Versión", {}).get("rich_text", []))
-            area       = _extract_select(props.get("Área", {}).get("select", {}))
-            contenido  = _extract_text(props.get("Contenido", {}).get("rich_text", []))
-            url_notion = f"https://notion.so/{notion_id.replace('-', '')}"
-            if not dry_run:
-                con.execute(
-                    """INSERT OR REPLACE INTO notion_sops
-                       (notion_id, titulo, version, area, contenido, url_notion, synced_at)
-                       VALUES (?,?,?,?,?,?,datetime('now'))""",
-                    (notion_id, titulo, version, area, contenido, url_notion)
-                )
-                con.execute(
-                    "INSERT INTO notion_fts(tipo, titulo, contenido) VALUES (?,?,?)",
-                    ("sop", titulo, contenido)
-                )
-            count += 1
-        if not response.get("has_more"):
-            break
-        cursor = response.get("next_cursor")
+    ds_id = _resolver_data_source(notion, db_id)
+    for page in _query_paginado(notion, ds_id):
+        props = page.get("properties", {})
+        notion_id  = page["id"]
+        titulo     = _extract_text(props.get("Título", {}).get("title", []))
+        version    = _extract_text(props.get("Versión", {}).get("rich_text", []))
+        area       = _extract_select(props.get("Área", {}).get("select", {}))
+        contenido  = _extract_text(props.get("Contenido", {}).get("rich_text", []))
+        url_notion = f"https://notion.so/{notion_id.replace('-', '')}"
+        if not dry_run:
+            con.execute(
+                """INSERT OR REPLACE INTO notion_sops
+                   (notion_id, titulo, version, area, contenido, url_notion, synced_at)
+                   VALUES (?,?,?,?,?,?,datetime('now'))""",
+                (notion_id, titulo, version, area, contenido, url_notion)
+            )
+            con.execute(
+                "INSERT INTO notion_fts(tipo, titulo, contenido) VALUES (?,?,?)",
+                ("sop", titulo, contenido)
+            )
+        count += 1
     return count
 
 
@@ -189,37 +204,29 @@ def _sync_fichas(notion, con: sqlite3.Connection, db_id: str, dry_run=False) -> 
         print("[NOTION-SYNC] NOTION_DB_MERCEOLOGIA no configurada — skip")
         return 0
     count = 0
-    cursor = None
-    while True:
-        kwargs = {"database_id": db_id, "page_size": 100}
-        if cursor:
-            kwargs["start_cursor"] = cursor
-        response = notion.databases.query(**kwargs)
-        for page in response.get("results", []):
-            props = page.get("properties", {})
-            notion_id    = page["id"]
-            producto     = _extract_text(props.get("Producto", {}).get("title", []))
-            son_sugerido = _extract_text(props.get("SON Sugerido", {}).get("rich_text", []))
-            materia      = _extract_text(props.get("Materia", {}).get("rich_text", []))
-            funcion      = _extract_text(props.get("Función", {}).get("rich_text", []))
-            uso          = _extract_text(props.get("Uso", {}).get("rich_text", []))
-            clasificacion = _extract_text(props.get("Clasificación", {}).get("rich_text", []))
-            url_notion   = f"https://notion.so/{notion_id.replace('-', '')}"
-            if not dry_run:
-                con.execute(
-                    """INSERT OR REPLACE INTO notion_fichas_merceologicas
-                       (notion_id, producto, son_sugerido, materia, funcion, uso, clasificacion, url_notion, synced_at)
-                       VALUES (?,?,?,?,?,?,?,?,datetime('now'))""",
-                    (notion_id, producto, son_sugerido, materia, funcion, uso, clasificacion, url_notion)
-                )
-                con.execute(
-                    "INSERT INTO notion_fts(tipo, titulo, contenido) VALUES (?,?,?)",
-                    ("merceologia", producto, f"{materia} {funcion} {uso}")
-                )
-            count += 1
-        if not response.get("has_more"):
-            break
-        cursor = response.get("next_cursor")
+    ds_id = _resolver_data_source(notion, db_id)
+    for page in _query_paginado(notion, ds_id):
+        props = page.get("properties", {})
+        notion_id    = page["id"]
+        producto     = _extract_text(props.get("Producto", {}).get("title", []))
+        son_sugerido = _extract_text(props.get("SON Sugerido", {}).get("rich_text", []))
+        materia      = _extract_text(props.get("Materia", {}).get("rich_text", []))
+        funcion      = _extract_text(props.get("Función", {}).get("rich_text", []))
+        uso          = _extract_text(props.get("Uso", {}).get("rich_text", []))
+        clasificacion = _extract_text(props.get("Clasificación", {}).get("rich_text", []))
+        url_notion   = f"https://notion.so/{notion_id.replace('-', '')}"
+        if not dry_run:
+            con.execute(
+                """INSERT OR REPLACE INTO notion_fichas_merceologicas
+                   (notion_id, producto, son_sugerido, materia, funcion, uso, clasificacion, url_notion, synced_at)
+                   VALUES (?,?,?,?,?,?,?,?,datetime('now'))""",
+                (notion_id, producto, son_sugerido, materia, funcion, uso, clasificacion, url_notion)
+            )
+            con.execute(
+                "INSERT INTO notion_fts(tipo, titulo, contenido) VALUES (?,?,?)",
+                ("merceologia", producto, f"{materia} {funcion} {uso}")
+            )
+        count += 1
     return count
 
 
