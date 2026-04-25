@@ -1009,7 +1009,7 @@ def _identificar_producto_imagen(image_path):
         )
         print(f"[VISION] Enviando imagen a Gemini Vision...")
         response = _client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=[img_file, prompt],
             config=_vision_config
         )
@@ -1023,7 +1023,7 @@ def _identificar_producto_imagen(image_path):
         if any(r in desc.lower() for r in _rechazos):
             print("[VISION] Vision intento rechazar — forzando re-identificacion")
             response2 = _client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 contents=[img_file, "Describe el objeto fisico visible en esta imagen. "
                  "Responde: PRODUCTO: [que es] MATERIAL: [de que esta hecho] "
                  "FUNCION: [para que sirve] DESCRIPCION: [descripcion tecnica breve]"],
@@ -1128,7 +1128,7 @@ def health_gemini():
     import urllib.error as _urlerr2
     import json as _json2
     info["rest_tests"] = {}
-    for mdl in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-001"]:
+    for mdl in ["gemini-2.5-flash", "gemini-2.5-flash", "gemini-2.5-flash"]:
         try:
             _t0 = time.time()
             url_rest = f"https://{host}/v1beta/models/{mdl}:generateContent?key={gemini_key}"
@@ -1174,7 +1174,7 @@ def health_gemini():
         try:
             client = _genai_global.Client(api_key=gemini_key, http_options={"timeout": 45})
             resp = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 contents="Responde unicamente con la palabra OK",
                 config=_genai_types_global.GenerateContentConfig(),
             )
@@ -1196,7 +1196,7 @@ def health_gemini():
         info["status"] = "OK" if text else "EMPTY"
         info["gemini_response"] = text[:100]
         info["latency_ms"] = elapsed
-        info["model"] = "gemini-2.0-flash"
+        info["model"] = "gemini-2.5-flash"
         return jsonify(info), 200
     except Exception as e:
         info["status"] = "FAIL"

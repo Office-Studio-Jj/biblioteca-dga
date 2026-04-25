@@ -61,7 +61,7 @@ def _extraer_texto_pdf(pdf_path: Path) -> str:
 
 def _get_gemini_model():
     """Determina el modelo Gemini disponible."""
-    return os.environ.get("LIGHTRAG_MODEL", "gemini-2.0-flash")
+    return os.environ.get("LIGHTRAG_MODEL", "gemini-2.5-flash")
 
 
 def _get_embedding_model():

@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "version": "1.5",
+    "version": "1.6",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
     "ultima_actualizacion": "2026-04-24",
-    "total_errores": 21,
+    "total_errores": 22,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -717,6 +717,44 @@
         "endpoint /health/gemini publico"
       ],
       "verificacion": "curl https://biblioteca-dga-production.up.railway.app/health/gemini debe devolver status:OK con latency_ms y gemini_response",
+      "fecha_resolucion": "2026-04-24",
+      "commit": "0b022b3"
+    },
+    {
+      "id": "ERR-022",
+      "titulo": "Modelo gemini-2.0-flash deprecado: 'no longer available to new users' (404 NOT_FOUND)",
+      "sintomas_usuario": [
+        "Gemini timeout siempre",
+        "ReadTimeout en todos los reintentos",
+        "consultas caen al fallback emergencia",
+        "RESPUESTA DE EMERGENCIA cache verificado",
+        "no esta consultando arancel pdf",
+        "modelo no disponible"
+      ],
+      "keywords_match": [
+        "gemini-2.0-flash",
+        "no longer available",
+        "ReadTimeout Gemini",
+        "404 NOT_FOUND model",
+        "modelo deprecado",
+        "modelo Gemini caido",
+        "API Gemini 404"
+      ],
+      "componente": "server.py + notebooklm_skill/scripts/ask_gemini.py + notebooklm_skill/scripts/lightrag_engine.py",
+      "tipo": "deploy/api/modelo",
+      "fix_resumen": "Google deprecio gemini-2.0-flash y gemini-2.0-flash-001/lite a partir de abril 2025. Mensaje literal: 'This model is no longer available to new users. Please update your code to use a newer model'. SDK SDK con timeout=30s reportaba ReadTimeout (engañoso) en lugar del 404 real. Diagnostico via /health/gemini con REST directo confirmo HTTPError 404 NOT_FOUND. Fix: migrar TODOS los call sites a gemini-2.5-flash. Fallback de _MODELS a gemini-2.5-pro. Probado: latencia 4.7s con respuesta valida.",
+      "archivos": [
+        "server.py",
+        "notebooklm_skill/scripts/ask_gemini.py",
+        "notebooklm_skill/scripts/lightrag_engine.py"
+      ],
+      "lineas_clave": [
+        "Vision API: model='gemini-2.5-flash'",
+        "_MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro']",
+        "/health/gemini muestra rest_tests por modelo",
+        "LIGHTRAG_MODEL default 'gemini-2.5-flash'"
+      ],
+      "verificacion": "curl https://biblioteca-dga-production.up.railway.app/health/gemini debe devolver status:OK con gemini_response='OK' o similar y latency_ms <10000",
       "fecha_resolucion": "2026-04-24",
       "commit": "PENDING"
     }

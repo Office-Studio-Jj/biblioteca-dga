@@ -1076,8 +1076,8 @@ def ask_gemini(question, notebook_id, _intento=1):
         answer = None
 
         # Intentar con thinking_budget=0 primero; si falla 400, reintentar sin thinking_config
-        # (gemini-2.5-flash tiene bugs conocidos con thinking_budget en algunas versiones)
-        _MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"]
+        # gemini-2.0-flash deprecado 2025-04, fallback a 2.5-pro si 2.5-flash falla
+        _MODELS = ["gemini-2.5-flash", "gemini-2.5-pro"]
         _model_used = _MODELS[0]
         print(f"[GEMINI] Consultando {_model_used} (thinking OFF)...")
         try:
