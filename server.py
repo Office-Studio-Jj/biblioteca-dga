@@ -1123,6 +1123,38 @@ def health_gemini():
     except Exception as ee:
         info["https_error"] = f"{type(ee).__name__}: {str(ee)[:200]}"
 
+    # Test REST directo (sin SDK) — confirma si problema es SDK o API
+    try:
+        import urllib.request as _urlreq2
+        import json as _json2
+        _t0 = time.time()
+        url_rest = f"https://{host}/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
+        body = _json2.dumps({"contents": [{"parts": [{"text": "OK"}]}]}).encode("utf-8")
+        req2 = _urlreq2.Request(url_rest, data=body, headers={
+            "Content-Type": "application/json",
+            "User-Agent": "biblioteca-dga-healthcheck/1.0"
+        }, method="POST")
+        with _urlreq2.urlopen(req2, timeout=60) as r2:
+            info["rest_api_ms"] = round((time.time() - _t0) * 1000)
+            info["rest_api_status"] = r2.status
+            info["rest_api_preview"] = r2.read(500).decode("utf-8", errors="replace")[:300]
+    except Exception as ee:
+        info["rest_api_error"] = f"{type(ee).__name__}: {str(ee)[:300]}"
+
+    # Listar modelos disponibles para confirmar que gemini-2.0-flash existe
+    try:
+        import urllib.request as _urlreq3
+        _t0 = time.time()
+        url_list = f"https://{host}/v1beta/models?key={gemini_key}"
+        req3 = _urlreq3.Request(url_list, headers={"User-Agent": "biblioteca-dga-healthcheck/1.0"})
+        with _urlreq3.urlopen(req3, timeout=30) as r3:
+            info["list_models_ms"] = round((time.time() - _t0) * 1000)
+            info["list_models_status"] = r3.status
+            data_models = _json2.loads(r3.read())
+            info["models_available"] = [m.get("name", "") for m in data_models.get("models", [])][:15]
+    except Exception as ee:
+        info["list_models_error"] = f"{type(ee).__name__}: {str(ee)[:300]}"
+
     # Reintento con backoff: primer SSL handshake en Railway puede tardar 20-40s
     resp = None
     t0 = time.time()
