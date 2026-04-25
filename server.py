@@ -799,34 +799,43 @@ def consultar():
             print(f"[CACHE_HIT] '{question[:60]}' — devuelto sin llamar a Gemini")
             return jsonify({"answer": cached, "from_cache": True})
 
-    # ── Sub-agente merceológico: cache-first con fichas previas ──
-    # Si hay ficha merceológica del producto, respuesta en <500ms sin llamar a Gemini.
-    # Solo para texto (no imágenes) y cuaderno de nomenclaturas.
-    if not archivo:
+    # ── PIPELINE 3 CAPAS — path unico para todas las consultas ─────────────
+    # Reemplaza al sub-agente merceologico individual. Garantiza que la app
+    # movil reciba la misma salida que /health/arquitectura: Capa 3 identifica,
+    # Capa 2 (cascada md/notion/gemini-rest) clasifica, Capa 1 verifica
+    # legalmente (partida + RGI + SON + leyes + permisos + conflictos).
+    if not archivo and notebook_id == "biblioteca-de-nomenclaturas":
         try:
             import sys as _sys
             _ag_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                      "notebooklm_skill", "scripts")
             if _ag_path not in _sys.path:
                 _sys.path.insert(0, _ag_path)
-            from merceologia_agent import intentar_respuesta_cache
-            hit = intentar_respuesta_cache(question, notebook_id, umbral=0.5)
-            if hit:
-                respuesta_cache, meta_cache = hit
-                print(f"[MERCEOLOGIA_HIT] slug={meta_cache['slug']} "
-                      f"codigo={meta_cache['codigo']} score={meta_cache['score']} "
-                      f"tiempo={meta_cache['elapsed_ms']}ms")
-                # Guardar en cache general de consultas
-                _set_cached(question, notebook_id, respuesta_cache)
+            from pipeline_3_capas import ejecutar_pipeline
+            traz = ejecutar_pipeline(question, notebook_id)
+            if traz.get("patron_intacto") and traz.get("respuesta_final") and traz.get("codigo_final"):
+                print(f"[PIPELINE_3CAPAS] OK codigo={traz['codigo_final']} "
+                      f"tiempo={traz.get('tiempo_total_ms')}ms")
+                _set_cached(question, notebook_id, traz["respuesta_final"])
                 return jsonify({
-                    "answer": respuesta_cache,
+                    "answer": traz["respuesta_final"],
                     "from_cache": True,
-                    "cache_via": "merceologia_agent",
-                    "meta": meta_cache,
+                    "cache_via": "pipeline_3_capas",
+                    "meta": {
+                        "codigo": traz["codigo_final"],
+                        "gravamen": traz.get("gravamen_final"),
+                        "isc": traz.get("isc_final"),
+                        "leyes_beneficio": [l.get("ley") for l in traz.get("leyes_beneficio", [])],
+                        "permisos": [p.get("entidad") for p in traz.get("permisos_requeridos", [])],
+                        "conflictos": [c.get("id") for c in traz.get("conflictos_posibles", [])],
+                        "tiempo_ms": traz.get("tiempo_total_ms"),
+                    },
                 })
+            else:
+                print(f"[PIPELINE_3CAPAS] no resolvio (patron={traz.get('patron_intacto')}, "
+                      f"codigo={traz.get('codigo_final')}). Fallback a flujo normal.")
         except Exception as _e:
-            print(f"[MERCEOLOGIA_AGENT] Error no critico: {_e}")
-            # Continuar con flujo normal (Gemini)
+            print(f"[PIPELINE_3CAPAS] Error no critico: {_e}. Fallback a flujo normal.")
 
     # Si hay archivo adjunto, extraer texto / analizar imagen y añadirlo a la pregunta
     producto_identificado = ""
