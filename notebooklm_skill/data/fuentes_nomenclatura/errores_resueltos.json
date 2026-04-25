@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "version": "1.1",
+    "version": "1.2",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
-    "ultima_actualizacion": "2026-04-22",
-    "total_errores": 16,
+    "ultima_actualizacion": "2026-04-24",
+    "total_errores": 17,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -533,6 +533,45 @@
       "verificacion": "Ejecutar supervisor sobre respuesta ok -> cada linea CHECK_ debe terminar con [FUENTE: ...]",
       "fecha_resolucion": "2026-04-22",
       "commit": "1cfa533"
+    },
+    {
+      "id": "ERR-017",
+      "titulo": "CSP estricto bloquea inline event handlers en mobile (onclick/oninput/onchange no responden)",
+      "sintomas_usuario": [
+        "boton no responde tap en mobile",
+        "Consultar no se activa",
+        "cuaderno no se selecciona",
+        "tap silencioso sin feedback",
+        "boton enviar disabled aunque escriba",
+        "Ayuda no avanza",
+        "movil no responde a clics"
+      ],
+      "keywords_match": [
+        "boton no responde",
+        "tap mobile",
+        "Consultar disabled",
+        "onclick no funciona",
+        "oninput no funciona",
+        "CSP",
+        "Content Security Policy",
+        "PWA mobile",
+        "iPhone iPad Android tap",
+        "inline handler"
+      ],
+      "componente": "server.py + templates/*.html",
+      "tipo": "CSP/seguridad/mobile",
+      "fix_resumen": "CSP3 'script-src-attr unsafe-inline' permite inline event handlers (onclick=, oninput=, onchange=) sin relajar 'script-src' que sigue exigiendo nonce. Sin esto, browsers modernos bloquean SILENCIOSAMENTE todos los onclick inline. Mobile no muestra consola, sintoma final: botones muertos. ALTERNATIVA: migrar onclick inline a addEventListener con nonce - costoso por volumen (>50 handlers). Tambien Cache-Control no-store para HTML evita PWA con HTML viejo.",
+      "archivos": [
+        "server.py"
+      ],
+      "lineas_clave": [
+        "_security_headers() linea 94",
+        "csp += script-src-attr 'unsafe-inline'",
+        "Cache-Control no-store para text/html"
+      ],
+      "verificacion": "curl -s -I https://biblioteca-dga-production.up.railway.app/ | grep -i 'content-security-policy' debe contener 'script-src-attr'",
+      "fecha_resolucion": "2026-04-24",
+      "commit": "PENDING"
     }
   ]
 }

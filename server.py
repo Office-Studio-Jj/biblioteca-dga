@@ -104,12 +104,18 @@ def _security_headers(response):
     csp = (
         "default-src 'self'; "
         f"script-src 'self' 'nonce-{nonce}' https://cdnjs.cloudflare.com; "
+        "script-src-attr 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data:; "
         "connect-src 'self'; "
         "frame-ancestors 'none';"
     )
     response.headers['Content-Security-Policy'] = csp
+    ctype = response.headers.get('Content-Type', '')
+    if 'text/html' in ctype:
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
     return response
 
 # ── Validación de uploads: extensión + magic bytes ──────────────────────
