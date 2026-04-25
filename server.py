@@ -1087,14 +1087,31 @@ def health_gemini():
         info["error"] = "Modulo google.genai no se pudo cargar al iniciar el servidor (ver logs Railway)"
         return jsonify(info), 503
 
+    # Reintento con backoff: primer SSL handshake en Railway puede tardar 20-40s
+    resp = None
+    t0 = time.time()
+    last_err = None
+    for intento in range(1, 4):
+        try:
+            client = _genai_global.Client(api_key=gemini_key, http_options={"timeout": 45})
+            resp = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents="Responde unicamente con la palabra OK",
+                config=_genai_types_global.GenerateContentConfig(),
+            )
+            break
+        except Exception as ee:
+            last_err = ee
+            info[f"intento_{intento}_error"] = f"{type(ee).__name__}: {str(ee)[:200]}"
+            if intento < 3:
+                time.sleep(2 * intento)
+
+    if resp is None:
+        info["status"] = "FAIL"
+        info["error"] = f"{type(last_err).__name__}: {str(last_err)[:300]}" if last_err else "Sin respuesta"
+        return jsonify(info), 503
+
     try:
-        client = _genai_global.Client(api_key=gemini_key, http_options={"timeout": 15})
-        t0 = time.time()
-        resp = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents="Responde unicamente con la palabra OK",
-            config=_genai_types_global.GenerateContentConfig(),
-        )
         elapsed = round((time.time() - t0) * 1000)
         text = (resp.text or "").strip() if hasattr(resp, "text") else ""
         info["status"] = "OK" if text else "EMPTY"
