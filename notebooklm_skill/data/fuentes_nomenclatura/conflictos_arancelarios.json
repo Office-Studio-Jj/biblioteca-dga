@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "fecha": "2026-04-24",
+    "descripcion": "Conflictos clasicos entre partidas. Capa 1 emite alerta cuando aplican."
+  },
+  "conflictos": [
+    {
+      "id": "drone-vs-aspersor",
+      "partidas_en_conflicto": ["8806", "8424"],
+      "ganadora": "8806",
+      "razon": "VII Enmienda SA 2022 prioriza naturaleza de aeronave (88.06) sobre funcion de aspersion (84.24). Aplica RGI 1 + Nota Legal 1 Cap.88.",
+      "trigger_keywords": ["dron", "drone", "uav", "aeronave"],
+      "exclusion_destino": "84.24 (aparatos para proyectar liquidos) — NO aplica si es UAV"
+    },
+    {
+      "id": "monitor-vs-tv",
+      "partidas_en_conflicto": ["8528", "8525"],
+      "ganadora": "depende_uso",
+      "razon": "Si es para sistema computacional/CCTV: 8528.52. Si es receptor TV: 8528.71/72.",
+      "trigger_keywords": ["monitor", "pantalla", "display", "tv", "television"],
+      "exclusion_destino": "verificar funcion principal y conectividad"
+    },
+    {
+      "id": "tablet-vs-laptop",
+      "partidas_en_conflicto": ["8471", "8517"],
+      "ganadora": "depende_funcion",
+      "razon": "Tablet con funciones telefonicas (3G/4G/5G voz) -> 8517. Solo computadora -> 8471.",
+      "trigger_keywords": ["tablet", "ipad", "laptop", "notebook"],
+      "exclusion_destino": "verificar si tiene capacidad de telefono"
+    },
+    {
+      "id": "vehiculo-vs-piezas",
+      "partidas_en_conflicto": ["8703-8704", "8708"],
+      "ganadora": "depende_estado",
+      "razon": "Vehiculo completo o CKD -> 87.03/04. Pieza/parte -> 87.08.",
+      "trigger_keywords": ["motor vehiculo", "carroceria", "chasis"],
+      "exclusion_destino": "verificar grado ensamblaje"
+    },
+    {
+      "id": "vapeador-vs-electronica",
+      "partidas_en_conflicto": ["8543", "2402"],
+      "ganadora": "8543",
+      "razon": "Cigarrillos electronicos (vapeadores) -> 8543.40 (RGI 1 + nota especifica VII Enmienda). NO 2402 (tabaco).",
+      "trigger_keywords": ["vape", "vapeador", "cigarrillo electronico", "ecig"],
+      "exclusion_destino": "2402 es solo tabaco propiamente"
+    },
+    {
+      "id": "joya-vs-bisuteria",
+      "partidas_en_conflicto": ["7113", "7117"],
+      "ganadora": "depende_material",
+      "razon": "Metal precioso (oro/plata) -> 7113. Sin metal precioso -> 7117 (bisuteria).",
+      "trigger_keywords": ["anillo", "collar", "joya", "bisuteria"],
+      "exclusion_destino": "verificar quilataje y material"
+    },
+    {
+      "id": "auriculares-vs-altavoces",
+      "partidas_en_conflicto": ["8518", "8517"],
+      "ganadora": "depende_microfono",
+      "razon": "Si tienen microfono integrado y es para telefonia -> 8517. Solo audio salida -> 8518.",
+      "trigger_keywords": ["auricular", "audifono", "headphone", "headset"],
+      "exclusion_destino": "verificar microfono y uso telecomunicaciones"
+    }
+  ]
+}

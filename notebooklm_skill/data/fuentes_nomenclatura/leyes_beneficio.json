@@ -1,0 +1,85 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "fecha": "2026-04-24",
+    "descripcion": "Beneficios legales que reducen DAI/ITBIS por uso especifico. Capa 1 los aplica."
+  },
+  "leyes": [
+    {
+      "ley": "Ley 150-97",
+      "nombre": "Ley sobre tarifa cero al sector agropecuario",
+      "alcance": "Insumos, equipos y maquinarias usados en produccion agropecuaria",
+      "beneficio": {
+        "DAI": "0%",
+        "ITBIS": "Exento"
+      },
+      "keywords_consulta": [
+        "agricultura", "agropecuari", "agricola", "cultivo", "fumigacion", "siembra",
+        "ganaderia", "pesca", "acuicultura", "invernadero", "tractor agricola",
+        "fertilizante", "pesticida", "herbicida", "fumigador", "semilla", "fertilizacion"
+      ],
+      "capitulos_aplicables": ["31", "84", "87", "88", "82"],
+      "requisito": "Importador debe demostrar ante DGA uso exclusivo agropecuario (declaracion + certificacion Min. Agricultura)"
+    },
+    {
+      "ley": "Ley 28-01",
+      "nombre": "Ley de Zonas Especiales de Desarrollo Fronterizo",
+      "alcance": "Empresas establecidas en zonas fronterizas",
+      "beneficio": {
+        "DAI": "0% por 20 anos sobre maquinaria importada",
+        "ITBIS": "Exento sobre maquinaria"
+      },
+      "keywords_consulta": ["zona fronteriza", "zona desarrollo fronterizo", "frontera"],
+      "capitulos_aplicables": [],
+      "requisito": "Registro en Consejo de Coordinacion ZEDF + Ministerio Hacienda"
+    },
+    {
+      "ley": "Ley 8-90",
+      "nombre": "Ley de Zonas Francas",
+      "alcance": "Empresas instaladas en zonas francas",
+      "beneficio": {
+        "DAI": "0%",
+        "ITBIS": "Exento (no se factura)"
+      },
+      "keywords_consulta": ["zona franca", "parque industrial zona franca"],
+      "capitulos_aplicables": [],
+      "requisito": "CNZFE permiso vigente + uso exclusivo en zona franca"
+    },
+    {
+      "ley": "Ley 392-07",
+      "nombre": "Ley de Competitividad e Innovacion Industrial",
+      "alcance": "Empresas industriales registradas en PROINDUSTRIA",
+      "beneficio": {
+        "DAI": "0% sobre materia prima e insumos",
+        "ITBIS": "diferimiento"
+      },
+      "keywords_consulta": ["industria", "manufactura", "produccion industrial"],
+      "capitulos_aplicables": [],
+      "requisito": "Registro PROINDUSTRIA + plan industrial aprobado"
+    },
+    {
+      "ley": "Ley 195-13",
+      "nombre": "Reforma fiscal — incentivos a la energia renovable",
+      "alcance": "Equipos de energia solar, eolica, biomasa",
+      "beneficio": {
+        "DAI": "0%",
+        "ITBIS": "Exento"
+      },
+      "keywords_consulta": ["solar", "fotovoltaic", "eolico", "energia renovable", "panel solar", "aerogenerador"],
+      "capitulos_aplicables": ["84", "85"],
+      "requisito": "Certificacion CNE + uso para generacion electrica"
+    },
+    {
+      "ley": "Ley 16-95",
+      "nombre": "Inversion Extranjera Directa",
+      "alcance": "Equipos importados por inversionistas extranjeros registrados",
+      "beneficio": {
+        "DAI": "tarifa NMF estandar (sin reduccion)",
+        "ITBIS": "estandar"
+      },
+      "keywords_consulta": [],
+      "capitulos_aplicables": [],
+      "requisito": "Registro Centro Exportacion e Inversion CEI-RD"
+    }
+  ]
+}

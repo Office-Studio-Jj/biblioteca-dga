@@ -1,0 +1,93 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "fecha": "2026-04-24",
+    "descripcion": "Permisos especiales por tipo de mercancia. Capa 1 los detecta y emite alerta."
+  },
+  "permisos": [
+    {
+      "entidad": "INDOTEL",
+      "nombre": "Instituto Dominicano de las Telecomunicaciones",
+      "base_legal": "Nota Adicional 1 Capitulo 85, Ley 153-98",
+      "aplica_a": "radiotelemando, aeronaves teledirigidas, drones, equipos radiocomunicacion, antenas",
+      "capitulos": ["85", "88"],
+      "partidas": ["8517", "8525", "8526", "8527", "8806"],
+      "keywords_consulta": ["dron", "drone", "radio", "telecomunicacion", "antena", "radioenlace",
+                             "telefono", "celular", "wifi", "bluetooth", "teledirigido", "control remoto"],
+      "tramite": "Solicitar autorizacion previa de importacion en INDOTEL antes del despacho"
+    },
+    {
+      "entidad": "IDAC",
+      "nombre": "Instituto Dominicano de Aviacion Civil",
+      "base_legal": "Ley 491-06 Aviacion Civil",
+      "aplica_a": "aeronaves de peso superior a 25 kg, equipos aeronauticos",
+      "capitulos": ["88"],
+      "partidas": ["8801", "8802", "8806"],
+      "keywords_consulta": ["aeronave", "avion", "helicoptero", "dron grande", "uav profesional"],
+      "tramite": "Registro IDAC para drones >25kg + plan operativo de vuelo"
+    },
+    {
+      "entidad": "Ministerio de Agricultura",
+      "nombre": "Ministerio de Agricultura RD",
+      "base_legal": "Ley 4990, Decreto 217-91",
+      "aplica_a": "pesticidas, fertilizantes, semillas, equipos agricolas, ganado, productos veterinarios",
+      "capitulos": ["01", "02", "03", "06", "10", "12", "23", "31", "38"],
+      "partidas": ["3808", "3105", "1209", "8424"],
+      "keywords_consulta": ["pesticida", "fertilizante", "semilla", "fumigacion", "agroquimico",
+                             "veterinario", "ganado", "agropecuari"],
+      "tramite": "Registro fitosanitario para producto a aplicar + permiso importacion"
+    },
+    {
+      "entidad": "MISPAS / DIGEMAPS",
+      "nombre": "Ministerio de Salud Publica / Direccion General Medicamentos",
+      "base_legal": "Ley 42-01 General de Salud, Ley 1-12",
+      "aplica_a": "medicamentos, productos farmaceuticos, dispositivos medicos, cosmeticos",
+      "capitulos": ["30", "33"],
+      "partidas": ["3001", "3002", "3003", "3004", "3005", "3006", "3304", "3307"],
+      "keywords_consulta": ["medicamento", "farmaco", "vitamina", "suplemento", "cosmetico",
+                             "dispositivo medico", "jeringa", "vacuna"],
+      "tramite": "Registro sanitario DIGEMAPS + autorizacion importacion"
+    },
+    {
+      "entidad": "MICM",
+      "nombre": "Ministerio de Industria, Comercio y MIPYMES",
+      "base_legal": "Ley 358-05 Defensa Comercial",
+      "aplica_a": "armas y explosivos, productos sujetos a licencia industrial",
+      "capitulos": ["93", "36"],
+      "partidas": ["9301", "9302", "9303", "9304", "9305", "9306"],
+      "keywords_consulta": ["arma", "fusil", "pistola", "municion", "explosivo", "polvora"],
+      "tramite": "Licencia especial MICM + registro en Ministerio Defensa"
+    },
+    {
+      "entidad": "Ministerio Medio Ambiente",
+      "nombre": "Ministerio de Medio Ambiente y Recursos Naturales",
+      "base_legal": "Ley 64-00, Convenios CITES/Basilea/Estocolmo/Montreal",
+      "aplica_a": "vida silvestre, productos quimicos peligrosos, residuos, refrigerantes",
+      "capitulos": ["28", "29", "38", "01", "06", "44"],
+      "partidas": ["2901", "2902", "2903", "3824", "8418", "8415"],
+      "keywords_consulta": ["refrigerante", "freon", "hcfc", "hfc", "madera tropical", "fauna", "flora", "residuo"],
+      "tramite": "Permiso Vice Ministerio Gestion Ambiental + cuotas Protocolo Montreal"
+    },
+    {
+      "entidad": "DICOEX",
+      "nombre": "Direccion de Comercio Exterior",
+      "base_legal": "Ley 84-99, Decretos cuotas DR-CAFTA",
+      "aplica_a": "productos sujetos a contingentes arancelarios DR-CAFTA, EPA, CARICOM",
+      "capitulos": ["02", "04", "07", "10", "17"],
+      "partidas": ["0201", "0202", "0203", "0207", "0402", "0406", "1005", "1701"],
+      "keywords_consulta": ["carne", "pollo", "leche", "queso", "maiz", "azucar", "arroz"],
+      "tramite": "Solicitar contingente arancelario via DICOEX antes despacho"
+    },
+    {
+      "entidad": "DGII Tasa Selectiva",
+      "nombre": "Direccion General de Impuestos Internos",
+      "base_legal": "Ley 11-92 Codigo Tributario Titulo IV (ISC)",
+      "aplica_a": "alcohol, tabaco, combustibles, electronicos suntuarios, vehiculos lujo",
+      "capitulos": ["22", "24", "27", "85", "87"],
+      "partidas": ["2203", "2204", "2208", "2402", "2710", "8525", "8528", "8703"],
+      "keywords_consulta": ["alcohol", "vino", "ron", "cerveza", "cigarrillo", "tabaco",
+                             "gasolina", "diesel", "videocamara", "auto lujo"],
+      "tramite": "Registro Selectivo + estampillado donde aplique"
+    }
+  ]
+}

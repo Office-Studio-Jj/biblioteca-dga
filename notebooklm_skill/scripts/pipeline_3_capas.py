@@ -30,22 +30,29 @@ _DATA = os.path.join(_HERE, "..", "data")
 
 def capa_3_gemini_orquestador(consulta: str, notebook_id: str) -> Dict[str, Any]:
     """
-    CAPA 3 — Gemini como mesa de reparticion.
-    Identifica el producto, normaliza la consulta, decide si requiere
-    merceologia o respuesta directa.
+    CAPA 3 — Gemini como mesa de reparticion / orquestador.
 
-    Returns:
-        {"producto_identificado": str, "categoria": str, "requiere_merceologia": bool,
-         "elapsed_ms": int, "fuente": "gemini"|"reglas", "ok": bool}
+    Responsabilidades (NO toma decisiones legales — solo distribuye):
+      - Identifica QUE ES el producto en lenguaje natural
+      - Extrae caracteristicas mencionadas (peso, material, uso)
+      - Decide si requiere flujo merceologico
+      - REPARTE trabajo: envia consulta a Capa 2 (descripcion) y Capa 1 (verificacion legal)
+
+    NO determina:
+      - Partida arancelaria (eso lo hace Capa 1)
+      - RGI ni Notas Legales (eso lo hace Capa 1)
+      - Codigo SON (eso lo hace Capa 1)
     """
     t0 = time.time()
     resultado = {
         "capa": 3,
-        "nombre": "Gemini Orquestador",
+        "nombre": "Gemini Orquestador (identifica + reparte)",
         "ok": False,
         "fuente": "reglas",
         "producto_identificado": "",
-        "categoria": "",
+        "categoria_general": "",
+        "caracteristicas_detectadas": {},
+        "trabajos_repartidos": [],
         "requiere_merceologia": False,
     }
 
@@ -55,35 +62,56 @@ def capa_3_gemini_orquestador(consulta: str, notebook_id: str) -> Dict[str, Any]
         resultado["elapsed_ms"] = int((time.time() - t0) * 1000)
         return resultado
 
-    # Normalizar producto sin Gemini (rapido). Gemini se invoca solo si capa 2 no resuelve.
     palabras = re.findall(r'\b[a-záéíóúüñ]{4,}\b', consulta_lower)
     stopwords = {"para", "como", "cual", "este", "esta", "donde", "tiene", "necesito",
                  "consulta", "clasificar", "producto", "codigo", "arancel"}
     palabras_clave = [p for p in palabras if p not in stopwords]
     resultado["producto_identificado"] = " ".join(palabras_clave[:5])
 
-    # Inferir categoria por capitulo aproximado (heuristica para enrutamiento)
-    keywords_cap = {
-        "88": ["dron", "drone", "aeronave", "uav", "vehiculo aereo", "fumigacion aerea"],
-        "85": ["camara", "videocamara", "monitor", "tv", "televisor", "telefono", "movil",
-               "computadora", "tablet"],
-        "84": ["motor", "bomba", "compresor", "valvula", "rodamiento"],
-        "87": ["vehiculo", "auto", "carro", "motocicleta", "neumatico"],
-        "30": ["medicamento", "farmaco", "vitamina", "suplemento"],
-        "22": ["bebida", "alcohol", "vino", "cerveza", "ron"],
-        "27": ["combustible", "gasolina", "diesel", "petroleo"],
-        "73": ["acero", "hierro", "metalica"],
-        "39": ["plastico", "polietileno", "pvc", "polimero"],
-    }
-    for cap, keys in keywords_cap.items():
+    # Categoria GENERAL solo como pista (NO determina partida)
+    categorias = [
+        ("aeronave", ["dron", "drone", "uav", "aeronave", "avion", "helicoptero"]),
+        ("electronico", ["camara", "videocamara", "monitor", "tv", "televisor", "telefono",
+                          "celular", "smartphone", "computadora", "laptop", "tablet"]),
+        ("maquinaria", ["motor", "bomba", "compresor", "valvula", "rodamiento", "turbina"]),
+        ("vehiculo", ["vehiculo", "auto", "carro", "motocicleta", "neumatico", "camion"]),
+        ("farmaceutico", ["medicamento", "farmaco", "vitamina", "suplemento", "antibiotico"]),
+        ("bebida", ["bebida", "alcohol", "vino", "cerveza", "ron", "whisky", "vodka"]),
+        ("metalurgia", ["acero", "hierro", "metalica", "aluminio", "cobre", "tornillo"]),
+        ("plastico", ["plastico", "polietileno", "pvc", "polimero"]),
+        ("agropecuario", ["fertilizante", "pesticida", "semilla", "herbicida"]),
+    ]
+    for nombre, keys in categorias:
         if any(k in consulta_lower for k in keys):
-            resultado["categoria"] = f"Capitulo {cap}"
+            resultado["categoria_general"] = nombre
             break
 
-    # Si la consulta es de nomenclaturas y describe un producto fisico -> requiere merceologia
+    # Extraer caracteristicas mencionadas (peso, material, uso) para que Capa 1 las use
+    caracs = {}
+    m_peso = re.search(r'(\d+(?:[.,]\d+)?)\s*(kg|kilos?|gramos?|g\b|toneladas?)', consulta_lower)
+    if m_peso:
+        caracs["peso"] = f"{m_peso.group(1)}{m_peso.group(2)}"
+    m_volumen = re.search(r'(\d+(?:[.,]\d+)?)\s*(ml|cc|litros?|l\b)', consulta_lower)
+    if m_volumen:
+        caracs["volumen"] = f"{m_volumen.group(1)}{m_volumen.group(2)}"
+    m_potencia = re.search(r'(\d+(?:[.,]\d+)?)\s*(w|watts?|hp|kw|cv)\b', consulta_lower)
+    if m_potencia:
+        caracs["potencia"] = f"{m_potencia.group(1)}{m_potencia.group(2)}"
+    if any(k in consulta_lower for k in ["agricol", "agropecuari", "agricultura", "fumigacion", "cultivo"]):
+        caracs["uso_agropecuario"] = True
+    if any(k in consulta_lower for k in ["industrial", "comercial"]):
+        caracs["uso_industrial"] = True
+    if any(k in consulta_lower for k in ["domestico", "casero", "residencial", "hogar"]):
+        caracs["uso_domestico"] = True
+    resultado["caracteristicas_detectadas"] = caracs
+
+    # Reparticion de trabajo
     es_clasificacion = notebook_id == "biblioteca-de-nomenclaturas" and len(palabras_clave) >= 1
     resultado["requiere_merceologia"] = es_clasificacion
-
+    resultado["trabajos_repartidos"] = [
+        {"capa": 2, "tarea": "describir merceologicamente: que es, materia, funcion, uso, usuario"},
+        {"capa": 1, "tarea": "determinar partida + RGI + notas legales + SON + gravamen + ITBIS + ISC + leyes + permisos + conflictos"},
+    ]
     resultado["ok"] = True
     resultado["elapsed_ms"] = int((time.time() - t0) * 1000)
     return resultado
@@ -155,8 +183,56 @@ def _gemini_clasificar_producto(consulta: str, capitulo_pista: str = "") -> Dict
     return out
 
 
+def _capa2_verificar_pdfs(consulta: str, capa3: dict) -> Dict[str, Any]:
+    """Sub-capa 2d: verificacion contra PDFs adjuntos del cuaderno.
+    Confirma que la categoria/caracteristicas que detecto Capa 3 estan
+    respaldadas por una fuente legal documental (Arancel, Notas Explicativas SA,
+    Ley 168-21, etc.). Si no, devuelve cita del PDF que la contradice o
+    indica que requiere correccion con la fuente especifica."""
+    try:
+        if _HERE not in sys.path:
+            sys.path.insert(0, _HERE)
+        from supervisor_interno import buscar_en_fuentes
+    except Exception as e:
+        return {"verificada": None, "razon": f"supervisor_interno no disponible: {e}"}
+
+    palabras = re.findall(r'\b[a-záéíóúüñ]{4,}\b', consulta.lower())
+    stopwords = {"para", "como", "cual", "este", "esta", "donde"}
+    keywords = [p for p in palabras if p not in stopwords][:3]
+
+    matches = []
+    for kw in keywords:
+        try:
+            hits = buscar_en_fuentes(kw, max_resultados=3)
+            if hits:
+                for h in hits[:2]:
+                    matches.append({
+                        "keyword": kw,
+                        "fuente_pdf": h.get("archivo", "?"),
+                        "snippet": str(h.get("contexto", h))[:300]
+                    })
+        except Exception:
+            continue
+
+    if matches:
+        return {
+            "verificada": True,
+            "razon": f"Capa 3 respaldada por {len(matches)} cita(s) en PDFs del cuaderno",
+            "citas_pdf": matches[:5],
+        }
+    return {
+        "verificada": False,
+        "razon": (
+            "Las palabras clave de la consulta NO aparecen en los PDFs cargados del cuaderno. "
+            "Capa 3 NO esta respaldada documentalmente. Sugerir al usuario que revise la "
+            "descripcion del producto o agregue la fuente legal correspondiente al cuaderno."
+        ),
+    }
+
+
 def capa_2_notion_merceologia(consulta: str, notebook_id: str, umbral: float = 0.4,
-                              capitulo_pista: str = "") -> Dict[str, Any]:
+                              capitulo_pista: str = "",
+                              capa3_resultado: Optional[dict] = None) -> Dict[str, Any]:
     """
     CAPA 2 — Notion / fichas merceologicas + clasificacion via Gemini.
 
@@ -195,6 +271,15 @@ def capa_2_notion_merceologia(consulta: str, notebook_id: str, umbral: float = 0
                 "score": round(score, 3),
                 "elapsed_ms": int((time.time() - t0) * 1000),
             })
+            # Sub-capa 2d: validar Capa 3 contra PDFs del cuaderno
+            if capa3_resultado:
+                verif = _capa2_verificar_pdfs(consulta, capa3_resultado)
+                resultado["verificacion_pdfs"] = verif
+                if verif.get("verificada") is False:
+                    resultado["aviso_capa3"] = (
+                        "Capa 3 dijo categoria='" + capa3_resultado.get("categoria_general", "") +
+                        "' pero la consulta NO aparece en los PDFs del cuaderno. " + verif.get("razon", "")
+                    )
             return resultado
     except Exception as e:
         resultado["error_md"] = f"{type(e).__name__}: {str(e)[:150]}"
@@ -248,6 +333,15 @@ def capa_2_notion_merceologia(consulta: str, notebook_id: str, umbral: float = 0
             "rgi": g.get("rgi"),
             "elapsed_ms": int((time.time() - t0) * 1000),
         })
+        # Sub-capa 2d: validar contra PDFs del cuaderno la categoria de Capa 3
+        if capa3_resultado:
+            verif = _capa2_verificar_pdfs(consulta, capa3_resultado)
+            resultado["verificacion_pdfs"] = verif
+            if verif.get("verificada") is False:
+                resultado["aviso_capa3"] = (
+                    "Capa 3 dijo categoria='" + capa3_resultado.get("categoria_general", "") +
+                    "' pero NO esta respaldada en los PDFs del cuaderno. " + verif.get("razon", "")
+                )
         return resultado
     else:
         resultado["error_gemini"] = g.get("error", "sin codigo extraido")
@@ -256,20 +350,112 @@ def capa_2_notion_merceologia(consulta: str, notebook_id: str, umbral: float = 0
     return resultado
 
 
-def capa_1_claude_validador(consulta: str, codigo_propuesto: str) -> Dict[str, Any]:
-    """
-    CAPA 1 — Claude API + cache local SQLite/JSON.
-    Verifica:
-      - Codigo arancelario existe en el cache 7,616 codigos del Arancel RD
-      - Gravamen (DAI) correcto desde gravamenes_lookup.json
-      - ITBIS aplica/no aplica
-      - ISC aplica/no aplica desde isc_lookup.json
-      - Base legal (Ley 168-21, Decreto 36-22, Ley 150-97 si aplica)
-      - Confirma con claude-haiku via claude_validator.py si esta disponible
+_MAPA_PARTIDAS_RGI = {
+    # capitulo + keywords del producto -> partida + RGI + notas legales + exclusiones
+    "8806": {  # drones / aeronaves no tripuladas
+        "trigger": ["dron", "drone", "uav", "aeronave no tripulada"],
+        "rgi": "RGI 1 + RGI 6 (subpartida por peso maximo de despegue y equipamiento)",
+        "notas_legales": [
+            "Nota Legal 1 Cap.88: comprende aeronaves disenadas para transportar carga util o equipadas con dispositivos integrados permanentemente",
+            "VII Enmienda SA 2022: creacion partida 88.06 especifica para drones",
+        ],
+        "exclusiones_partida": ["95.03 (juguetes voladores)"],
+        "criterio_subpartida": "peso maximo de despegue + presencia de camara digital",
+    },
+    "8802": {
+        "trigger": ["avion", "helicoptero"],
+        "rgi": "RGI 1",
+        "notas_legales": ["Cap.88 Nota 1 — aeronaves civiles"],
+        "exclusiones_partida": ["88.01 (globos), 88.06 (no tripuladas)"],
+        "criterio_subpartida": "peso vacio + tipo motor",
+    },
+    "8525": {
+        "trigger": ["videocamara", "camara digital", "camara grabacion"],
+        "rgi": "RGI 1 + RGI 6",
+        "notas_legales": ["Cap.85 Nota 4 — conjuntos funcionales"],
+        "exclusiones_partida": ["8528 monitores, 9006 fotograficas"],
+        "criterio_subpartida": "tipo de captura + uso",
+    },
+    "8528": {
+        "trigger": ["televisor", "monitor", "pantalla display"],
+        "rgi": "RGI 1",
+        "notas_legales": ["Cap.85 — receptores y monitores"],
+        "exclusiones_partida": ["8443 monitores impresion"],
+        "criterio_subpartida": "tecnologia (LCD/LED) + uso (TV vs monitor)",
+    },
+    "8413": {
+        "trigger": ["bomba", "centrifuga"],
+        "rgi": "RGI 1",
+        "notas_legales": ["Cap.84 — bombas para liquidos"],
+        "exclusiones_partida": ["8414 bombas aire"],
+        "criterio_subpartida": "tipo bomba (centrifuga/embolo/rotativa)",
+    },
+    "7318": {
+        "trigger": ["tornillo", "perno", "rosca"],
+        "rgi": "RGI 1",
+        "notas_legales": ["Cap.73 — articulos de fundicion hierro/acero"],
+        "exclusiones_partida": ["7415 cobre, 7616 aluminio"],
+        "criterio_subpartida": "rosca o sin rosca + material",
+    },
+    "2204": {
+        "trigger": ["vino"],
+        "rgi": "RGI 1",
+        "notas_legales": ["Cap.22 — bebidas, liquidos alcoholicos y vinagre"],
+        "exclusiones_partida": ["2206 otras bebidas fermentadas"],
+        "criterio_subpartida": "espumoso/no espumoso + grado alcoholico + envase",
+    },
+    "2208": {
+        "trigger": ["ron", "whisky", "vodka", "tequila", "ginebra", "aguardiente"],
+        "rgi": "RGI 1",
+        "notas_legales": ["Cap.22 — alcohol etilico desnaturalizado y aguardientes"],
+        "exclusiones_partida": [],
+        "criterio_subpartida": "tipo de aguardiente",
+    },
+    "8517": {
+        "trigger": ["telefono", "celular", "smartphone", "movil"],
+        "rgi": "RGI 1 + RGI 6",
+        "notas_legales": ["Cap.85 — telefonia y telecomunicaciones"],
+        "exclusiones_partida": ["8471 si solo computadora sin telefonia"],
+        "criterio_subpartida": "celular vs fijo vs aparato emision",
+    },
+    "8541": {
+        "trigger": ["panel solar", "fotovoltaico", "celula solar"],
+        "rgi": "RGI 1",
+        "notas_legales": ["Cap.85 — diodos, transistores, dispositivos semiconductores"],
+        "exclusiones_partida": [],
+        "criterio_subpartida": "modulo vs celula",
+    },
+    "3004": {
+        "trigger": ["medicamento", "farmaco", "remedio"],
+        "rgi": "RGI 1",
+        "notas_legales": ["Cap.30 — productos farmaceuticos"],
+        "exclusiones_partida": ["3003 sin dosificar, 2106 suplementos"],
+        "criterio_subpartida": "principio activo + forma farmaceutica",
+    },
+}
 
-    Returns:
-        {"codigo_existe": bool, "gravamen": str, "itbis": str, "isc": str,
-         "base_legal": list, "claude_confirmacion": dict, "ok": bool, "elapsed_ms": int}
+
+def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
+                             caracteristicas_capa3: Optional[dict] = None) -> Dict[str, Any]:
+    """
+    CAPA 1 — Claude / SQLite / Cache JSON.
+
+    UNICA capa con autoridad legal/numerica precisa. Determina:
+      - Partida arancelaria correcta (4 digitos)
+      - RGI aplicada (Reglas Generales de Interpretacion)
+      - Notas Legales del Capitulo
+      - SON exacta (8 digitos) considerando caracteristicas (peso, uso)
+      - Verificacion en cache de los 7,616 codigos del Arancel RD
+      - Gravamen DAI (NMF estandar)
+      - ITBIS (estandar 18% o exento)
+      - ISC desde isc_lookup.json (Cap.22, 24, 27, 85, 87)
+      - Beneficios legales aplicables (Ley 150-97 agropecuario, 28-01 fronteriza,
+        8-90 zona franca, 195-13 energia renovable, 392-07 industria)
+      - Permisos especiales (INDOTEL, IDAC, MISPAS, MICM, Min. Agricultura, etc.)
+      - Conflictos arancelarios clasicos (88.06 vs 84.24, 8528 vs 8525, etc.)
+      - Validacion final con Claude API (claude-haiku) si disponible
+
+    Es la fuente de VERDAD del sistema. Las otras 2 capas se subordinan.
     """
     t0 = time.time()
     resultado = {
@@ -329,17 +515,127 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str) -> Dict[str, A
     # 3. ITBIS estandar 18%
     resultado["itbis"] = "18% sobre (CIF + Gravamen)"
 
-    # 4. Base legal (siempre incluir leyes principales RD)
+    # 4. Determinar PARTIDA + RGI + Notas Legales (responsabilidad de Capa 1)
+    partida4 = codigo_propuesto[:4] if len(codigo_propuesto) >= 4 else ""
+    info_partida = _MAPA_PARTIDAS_RGI.get(partida4)
+    if info_partida:
+        resultado["partida"] = partida4
+        resultado["rgi"] = info_partida["rgi"]
+        resultado["notas_legales"] = info_partida["notas_legales"]
+        resultado["exclusiones_partida"] = info_partida["exclusiones_partida"]
+        resultado["criterio_subpartida"] = info_partida["criterio_subpartida"]
+    else:
+        resultado["partida"] = partida4
+        resultado["rgi"] = "RGI 1 (verificar manualmente)"
+        resultado["notas_legales"] = [f"Consultar Notas Legales del Cap. {codigo_propuesto[:2]}"]
+        resultado["exclusiones_partida"] = []
+        resultado["criterio_subpartida"] = "Ver descripcion oficial del Arancel"
+
+    # 5. Sugerir SON alternativa si caracteristicas de Capa 3 lo indican
+    #    Caso clasico: drone agricola por peso (8806.23.19 vs 8806.24.19)
+    son_sugerencias = []
+    caracs = caracteristicas_capa3 or {}
+    if partida4 == "8806" and caracs.get("peso"):
+        peso_val = caracs["peso"]
+        m_kg = re.search(r'(\d+(?:[.,]\d+)?)\s*(kg|kilos?)', peso_val.lower())
+        if m_kg:
+            try:
+                kg = float(m_kg.group(1).replace(",", "."))
+                if kg <= 0.25:
+                    son_sugerencias.append({"son": "8806.21.19", "razon": "<=250g teledirigido sin camara"})
+                elif kg <= 7:
+                    son_sugerencias.append({"son": "8806.22.19", "razon": "250g-7kg teledirigido sin camara"})
+                elif kg <= 25:
+                    son_sugerencias.append({"son": "8806.23.19", "razon": "7-25kg teledirigido sin camara"})
+                elif kg <= 150:
+                    son_sugerencias.append({"son": "8806.24.19", "razon": "25-150kg teledirigido sin camara"})
+            except ValueError:
+                pass
+    resultado["son_sugerencias_por_caracteristicas"] = son_sugerencias
+
+    # 6. Base legal (siempre incluir leyes principales RD)
     resultado["base_legal"] = [
         "Ley 168-21 - Ley General de Aduanas RD",
         "Decreto 36-22 - Arancel Nacional vigente",
         "Ley 253-12 - ITBIS e ISC (Arts. 335-381)",
         "Decreto 755-22 - Reglamento Ley 168-21",
     ]
-    # Detectar si aplica Ley 150-97 (uso agropecuario)
-    if "agricultura" in consulta.lower() or "agropecuari" in consulta.lower():
-        resultado["base_legal"].append("Ley 150-97 - Tarifa cero sector agropecuario")
-        resultado["beneficio_150_97"] = "0% DAI + Exencion ITBIS si demuestra uso agricola exclusivo"
+
+    # 7. Detectar leyes de beneficio aplicables (desde leyes_beneficio.json)
+    resultado["leyes_beneficio"] = []
+    try:
+        leyes_path = os.path.join(_DATA, "fuentes_nomenclatura", "leyes_beneficio.json")
+        if os.path.exists(leyes_path):
+            with open(leyes_path, "r", encoding="utf-8") as f:
+                leyes_data = json.load(f)
+            for ley in leyes_data.get("leyes", []):
+                triggered = False
+                # Trigger por keywords en consulta
+                for kw in ley.get("keywords_consulta", []):
+                    if kw in consulta.lower():
+                        triggered = True
+                        break
+                # Trigger por capitulo aplicable
+                cap = codigo_propuesto[:2] if len(codigo_propuesto) >= 2 else ""
+                if cap in ley.get("capitulos_aplicables", []) and triggered:
+                    resultado["leyes_beneficio"].append({
+                        "ley": ley["ley"],
+                        "nombre": ley["nombre"],
+                        "beneficio": ley["beneficio"],
+                        "requisito": ley["requisito"],
+                    })
+                    resultado["base_legal"].append(f"{ley['ley']} - {ley['nombre']}")
+                    if ley["ley"] == "Ley 150-97":
+                        resultado["beneficio_150_97"] = "0% DAI + Exencion ITBIS si demuestra uso agropecuario exclusivo"
+    except Exception as e:
+        resultado["error_leyes"] = f"{type(e).__name__}: {str(e)[:100]}"
+
+    # 8. Detectar permisos especiales (desde permisos_especiales.json)
+    resultado["permisos_requeridos"] = []
+    try:
+        perm_path = os.path.join(_DATA, "fuentes_nomenclatura", "permisos_especiales.json")
+        if os.path.exists(perm_path):
+            with open(perm_path, "r", encoding="utf-8") as f:
+                perm_data = json.load(f)
+            cap_actual = codigo_propuesto[:2] if len(codigo_propuesto) >= 2 else ""
+            for perm in perm_data.get("permisos", []):
+                aplica = False
+                if cap_actual in perm.get("capitulos", []):
+                    aplica = True
+                if any(p == codigo_propuesto[:4] or codigo_propuesto.startswith(p)
+                       for p in perm.get("partidas", [])):
+                    aplica = True
+                if any(kw in consulta.lower() for kw in perm.get("keywords_consulta", [])):
+                    aplica = True
+                if aplica:
+                    resultado["permisos_requeridos"].append({
+                        "entidad": perm["entidad"],
+                        "nombre": perm["nombre"],
+                        "base_legal": perm["base_legal"],
+                        "tramite": perm["tramite"],
+                    })
+    except Exception as e:
+        resultado["error_permisos"] = f"{type(e).__name__}: {str(e)[:100]}"
+
+    # 9. Detectar conflictos arancelarios clasicos
+    resultado["conflictos_posibles"] = []
+    try:
+        conf_path = os.path.join(_DATA, "fuentes_nomenclatura", "conflictos_arancelarios.json")
+        if os.path.exists(conf_path):
+            with open(conf_path, "r", encoding="utf-8") as f:
+                conf_data = json.load(f)
+            for conf in conf_data.get("conflictos", []):
+                if any(kw in consulta.lower() for kw in conf.get("trigger_keywords", [])):
+                    if any(p in codigo_propuesto[:4] for p in conf.get("partidas_en_conflicto", [])):
+                        resultado["conflictos_posibles"].append({
+                            "id": conf["id"],
+                            "partidas_en_conflicto": conf["partidas_en_conflicto"],
+                            "ganadora": conf["ganadora"],
+                            "razon": conf["razon"],
+                            "exclusion_destino": conf["exclusion_destino"],
+                        })
+    except Exception as e:
+        resultado["error_conflictos"] = f"{type(e).__name__}: {str(e)[:100]}"
 
     # 5. Detectar codigo generico ".99.X" cuando hay alternativas mas especificas
     #    Patron: si subpartida termina en 99 y existen otras subpartidas en la misma
@@ -458,6 +754,139 @@ exitoso. Modificar manualmente si la clasificacion necesita ajuste de detalle
         return None
 
 
+def _componer_respuesta_ground_truth(consulta: str, c2: dict, c1: dict) -> str:
+    """Compone la respuesta final con la estructura del NotebookLM ground truth:
+       1. Identificacion Merceologica (Capa 2)
+       2. Determinacion de Partida (Capa 1)
+       3. Subpartida Operativa Nacional (Capa 1)
+       4. Regimen Arancelario y Beneficios (Capa 1)
+       5. Restricciones y Permisos (Capa 1)
+       Resumen + Nota tecnica de conflictos (Capa 1)
+    """
+    codigo = c1.get("codigo_propuesto", "")
+    partida = c1.get("partida", codigo[:4] if len(codigo) >= 4 else "")
+    capitulo = codigo[:2] if len(codigo) >= 2 else ""
+    descripcion = c1.get("descripcion_oficial", "") or c2.get("descripcion", "")
+    rgi = c1.get("rgi", "RGI 1")
+    notas_legales = c1.get("notas_legales", [])
+    exclusiones = c1.get("exclusiones_partida", [])
+    son_sugerencias = c1.get("son_sugerencias_por_caracteristicas", [])
+    leyes = c1.get("leyes_beneficio", [])
+    permisos = c1.get("permisos_requeridos", [])
+    conflictos = c1.get("conflictos_posibles", [])
+    gravamen = c1.get("gravamen", "verificar")
+    itbis = c1.get("itbis", "18% sobre (CIF + Gravamen)")
+    isc = c1.get("isc", "NO APLICA")
+
+    out = []
+    out.append(f"## Clasificacion arancelaria — {consulta}\n")
+    out.append(f"**Codigo nacional RD:** {codigo}\n")
+
+    # 1. Identificacion Merceologica (Capa 2)
+    out.append("### 1. Identificacion Merceologica (Capa 2)")
+    if c2.get("fuente") == "merceologia_md":
+        out.append(f"Ficha merceologica encontrada: `{c2.get('slug')}` (score {c2.get('score', 0):.0%}).")
+    elif c2.get("fuente") == "gemini_rest":
+        out.append(f"Descripcion via Capa 2 (Gemini-REST estructurado):")
+        if c2.get("justificacion"):
+            out.append(f"- Justificacion: {c2['justificacion']}")
+    if descripcion:
+        out.append(f"- Descripcion oficial Arancel: {descripcion}")
+    out.append("")
+
+    # 2. Determinacion de Partida (Capa 1)
+    out.append("### 2. Determinacion de Partida Arancelaria (Capa 1)")
+    out.append(f"- **Partida:** {partida[:2]}.{partida[2:]} ({_partida_nombre(capitulo)})")
+    out.append(f"- **RGI aplicada:** {rgi}")
+    if notas_legales:
+        out.append("- **Notas Legales:**")
+        for n in notas_legales:
+            out.append(f"  - {n}")
+    if exclusiones:
+        out.append(f"- **Exclusiones de partida:** {', '.join(exclusiones)}")
+    out.append("")
+
+    # 3. SON exacta (Capa 1)
+    out.append("### 3. Subpartida Operativa Nacional - SON (Capa 1)")
+    out.append(f"- **Codigo nacional RD:** {codigo}")
+    if c1.get("criterio_subpartida"):
+        out.append(f"- **Criterio de subpartida:** {c1['criterio_subpartida']}")
+    if son_sugerencias:
+        out.append("- **SON sugerida(s) por caracteristicas detectadas:**")
+        for s in son_sugerencias:
+            out.append(f"  - `{s['son']}` — {s['razon']}")
+    out.append("")
+
+    # 4. Regimen arancelario (Capa 1)
+    out.append("### 4. Regimen Arancelario y Beneficios (Capa 1)")
+    out.append(f"- **Gravamen DAI (NMF):** {gravamen}")
+    out.append(f"- **ITBIS:** {itbis}")
+    out.append(f"- **ISC:** {isc}")
+    if leyes:
+        out.append("- **Leyes de beneficio aplicables:**")
+        for ley in leyes:
+            ben = ley.get("beneficio", {})
+            out.append(f"  - **{ley['ley']}** — {ley['nombre']}")
+            out.append(f"    - Beneficio: DAI {ben.get('DAI', 'estandar')}, ITBIS {ben.get('ITBIS', 'estandar')}")
+            out.append(f"    - Requisito: {ley['requisito']}")
+    out.append("")
+
+    # 5. Permisos (Capa 1)
+    out.append("### 5. Restricciones y Permisos Especiales (Capa 1)")
+    if permisos:
+        for p in permisos:
+            out.append(f"- **{p['entidad']}** ({p['nombre']})")
+            out.append(f"  - Base legal: {p['base_legal']}")
+            out.append(f"  - Tramite: {p['tramite']}")
+    else:
+        out.append("- Ningun permiso especial detectado para este codigo/consulta")
+    out.append("")
+
+    # Conflictos (Capa 1)
+    if conflictos:
+        out.append("### Nota Tecnica — Conflictos Arancelarios Posibles")
+        for cf in conflictos:
+            out.append(f"- **{cf['id']}**: {cf['razon']}")
+            out.append(f"  - Partida ganadora: {cf['ganadora']}")
+            out.append(f"  - Excluye: {cf['exclusion_destino']}")
+        out.append("")
+
+    # Resumen
+    out.append("### Resumen")
+    out.append("| Elemento | Detalle |")
+    out.append("|---|---|")
+    out.append(f"| Partida | {partida[:2]}.{partida[2:]} |")
+    out.append(f"| Codigo SON | {codigo} |")
+    if leyes:
+        ley_principal = leyes[0]
+        ben = ley_principal.get("beneficio", {})
+        out.append(f"| Gravamen | {gravamen} estandar (con {ley_principal['ley']}: {ben.get('DAI', 'estandar')}) |")
+        out.append(f"| ITBIS | {itbis} (con {ley_principal['ley']}: {ben.get('ITBIS', 'estandar')}) |")
+    else:
+        out.append(f"| Gravamen | {gravamen} |")
+        out.append(f"| ITBIS | {itbis} |")
+    out.append(f"| ISC | {isc} |")
+    if permisos:
+        out.append(f"| Permisos | {', '.join(p['entidad'] for p in permisos)} |")
+
+    return "\n".join(out)
+
+
+def _partida_nombre(capitulo: str) -> str:
+    nombres = {
+        "22": "Bebidas, liquidos alcoholicos y vinagre",
+        "30": "Productos farmaceuticos",
+        "73": "Manufacturas de fundicion, hierro o acero",
+        "84": "Maquinas y aparatos mecanicos",
+        "85": "Maquinas, aparatos y material electrico",
+        "87": "Vehiculos automoviles, tractores",
+        "88": "Aeronaves, vehiculos espaciales y sus partes",
+        "39": "Plasticos y sus manufacturas",
+        "27": "Combustibles minerales, aceites minerales",
+    }
+    return nombres.get(capitulo, f"Capitulo {capitulo}")
+
+
 def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclaturas") -> Dict[str, Any]:
     """
     Ejecuta las 3 capas en orden y retorna trazabilidad completa.
@@ -488,15 +917,18 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
         trazabilidad["tiempo_total_ms"] = int((time.time() - t0) * 1000)
         return trazabilidad
 
-    # CAPA 2: Notion/Merceologia (pasa pista de capitulo de Capa 3)
-    capitulo_pista = c3.get("categoria", "")
-    c2 = capa_2_notion_merceologia(consulta, notebook_id, capitulo_pista=capitulo_pista)
+    # CAPA 2: Notion/Merceologia (pasa categoria general de Capa 3 + resultado completo
+    # para que sub-capa 2d verifique contra PDFs)
+    capitulo_pista = c3.get("categoria_general", "")
+    c2 = capa_2_notion_merceologia(consulta, notebook_id, capitulo_pista=capitulo_pista,
+                                    capa3_resultado=c3)
     trazabilidad["capas"].append(c2)
 
     codigo_propuesto = c2.get("codigo")
 
-    # CAPA 1: Claude/SQLite verificador
-    c1 = capa_1_claude_validador(consulta, codigo_propuesto)
+    # CAPA 1: Claude/SQLite verificador (recibe caracteristicas detectadas en Capa 3)
+    caracs = c3.get("caracteristicas_detectadas", {})
+    c1 = capa_1_claude_validador(consulta, codigo_propuesto, caracteristicas_capa3=caracs)
     trazabilidad["capas"].append(c1)
 
     # Reintento: si Capa 1 marca codigo_generico, pedir a Gemini que afine
@@ -514,20 +946,27 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
             trazabilidad["capas"].append({**c2_retry, "capa": 2, "nombre": "Capa 2 reintento"})
             codigo_retry = c2_retry.get("codigo")
             if codigo_retry and codigo_retry != codigo_propuesto:
-                c1_retry = capa_1_claude_validador(consulta, codigo_retry)
+                c1_retry = capa_1_claude_validador(consulta, codigo_retry, caracteristicas_capa3=caracs)
                 trazabilidad["capas"].append({**c1_retry, "capa": 1, "nombre": "Capa 1 reintento"})
                 if c1_retry.get("ok"):
                     c1, c2 = c1_retry, c2_retry
                     codigo_propuesto = codigo_retry
 
-    # Construir respuesta final
+    # Construir respuesta final con formato del NotebookLM ground truth
     if c2.get("ok") and c1.get("ok"):
         trazabilidad["codigo_final"] = c1["codigo_propuesto"]
-        trazabilidad["respuesta_final"] = c2.get("respuesta", "")
         trazabilidad["gravamen_final"] = c1.get("gravamen", "verificar")
         trazabilidad["isc_final"] = c1.get("isc", "NO APLICA")
         trazabilidad["base_legal"] = c1.get("base_legal", [])
         trazabilidad["beneficio_150_97"] = c1.get("beneficio_150_97")
+        trazabilidad["leyes_beneficio"] = c1.get("leyes_beneficio", [])
+        trazabilidad["permisos_requeridos"] = c1.get("permisos_requeridos", [])
+        trazabilidad["conflictos_posibles"] = c1.get("conflictos_posibles", [])
+        trazabilidad["partida"] = c1.get("partida")
+        trazabilidad["rgi"] = c1.get("rgi")
+        trazabilidad["notas_legales"] = c1.get("notas_legales", [])
+        trazabilidad["son_sugerencias"] = c1.get("son_sugerencias_por_caracteristicas", [])
+        trazabilidad["respuesta_final"] = _componer_respuesta_ground_truth(consulta, c2, c1)
         trazabilidad["patron_intacto"] = True
 
         # Auto-generar ficha solo si vino de Gemini (no si ya existia ficha local)
