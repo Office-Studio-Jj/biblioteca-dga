@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "version": "1.7",
+    "version": "1.8",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
     "ultima_actualizacion": "2026-04-24",
-    "total_errores": 23,
+    "total_errores": 24,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -790,6 +790,43 @@
       "verificacion": "consulta cualquier producto en cuaderno Nomenclaturas debe responder en <10s con clasificacion arancelaria estructurada (no 'RESPUESTA DE EMERGENCIA')",
       "fecha_resolucion": "2026-04-24",
       "commit": "348874a"
+    },
+    {
+      "id": "ERR-024",
+      "titulo": "Patron arquitectonico 3 capas no garantizado en consultas — riesgo de codigos genericos",
+      "sintomas_usuario": [
+        "codigo arancelario incorrecto",
+        "codigo generico en vez de subpartida correcta",
+        "8806.99.11 en lugar de 8806.23.19",
+        "patron busqueda roto",
+        "no consulta merceologia",
+        "no aplica Ley 150-97"
+      ],
+      "keywords_match": [
+        "patron 3 capas",
+        "arquitectura busqueda",
+        "merceologia no se ejecuta",
+        "Claude no valida",
+        "Gemini orquestador",
+        "anti regresion"
+      ],
+      "componente": "notebooklm_skill/scripts/pipeline_3_capas.py + server.py /health/arquitectura",
+      "tipo": "arquitectura/anti-regresion",
+      "fix_resumen": "Pipeline_3_capas.py orquesta Capa3 (Gemini orquestador identifica producto y capitulo) -> Capa2 (busca ficha merceologica + Notion SQLite) -> Capa1 (Claude valida codigo + gravamen + ISC + base legal Ley 168-21/Decreto 36-22/Ley 253-12/Ley 150-97 si agropecuario). Endpoint /health/arquitectura ejecuta el pipeline con 'Dron aereo para agricultura' y verifica codigo_final == 8806.23.19. Test anti-regresion test_pipeline_3_capas.py corre los casos canonicos. Si /health/arquitectura responde !=200 o status REGRESION_DETECTADA, el patron esta roto.",
+      "archivos": [
+        "notebooklm_skill/scripts/pipeline_3_capas.py",
+        "notebooklm_skill/scripts/test_pipeline_3_capas.py",
+        "server.py /health/arquitectura"
+      ],
+      "lineas_clave": [
+        "ejecutar_pipeline() valida orden capas [3,2,1]",
+        "patron_intacto = todas las capas ok",
+        "CASOS_CANONICOS lista de tests E2E",
+        "anti_regresion.match_codigo == codigo_esperado"
+      ],
+      "verificacion": "curl https://biblioteca-dga-production.up.railway.app/health/arquitectura debe devolver status:OK con anti_regresion.match_codigo:true y los 3 capa_X_ok:true",
+      "fecha_resolucion": "2026-04-24",
+      "commit": "PENDING"
     }
   ]
 }

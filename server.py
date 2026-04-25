@@ -1065,6 +1065,64 @@ def estado():
     result = subprocess.run(cmd, cwd=SKILL_DIR, capture_output=True, text=True, encoding="utf-8", env=env)
     return jsonify({"status": result.stdout.strip()})
 
+# ── Health public: arquitectura 3 capas (Capa3 Gemini -> Capa2 Notion/Merceo -> Capa1 Claude) ──
+@app.route("/health/arquitectura")
+def health_arquitectura():
+    """Verifica que las 3 capas funcionen end-to-end con consulta canonica.
+    Si el patron de busqueda se rompe, este endpoint lo detecta inmediatamente.
+    """
+    consulta_test = request.args.get("q", "Dron aereo para agricultura")
+    notebook_id = request.args.get("nb", "biblioteca-de-nomenclaturas")
+    codigo_esperado = request.args.get("esperado", "8806.23.19")
+
+    try:
+        import sys as _sys
+        _scripts = os.path.join(SKILL_DIR, "scripts")
+        if _scripts not in _sys.path:
+            _sys.path.insert(0, _scripts)
+        from pipeline_3_capas import ejecutar_pipeline
+        traz = ejecutar_pipeline(consulta_test, notebook_id)
+
+        # Anti-regresion: verificar que las 3 capas se ejecutaron en orden y dan codigo esperado
+        capas_ok = [c.get("ok") for c in traz.get("capas", [])]
+        codigo_obtenido = traz.get("codigo_final")
+        anti_regresion = {
+            "consulta_test": consulta_test,
+            "codigo_esperado": codigo_esperado,
+            "codigo_obtenido": codigo_obtenido,
+            "match_codigo": codigo_obtenido == codigo_esperado,
+            "capa_3_ok": capas_ok[0] if len(capas_ok) > 0 else False,
+            "capa_2_ok": capas_ok[1] if len(capas_ok) > 1 else False,
+            "capa_1_ok": capas_ok[2] if len(capas_ok) > 2 else False,
+            "patron_intacto": traz.get("patron_intacto", False),
+        }
+        anti_regresion["status"] = "OK" if (
+            anti_regresion["match_codigo"] and
+            anti_regresion["patron_intacto"] and
+            all(capas_ok[:3])
+        ) else "REGRESION_DETECTADA"
+
+        respuesta = {
+            "status": anti_regresion["status"],
+            "anti_regresion": anti_regresion,
+            "trazabilidad": traz,
+            "tiempo_total_ms": traz.get("tiempo_total_ms"),
+            "capas_descripcion": {
+                "Capa 3 — Gemini Orquestador": "mesa de reparticion / identifica producto",
+                "Capa 2 — Notion / Merceologia": "busca ficha del producto (md + sqlite)",
+                "Capa 1 — Claude / SQLite": "confirma codigo numerico, gravamen, ISC, base legal"
+            }
+        }
+        http_code = 200 if anti_regresion["status"] == "OK" else 503
+        return jsonify(respuesta), http_code
+    except Exception as e:
+        import traceback as _tb
+        return jsonify({
+            "status": "FAIL",
+            "error": f"{type(e).__name__}: {str(e)[:300]}",
+            "traceback": _tb.format_exc()[-1500:],
+        }), 503
+
 # ── Health public sin auth: diagnostica Gemini desde cualquier dispositivo ──
 @app.route("/health/gemini")
 def health_gemini():
