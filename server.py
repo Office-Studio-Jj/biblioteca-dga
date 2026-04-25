@@ -1124,22 +1124,33 @@ def health_gemini():
         info["https_error"] = f"{type(ee).__name__}: {str(ee)[:200]}"
 
     # Test REST directo (sin SDK) — confirma si problema es SDK o API
-    try:
-        import urllib.request as _urlreq2
-        import json as _json2
-        _t0 = time.time()
-        url_rest = f"https://{host}/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
-        body = _json2.dumps({"contents": [{"parts": [{"text": "OK"}]}]}).encode("utf-8")
-        req2 = _urlreq2.Request(url_rest, data=body, headers={
-            "Content-Type": "application/json",
-            "User-Agent": "biblioteca-dga-healthcheck/1.0"
-        }, method="POST")
-        with _urlreq2.urlopen(req2, timeout=60) as r2:
-            info["rest_api_ms"] = round((time.time() - _t0) * 1000)
-            info["rest_api_status"] = r2.status
-            info["rest_api_preview"] = r2.read(500).decode("utf-8", errors="replace")[:300]
-    except Exception as ee:
-        info["rest_api_error"] = f"{type(ee).__name__}: {str(ee)[:300]}"
+    import urllib.request as _urlreq2
+    import urllib.error as _urlerr2
+    import json as _json2
+    info["rest_tests"] = {}
+    for mdl in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-001"]:
+        try:
+            _t0 = time.time()
+            url_rest = f"https://{host}/v1beta/models/{mdl}:generateContent?key={gemini_key}"
+            body = _json2.dumps({"contents": [{"parts": [{"text": "OK"}]}]}).encode("utf-8")
+            req2 = _urlreq2.Request(url_rest, data=body, headers={
+                "Content-Type": "application/json",
+                "User-Agent": "biblioteca-dga-healthcheck/1.0"
+            }, method="POST")
+            with _urlreq2.urlopen(req2, timeout=60) as r2:
+                info["rest_tests"][mdl] = {
+                    "ms": round((time.time() - _t0) * 1000),
+                    "status": r2.status,
+                    "preview": r2.read(400).decode("utf-8", errors="replace")[:300]
+                }
+        except _urlerr2.HTTPError as he:
+            try:
+                err_body = he.read().decode("utf-8", errors="replace")[:400]
+            except Exception:
+                err_body = ""
+            info["rest_tests"][mdl] = {"http_error": he.code, "body": err_body}
+        except Exception as ee:
+            info["rest_tests"][mdl] = {"error": f"{type(ee).__name__}: {str(ee)[:200]}"}
 
     # Listar modelos disponibles para confirmar que gemini-2.0-flash existe
     try:
