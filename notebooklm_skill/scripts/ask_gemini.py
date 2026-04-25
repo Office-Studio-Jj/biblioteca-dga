@@ -1024,12 +1024,71 @@ def _reformular_pregunta(question: str, notebook_id: str, intento: int) -> str:
     return question  # intento 1: pregunta original
 
 
+def _gemini_rest_call(api_key, model, system_prompt, full_prompt, timeout=45):
+    """Llamada REST directa a Gemini API, evita bug de SDK con ReadTimeout en Railway."""
+    import urllib.request
+    import urllib.error
+    import json as _json
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    body = {
+        "system_instruction": {"parts": [{"text": system_prompt}]},
+        "contents": [{"parts": [{"text": full_prompt}]}],
+        "generationConfig": {"thinkingConfig": {"thinkingBudget": 0}},
+    }
+    data = _json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={
+        "Content-Type": "application/json",
+        "User-Agent": "biblioteca-dga/1.0",
+    }, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            resp_json = _json.loads(r.read().decode("utf-8", errors="replace"))
+        # Extraer texto
+        candidates = resp_json.get("candidates") or []
+        if not candidates:
+            return None, f"REST sin candidates: {str(resp_json)[:200]}"
+        parts = (candidates[0].get("content") or {}).get("parts") or []
+        text = "".join(p.get("text", "") for p in parts).strip()
+        return text, None
+    except urllib.error.HTTPError as he:
+        try:
+            err_body = he.read().decode("utf-8", errors="replace")[:500]
+        except Exception:
+            err_body = ""
+        # Si thinkingConfig causa 400, retry sin el
+        if he.code == 400 and "thinking" in err_body.lower():
+            body.pop("generationConfig", None)
+            data = _json.dumps(body).encode("utf-8")
+            req2 = urllib.request.Request(url, data=data, headers={
+                "Content-Type": "application/json",
+                "User-Agent": "biblioteca-dga/1.0",
+            }, method="POST")
+            try:
+                with urllib.request.urlopen(req2, timeout=timeout) as r2:
+                    resp_json = _json.loads(r2.read().decode("utf-8", errors="replace"))
+                candidates = resp_json.get("candidates") or []
+                if candidates:
+                    parts = (candidates[0].get("content") or {}).get("parts") or []
+                    text = "".join(p.get("text", "") for p in parts).strip()
+                    return text, None
+            except Exception as ee2:
+                return None, f"REST retry falló: {type(ee2).__name__}: {ee2}"
+        return None, f"HTTP {he.code}: {err_body}"
+    except Exception as ee:
+        return None, f"{type(ee).__name__}: {str(ee)[:200]}"
+
+
 def ask_gemini(question, notebook_id, _intento=1):
     """Consulta Gemini API. Borrador pasa por Supervisor General Interno (Python)."""
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         print("[GEMINI] ERROR: GEMINI_API_KEY no esta configurada")
         return None
+
+    # Bypass del SDK google-genai en Railway por bug de ReadTimeout con httpx.
+    # REST directo via urllib funciona consistentemente y es mas robusto.
+    _USE_REST = os.environ.get("GEMINI_USE_REST", "1") == "1"
 
     try:
         # timeout=30s: si Gemini no responde en 30s, TimeoutError propaga hacia
@@ -1079,56 +1138,79 @@ def ask_gemini(question, notebook_id, _intento=1):
         # gemini-2.0-flash deprecado 2025-04, fallback a 2.5-pro si 2.5-flash falla
         _MODELS = ["gemini-2.5-flash", "gemini-2.5-pro"]
         _model_used = _MODELS[0]
-        print(f"[GEMINI] Consultando {_model_used} (thinking OFF)...")
-        try:
-            response = client.models.generate_content(
-                model=_model_used,
-                contents=full_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    thinking_config=types.ThinkingConfig(thinking_budget=0),
-                )
-            )
-        except Exception as _think_err:
-            _err_str = str(_think_err).lower()
-            if "400" in _err_str or "invalid" in _err_str or "thinking" in _err_str:
-                print(f"[GEMINI] thinking_budget=0 falló ({_think_err}) — reintentando sin thinking_config")
-                try:
-                    response = client.models.generate_content(
-                        model=_model_used,
-                        contents=full_prompt,
-                        config=types.GenerateContentConfig(
-                            system_instruction=system_prompt,
-                        )
-                    )
-                except Exception as _fallback_err:
-                    print(f"[GEMINI] Fallback sin thinking también falló: {_fallback_err}")
-                    # Último recurso: modelo más estable
-                    _model_used = _MODELS[1]
-                    print(f"[GEMINI] Último recurso: {_model_used}")
-                    response = client.models.generate_content(
-                        model=_model_used,
-                        contents=full_prompt,
-                        config=types.GenerateContentConfig(
-                            system_instruction=system_prompt,
-                        )
-                    )
-            else:
-                raise  # Re-raise si no es error de thinking_config
 
-        # response.text puede fallar si hay thinking tokens — usar parts como fallback
-        try:
-            answer = response.text.strip()
-        except Exception as _txt_err:
-            print(f"[GEMINI] response.text falló ({_txt_err}) — extrayendo desde parts")
+        # Bypass SDK con REST directo (SDK da ReadTimeout consistente en Railway)
+        if _USE_REST:
+            print(f"[GEMINI-REST] Consultando {_model_used} via REST directo...")
+            answer, err = _gemini_rest_call(api_key, _model_used, system_prompt, full_prompt, timeout=45)
+            if not answer and _MODELS[1] != _model_used:
+                print(f"[GEMINI-REST] Falla con {_model_used}: {err}. Probando {_MODELS[1]}...")
+                _model_used = _MODELS[1]
+                answer, err = _gemini_rest_call(api_key, _model_used, system_prompt, full_prompt, timeout=60)
+            if not answer:
+                print(f"[GEMINI-REST] Sin respuesta tras 2 modelos: {err}")
+                return None
+            t1 = time.time()
+            print(f"[GEMINI-REST] Borrador recibido ({len(answer)} chars) en {t1-t0:.1f}s con {_model_used}")
+            response = None  # Skip el bloque SDK posterior
+        else:
+            response = "USE_SDK"
+
+        if response == "USE_SDK":
+            print(f"[GEMINI] Consultando {_model_used} (thinking OFF, SDK)...")
             try:
-                answer = "".join(
-                    p.text for p in response.candidates[0].content.parts
-                    if hasattr(p, "text") and p.text
-                ).strip()
-            except Exception as _parts_err:
-                print(f"[GEMINI] Extracción de parts también falló: {_parts_err}")
-                answer = ""
+                response = client.models.generate_content(
+                    model=_model_used,
+                    contents=full_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        thinking_config=types.ThinkingConfig(thinking_budget=0),
+                    )
+                )
+            except Exception as _think_err:
+                _err_str = str(_think_err).lower()
+                if "400" in _err_str or "invalid" in _err_str or "thinking" in _err_str:
+                    print(f"[GEMINI] thinking_budget=0 falló ({_think_err}) — reintentando sin thinking_config")
+                    try:
+                        response = client.models.generate_content(
+                            model=_model_used,
+                            contents=full_prompt,
+                            config=types.GenerateContentConfig(
+                                system_instruction=system_prompt,
+                            )
+                        )
+                    except Exception as _fallback_err:
+                        print(f"[GEMINI] Fallback sin thinking también falló: {_fallback_err}")
+                        # Último recurso: modelo más estable
+                        _model_used = _MODELS[1]
+                        print(f"[GEMINI] Último recurso: {_model_used}")
+                        response = client.models.generate_content(
+                            model=_model_used,
+                            contents=full_prompt,
+                            config=types.GenerateContentConfig(
+                                system_instruction=system_prompt,
+                            )
+                        )
+                else:
+                    raise  # Re-raise si no es error de thinking_config
+
+        # Si REST ya tiene answer, saltar extraccion SDK
+        if _USE_REST and answer:
+            pass  # answer ya esta seteado por _gemini_rest_call
+        elif response is not None:
+            # response.text puede fallar si hay thinking tokens — usar parts como fallback
+            try:
+                answer = response.text.strip()
+            except Exception as _txt_err:
+                print(f"[GEMINI] response.text falló ({_txt_err}) — extrayendo desde parts")
+                try:
+                    answer = "".join(
+                        p.text for p in response.candidates[0].content.parts
+                        if hasattr(p, "text") and p.text
+                    ).strip()
+                except Exception as _parts_err:
+                    print(f"[GEMINI] Extracción de parts también falló: {_parts_err}")
+                    answer = ""
 
         t1 = time.time()
         print(f"[GEMINI] Borrador recibido ({len(answer)} chars) en {t1-t0:.1f}s")
