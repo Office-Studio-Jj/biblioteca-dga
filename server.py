@@ -1040,6 +1040,43 @@ def estado():
     result = subprocess.run(cmd, cwd=SKILL_DIR, capture_output=True, text=True, encoding="utf-8", env=env)
     return jsonify({"status": result.stdout.strip()})
 
+# ── Health public sin auth: diagnostica Gemini desde cualquier dispositivo ──
+@app.route("/health/gemini")
+def health_gemini():
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    info = {
+        "is_cloud": _IS_CLOUD,
+        "gemini_key_set": bool(gemini_key),
+        "gemini_key_len": len(gemini_key) if gemini_key else 0,
+        "python": PYTHON,
+    }
+    if not gemini_key:
+        info["status"] = "FAIL"
+        info["error"] = "GEMINI_API_KEY no configurada en Railway > Variables"
+        return jsonify(info), 503
+
+    try:
+        from google import genai as _genai_h
+        from google.genai import types as _types_h
+        client = _genai_h.Client(api_key=gemini_key, http_options={"timeout": 15})
+        t0 = time.time()
+        resp = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents="Responde unicamente con la palabra OK",
+            config=_types_h.GenerateContentConfig(),
+        )
+        elapsed = round((time.time() - t0) * 1000)
+        text = (resp.text or "").strip() if hasattr(resp, "text") else ""
+        info["status"] = "OK" if text else "EMPTY"
+        info["gemini_response"] = text[:100]
+        info["latency_ms"] = elapsed
+        info["model"] = "gemini-2.0-flash"
+        return jsonify(info), 200
+    except Exception as e:
+        info["status"] = "FAIL"
+        info["error"] = f"{type(e).__name__}: {str(e)[:300]}"
+        return jsonify(info), 503
+
 # ── Solicitudes de instalador ────────────────────────────────────────────
 def load_solicitudes():
     try:
@@ -2832,18 +2869,25 @@ def _ejecutar_gemini(question, notebook_id, timeout, intento=1):
 def _es_respuesta_valida(answer: str, notebook_id: str) -> bool:
     """Gate 2: Valida que Gemini devolvio una respuesta estructurada, no basura.
     Rechaza respuestas vacias, demasiado cortas, o negativas explicitas.
+
+    NOTA: Solo rechaza refusals si aparecen en los primeros 250 chars Y la
+    respuesta es corta (<400 chars). Una respuesta larga con disclaimer
+    intermedio NO se rechaza (puede traer codigo arancelario valido).
     """
     if not answer or len(answer.strip()) < 60:
+        print(f"[VALIDACION] Respuesta rechazada — vacia o muy corta ({len(answer or '')} chars)")
         return False
     a_lower = answer.lower()
-    # Rechazar negativas/refusals explicitas
+    # Rechazar negativas/refusals SOLO si dominan la respuesta entera
     rechazos = [
-        "no puedo ayudar", "no tengo informacion", "no tengo suficiente",
-        "lo siento, no", "i cannot", "i'm sorry", "no se puede determinar",
+        "no puedo ayudar", "no tengo suficiente",
+        "lo siento, no puedo", "i cannot help", "i'm sorry, i can",
         "consulta no valida", "pregunta fuera de scope",
     ]
-    if any(r in a_lower for r in rechazos):
-        print(f"[VALIDACION] Respuesta rechazada — refusal detectado")
+    inicio = a_lower[:250]
+    es_corto = len(answer.strip()) < 400
+    if es_corto and any(r in inicio for r in rechazos):
+        print(f"[VALIDACION] Respuesta rechazada — refusal dominante en respuesta corta ({len(answer)} chars)")
         return False
     # Para nomenclaturas: debe tener estructura arancelaria o intento de clasificacion
     if notebook_id == "biblioteca-de-nomenclaturas":
@@ -2853,8 +2897,9 @@ def _es_respuesta_valida(answer: str, notebook_id: str) -> bool:
             re.search(r'partida|subpartida|arancelari', answer, re.I)  # terminologia
         )
         if not tiene_estructura:
-            print(f"[VALIDACION] Respuesta rechazada — sin estructura arancelaria ({len(answer)} chars)")
+            print(f"[VALIDACION] Respuesta rechazada — sin estructura arancelaria ({len(answer)} chars). Preview: {answer[:200]!r}")
             return False
+    print(f"[VALIDACION] Respuesta ACEPTADA ({len(answer)} chars)")
     return True
 
 
