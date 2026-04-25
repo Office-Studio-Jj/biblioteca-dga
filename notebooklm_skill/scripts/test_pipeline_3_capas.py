@@ -28,6 +28,9 @@ CASOS_CANONICOS = [
         "codigo_esperado": "8806.23.19",
         "gravamen_esperado": "8%",
         "beneficio_legal": "Ley 150-97",
+        # Anti-regresion ERR-026: texto descriptivo del capitulo correcto
+        "texto_capitulo_NO_debe_contener": "Maquinas, aparatos y material electrico",
+        "texto_capitulo_DEBE_contener": "Aeronaves",
     },
     {
         "consulta": "Camara zoom 10K para sala de conferencias",
@@ -76,6 +79,26 @@ def test_caso(caso: dict) -> tuple[bool, str]:
     # Patron intacto
     if not traz.get("patron_intacto"):
         return False, "patron_intacto = False"
+
+    # ERR-026: validar texto descriptivo capitulo no esta hardcoded a Cap.85
+    if caso.get("texto_capitulo_NO_debe_contener") or caso.get("texto_capitulo_DEBE_contener"):
+        try:
+            import sys as _s, os as _o
+            _h = _o.path.dirname(_o.path.abspath(__file__))
+            if _h not in _s.path:
+                _s.path.insert(0, _h)
+            from merceologia_agent import intentar_respuesta_cache
+            r = intentar_respuesta_cache(consulta, "biblioteca-de-nomenclaturas")
+            if r:
+                respuesta_md, _meta = r
+                if caso.get("texto_capitulo_NO_debe_contener"):
+                    if caso["texto_capitulo_NO_debe_contener"] in respuesta_md:
+                        return False, f"Respuesta contiene texto incorrecto del Cap.85: '{caso['texto_capitulo_NO_debe_contener']}'"
+                if caso.get("texto_capitulo_DEBE_contener"):
+                    if caso["texto_capitulo_DEBE_contener"] not in respuesta_md:
+                        return False, f"Respuesta NO contiene texto correcto del capitulo: '{caso['texto_capitulo_DEBE_contener']}'"
+        except Exception as e:
+            return False, f"Error validando texto capitulo: {e}"
 
     return True, f"OK ({traz.get('tiempo_total_ms')}ms, {codigo})"
 

@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "version": "1.9",
+    "version": "2.0",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
-    "ultima_actualizacion": "2026-04-24",
-    "total_errores": 25,
+    "ultima_actualizacion": "2026-04-25",
+    "total_errores": 26,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -827,6 +827,41 @@
       "verificacion": "curl https://biblioteca-dga-production.up.railway.app/health/arquitectura debe devolver status:OK con anti_regresion.match_codigo:true y los 3 capa_X_ok:true",
       "fecha_resolucion": "2026-04-24",
       "commit": "526915d"
+    },
+    {
+      "id": "ERR-026",
+      "titulo": "Template hardcodeado en merceologia_agent muestra texto del Cap.85 para cualquier capitulo",
+      "sintomas_usuario": [
+        "Cap. 88 dice maquinas y aparatos electricos",
+        "el capitulo dice algo distinto al producto",
+        "texto del capitulo incorrecto",
+        "Maquinas aparatos en clasificacion de dron",
+        "seccion XVI cuando deberia ser XVII",
+        "datos descriptivos no coinciden con el producto"
+      ],
+      "keywords_match": [
+        "Maquinas, aparatos y material electrico",
+        "capitulo equivocado",
+        "texto hardcodeado",
+        "seccion incorrecta",
+        "merceologia_agent template"
+      ],
+      "componente": "notebooklm_skill/scripts/merceologia_agent.py",
+      "tipo": "frontend/template",
+      "fix_resumen": "Lineas 366 y 368 tenian SECCION='XVI - Maquinas y aparatos, material electrico' y CAPITULO='{capitulo} - Maquinas, aparatos y material electrico' hardcoded a Cap.85. Para Cap.88 (drones) o cualquier otro capitulo, mostraba texto del Cap.85. Fix: nuevas funciones _seccion_para_capitulo() y _nombre_capitulo() con mapeo completo de las 21 Secciones SA y los 97 Capitulos del SA. Test anti-regresion en test_pipeline_3_capas.py: 'texto_capitulo_NO_debe_contener'='Maquinas, aparatos y material electrico' y 'texto_capitulo_DEBE_contener'='Aeronaves' para drone.",
+      "archivos": [
+        "notebooklm_skill/scripts/merceologia_agent.py",
+        "notebooklm_skill/scripts/test_pipeline_3_capas.py"
+      ],
+      "lineas_clave": [
+        "_SECCIONES_SA tabla 21 secciones",
+        "_NOMBRES_CAPITULO mapeo 97 capitulos",
+        "_seccion_para_capitulo() y _nombre_capitulo() helpers",
+        "construir_respuesta_desde_ficha() usa los helpers en lugar de hardcoded"
+      ],
+      "verificacion": "consultar 'Dron aereo para agricultura' debe mostrar 'CAPITULO: 88 - Aeronaves, vehiculos espaciales y sus partes' y 'SECCION: XVII - Material de transporte', NUNCA texto del Cap.85",
+      "fecha_resolucion": "2026-04-25",
+      "commit": "PENDING"
     },
     {
       "id": "ERR-025",

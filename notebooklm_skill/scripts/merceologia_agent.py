@@ -144,6 +144,181 @@ def _extraer_datos_merceologicos(contenido_md: str) -> dict:
     return datos
 
 
+_SECCIONES_SA = [
+    ("I",     range(1, 6),   "Animales vivos y productos del reino animal"),
+    ("II",    range(6, 15),  "Productos del reino vegetal"),
+    ("III",   range(15, 16), "Grasas y aceites animales o vegetales"),
+    ("IV",    range(16, 25), "Productos alimenticios; bebidas; tabaco"),
+    ("V",     range(25, 28), "Productos minerales"),
+    ("VI",    range(28, 39), "Productos de las industrias quimicas"),
+    ("VII",   range(39, 41), "Plasticos y caucho"),
+    ("VIII",  range(41, 44), "Pieles, cueros, peleteria"),
+    ("IX",    range(44, 47), "Madera, carbon vegetal, corcho"),
+    ("X",     range(47, 50), "Pasta de madera, papel y carton"),
+    ("XI",    range(50, 64), "Materias textiles y sus manufacturas"),
+    ("XII",   range(64, 68), "Calzado, sombrereria, paraguas"),
+    ("XIII",  range(68, 71), "Manufacturas de piedra, yeso, vidrio, ceramica"),
+    ("XIV",   range(71, 72), "Perlas finas, piedras y metales preciosos"),
+    ("XV",    range(72, 84), "Metales comunes y sus manufacturas"),
+    ("XVI",   range(84, 86), "Maquinas y aparatos, material electrico"),
+    ("XVII",  range(86, 90), "Material de transporte"),
+    ("XVIII", range(90, 93), "Instrumentos de optica, fotografia, medico"),
+    ("XIX",   range(93, 94), "Armas, municiones y sus partes"),
+    ("XX",    range(94, 97), "Mercancias y productos diversos"),
+    ("XXI",   range(97, 98), "Objetos de arte, antiguedades"),
+]
+
+_NOMBRES_CAPITULO = {
+    "01": "Animales vivos", "02": "Carnes y despojos", "03": "Pescados y crustaceos",
+    "04": "Lacteos, huevos, miel", "05": "Productos de origen animal",
+    "06": "Plantas vivas y floricultura", "07": "Hortalizas", "08": "Frutas",
+    "09": "Cafe, te, especias", "10": "Cereales", "11": "Productos molineria",
+    "12": "Semillas y frutos oleaginosos", "13": "Gomas y resinas", "14": "Materias trenzables",
+    "15": "Grasas y aceites", "16": "Preparaciones de carne, pescado",
+    "17": "Azucares y articulos confiteria", "18": "Cacao y preparaciones",
+    "19": "Preparaciones cereal/harina", "20": "Preparaciones hortalizas, frutas",
+    "21": "Preparaciones alimenticias diversas", "22": "Bebidas, liquidos alcoholicos, vinagre",
+    "23": "Residuos industria alimentaria", "24": "Tabaco", "25": "Sal, azufre, tierras",
+    "26": "Minerales metaliferos", "27": "Combustibles minerales, aceites",
+    "28": "Productos quimicos inorganicos", "29": "Productos quimicos organicos",
+    "30": "Productos farmaceuticos", "31": "Abonos", "32": "Extractos curtientes",
+    "33": "Aceites esenciales, perfumeria, cosmetica", "34": "Jabones, detergentes",
+    "35": "Materias albuminoideas", "36": "Polvoras, explosivos",
+    "37": "Productos fotograficos/cinematograficos", "38": "Productos quimicos diversos",
+    "39": "Plasticos y sus manufacturas", "40": "Caucho y sus manufacturas",
+    "41": "Pieles y cueros", "42": "Manufacturas de cuero", "43": "Peleteria",
+    "44": "Madera", "45": "Corcho", "46": "Manufacturas esparteria/cesteria",
+    "47": "Pasta de madera/celulosa", "48": "Papel y carton",
+    "49": "Productos editoriales", "50": "Seda", "51": "Lana, pelos finos",
+    "52": "Algodon", "53": "Demas fibras textiles vegetales",
+    "54": "Filamentos sinteticos/artificiales", "55": "Fibras sinteticas/artificiales discontinuas",
+    "56": "Guata, fieltro, cordeleria", "57": "Alfombras",
+    "58": "Tejidos especiales", "59": "Tejidos impregnados/recubiertos",
+    "60": "Tejidos de punto", "61": "Prendas vestir punto",
+    "62": "Prendas vestir excepto punto", "63": "Demas articulos textiles confeccionados",
+    "64": "Calzado", "65": "Sombrereria", "66": "Paraguas, bastones",
+    "67": "Plumas, flores artificiales", "68": "Manufacturas piedra/yeso/cemento",
+    "69": "Productos ceramicos", "70": "Vidrio y sus manufacturas",
+    "71": "Perlas, piedras y metales preciosos", "72": "Fundicion, hierro y acero",
+    "73": "Manufacturas de fundicion, hierro o acero", "74": "Cobre",
+    "75": "Niquel", "76": "Aluminio", "78": "Plomo", "79": "Zinc",
+    "80": "Estano", "81": "Demas metales comunes",
+    "82": "Herramientas, utiles, articulos cuchilleria",
+    "83": "Manufacturas diversas metales comunes",
+    "84": "Maquinas y aparatos mecanicos",
+    "85": "Maquinas, aparatos y material electrico, sus partes",
+    "86": "Vehiculos y material para vias ferreas",
+    "87": "Vehiculos automoviles, tractores",
+    "88": "Aeronaves, vehiculos espaciales y sus partes",
+    "89": "Barcos y demas artefactos flotantes",
+    "90": "Instrumentos de optica, fotografia, medico-quirurgicos",
+    "91": "Relojeria", "92": "Instrumentos musicales",
+    "93": "Armas, municiones y sus partes", "94": "Muebles, aparatos de alumbrado",
+    "95": "Juguetes, juegos, articulos para deporte", "96": "Manufacturas diversas",
+    "97": "Objetos de arte, antiguedades",
+}
+
+
+def _vucerd_para_capitulo(cap: str) -> str:
+    """ERR-026 fondo: VUCERD no es 'NO REQUIERE' siempre. Detectar segun capitulo."""
+    cap_str = str(cap).zfill(2)
+    requiere = {
+        "01": "SI - sanitario animal", "02": "SI - sanitario carnes", "03": "SI - sanitario pesca",
+        "04": "SI - sanitario lacteos", "06": "SI - fitosanitario plantas",
+        "07": "SI - fitosanitario hortalizas", "08": "SI - fitosanitario frutas",
+        "10": "SI - fitosanitario cereales", "12": "SI - fitosanitario semillas",
+        "30": "SI - registro DIGEMAPS para farmaceuticos", "33": "SI - registro DIGEMAPS cosmeticos",
+        "31": "SI - Ministerio Agricultura para abonos",
+        "38": "SI - registro fitosanitario para pesticidas",
+        "85": "SI si telecomunicaciones - homologacion INDOTEL",
+        "86": "SI si maquina vias ferreas - certificacion",
+        "87": "SI - registro vehicular DGII", "88": "SI - INDOTEL + IDAC si >25kg",
+        "89": "SI - DGII registro embarcaciones", "93": "SI - licencia MICM/Defensa armas",
+        "97": "SI - permiso Min. Cultura objetos arte/antiguedad",
+    }
+    return requiere.get(cap_str, "Verificar segun mercancia (algunos capitulos requieren VUCERD)")
+
+
+def _permisos_para_consulta_y_capitulo(consulta: str, cap: str) -> str:
+    """Devuelve lista de entidades emisoras de permisos requeridos (INDOTEL, IDAC, MISPAS, etc.)"""
+    try:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "..", "data", "fuentes_nomenclatura", "permisos_especiales.json")
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        cap_str = str(cap).zfill(2)
+        consulta_lower = (consulta or "").lower()
+        entidades = []
+        for perm in data.get("permisos", []):
+            aplica = False
+            if cap_str in perm.get("capitulos", []):
+                aplica = True
+            if any(kw in consulta_lower for kw in perm.get("keywords_consulta", [])):
+                aplica = True
+            if aplica:
+                entidades.append(perm["entidad"])
+        return ", ".join(entidades) if entidades else "NINGUNO"
+    except Exception:
+        return "Verificar manualmente"
+
+
+def _leyes_para_consulta_y_capitulo(consulta: str, cap: str) -> str:
+    """Devuelve leyes de beneficio aplicables (150-97, 28-01, 8-90, 195-13, etc.)"""
+    try:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "..", "data", "fuentes_nomenclatura", "leyes_beneficio.json")
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        cap_str = str(cap).zfill(2)
+        consulta_lower = (consulta or "").lower()
+        leyes = []
+        for ley in data.get("leyes", []):
+            triggered_kw = any(kw in consulta_lower for kw in ley.get("keywords_consulta", []))
+            triggered_cap = cap_str in ley.get("capitulos_aplicables", [])
+            if triggered_kw and (triggered_cap or not ley.get("capitulos_aplicables")):
+                ben = ley.get("beneficio", {})
+                leyes.append(f"{ley['ley']} (DAI: {ben.get('DAI', '?')}, ITBIS: {ben.get('ITBIS', '?')})")
+        return " | ".join(leyes) if leyes else "Tarifa NMF estandar (sin ley de beneficio detectada)"
+    except Exception:
+        return "Verificar manualmente"
+
+
+def _conflictos_para_consulta_y_partida(consulta: str, partida: str) -> str:
+    """Devuelve conflictos arancelarios clasicos relevantes"""
+    try:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "..", "data", "fuentes_nomenclatura", "conflictos_arancelarios.json")
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        consulta_lower = (consulta or "").lower()
+        partida_str = str(partida)
+        conflictos = []
+        for conf in data.get("conflictos", []):
+            kw_match = any(kw in consulta_lower for kw in conf.get("trigger_keywords", []))
+            partida_match = any(p in partida_str[:4] for p in conf.get("partidas_en_conflicto", []))
+            if kw_match and partida_match:
+                conflictos.append(f"{conf['id']}: ganadora {conf['ganadora']} ({conf.get('exclusion_destino', '')})")
+        return " | ".join(conflictos) if conflictos else "NINGUNO"
+    except Exception:
+        return "Verificar manualmente"
+
+
+def _seccion_para_capitulo(cap: str) -> tuple:
+    """Devuelve (numero_romano, nombre_seccion) para un numero de capitulo str."""
+    try:
+        cap_n = int(cap)
+    except (ValueError, TypeError):
+        return ("?", "Verificar Arancel")
+    for romano, rng, nombre in _SECCIONES_SA:
+        if cap_n in rng:
+            return (romano, nombre)
+    return ("?", "Verificar Arancel")
+
+
+def _nombre_capitulo(cap: str) -> str:
+    return _NOMBRES_CAPITULO.get(str(cap).zfill(2), "Verificar descripcion oficial Arancel")
+
+
 def _gravamen_desde_cache(codigo: str) -> tuple:
     """Consulta arancel_cache para obtener gravamen real. Returns (valor, fuente)."""
     try:
@@ -346,6 +521,10 @@ def construir_respuesta_desde_ficha(
     rgi = datos_m.get("rgi") or "RGI 1"
     restricciones = datos_m.get("restricciones") or "NINGUNA"
 
+    # FIX ERR-026: nombres correctos por capitulo, no hardcoded a Cap.85
+    seccion_romana, seccion_nombre = _seccion_para_capitulo(capitulo)
+    capitulo_nombre = _nombre_capitulo(capitulo)
+
     respuesta = f"""# {codigo} — {identificacion}
 
 **Respuesta desde cache merceologico** (score={score:.0%}, ficha `{slug}`)
@@ -363,9 +542,9 @@ Esta clasificacion se basa en la ficha merceologica previa del producto. Compara
 ---DATOS_CLASIFICACION---
 FUENTE_NLKM: ARANCEL DE ADUANAS DE LA REPUBLICA DOMINICANA
 ARTICULO: N/A
-SECCION: XVI — Maquinas y aparatos, material electrico
+SECCION: {seccion_romana} — {seccion_nombre}
 NOTA_SECCION: N/A
-CAPITULO: {capitulo} — Maquinas, aparatos y material electrico
+CAPITULO: {capitulo} — {capitulo_nombre}
 NOTA_CAPITULO: N/A
 PARTIDA: {partida} — {desc_cod}
 SUBPARTIDA: {subpartida} — {desc_cod}
@@ -380,8 +559,10 @@ RESTRICCIONES: {restricciones}
 GRAVAMEN: {gravamen_final}
 ITBIS: 18% sobre (CIF + Gravamen)
 ISC: {isc_final}
-VUCERD: NO REQUIERE (verificar si aplica homologacion INDOTEL/MICM)
-OTROS_PERMISOS: NINGUNO
+VUCERD: {_vucerd_para_capitulo(capitulo)}
+OTROS_PERMISOS: {_permisos_para_consulta_y_capitulo(consulta_original, capitulo)}
+LEYES_BENEFICIO: {_leyes_para_consulta_y_capitulo(consulta_original, capitulo)}
+CONFLICTOS_POSIBLES: {_conflictos_para_consulta_y_partida(consulta_original, partida)}
 ---FIN_CLASIFICACION---
 
 > Cache-hit en {slug}. Tiempo <5ms vs 8-10s con Gemini. Si el producto consultado NO coincide con la ficha anterior, regenera la consulta con mas detalle o usa `/merceologia <producto>` para crear una ficha nueva.
