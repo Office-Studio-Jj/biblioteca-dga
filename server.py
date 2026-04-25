@@ -1087,6 +1087,42 @@ def health_gemini():
         info["error"] = "Modulo google.genai no se pudo cargar al iniciar el servidor (ver logs Railway)"
         return jsonify(info), 503
 
+    # Diagnostico de red por capas: DNS -> TCP -> HTTPS -> API
+    import socket as _socket
+    host = "generativelanguage.googleapis.com"
+    try:
+        _t0 = time.time()
+        ip = _socket.gethostbyname(host)
+        info["dns_lookup_ms"] = round((time.time() - _t0) * 1000)
+        info["dns_ip"] = ip
+    except Exception as ee:
+        info["status"] = "FAIL"
+        info["error"] = f"DNS_ERROR: {type(ee).__name__}: {ee}"
+        return jsonify(info), 503
+
+    try:
+        _t0 = time.time()
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        s.settimeout(15)
+        s.connect((host, 443))
+        s.close()
+        info["tcp_connect_ms"] = round((time.time() - _t0) * 1000)
+    except Exception as ee:
+        info["status"] = "FAIL"
+        info["error"] = f"TCP_BLOCKED: no puedo conectar TCP {host}:443 desde Railway. {type(ee).__name__}: {ee}"
+        return jsonify(info), 503
+
+    # HTTPS GET basico (sin auth) para validar SSL+routing
+    try:
+        import urllib.request as _urlreq
+        _t0 = time.time()
+        req = _urlreq.Request(f"https://{host}/", headers={"User-Agent": "biblioteca-dga-healthcheck/1.0"})
+        with _urlreq.urlopen(req, timeout=30) as r:
+            info["https_get_ms"] = round((time.time() - _t0) * 1000)
+            info["https_status"] = r.status
+    except Exception as ee:
+        info["https_error"] = f"{type(ee).__name__}: {str(ee)[:200]}"
+
     # Reintento con backoff: primer SSL handshake en Railway puede tardar 20-40s
     resp = None
     t0 = time.time()
