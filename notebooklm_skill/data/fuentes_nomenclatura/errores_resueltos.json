@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "version": "1.2",
+    "version": "1.3",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
     "ultima_actualizacion": "2026-04-24",
-    "total_errores": 17,
+    "total_errores": 19,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -570,6 +570,78 @@
         "Cache-Control no-store para text/html"
       ],
       "verificacion": "curl -s -I https://biblioteca-dga-production.up.railway.app/ | grep -i 'content-security-policy' debe contener 'script-src-attr'",
+      "fecha_resolucion": "2026-04-24",
+      "commit": "bccdfe5"
+    },
+    {
+      "id": "ERR-018",
+      "titulo": "Endpoint JSON admin abierto directo en browser muestra JSON crudo (UX rota mobile)",
+      "sintomas_usuario": [
+        "pantalla blanca con texto raro",
+        "veo {'usuarios':[]} en la pantalla",
+        "JSON aparece en pantalla",
+        "abro link y aparece codigo",
+        "URL admin no abre la app",
+        "Impresion con formato estilistico"
+      ],
+      "keywords_match": [
+        "JSON crudo",
+        "admin/usuarios pantalla",
+        "endpoint browser",
+        "JSON en navegador",
+        "API URL directa",
+        "{'usuarios':[]}"
+      ],
+      "componente": "server.py",
+      "tipo": "UX/mobile",
+      "fix_resumen": "before_request global redirige rutas /admin/usuarios, /api/* abiertas directo en browser (Sec-Fetch-Dest=document) a /index si logged_in o /login si no. XHR/fetch con X-Requested-With o Sec-Fetch-Mode=cors siguen recibiendo JSON.",
+      "archivos": [
+        "server.py"
+      ],
+      "lineas_clave": [
+        "_redirect_json_to_app_when_browser()",
+        "_JSON_ONLY_PREFIXES tuple"
+      ],
+      "verificacion": "curl -H 'Accept: text/html' https://.../admin/usuarios -> 302 Location: /login",
+      "fecha_resolucion": "2026-04-24",
+      "commit": "PENDING"
+    },
+    {
+      "id": "ERR-019",
+      "titulo": "404 Not Found en mobile/iPad por link viejo o URL Railway que cambio",
+      "sintomas_usuario": [
+        "Not Found",
+        "404 desde whatsapp",
+        "link viejo iPad",
+        "url no responde",
+        "pagina no existe",
+        "URL no funciona"
+      ],
+      "keywords_match": [
+        "404",
+        "Not Found",
+        "url cambio",
+        "dominio cambio",
+        "link roto",
+        "link viejo whatsapp",
+        "Railway dominio",
+        "url no funciona"
+      ],
+      "componente": "server.py + skill url-watchdog-dga",
+      "tipo": "URL/dominio",
+      "fix_resumen": "(1) errorhandler(404) redirige a /login si Accept text/html. (2) Skill paralelo url-watchdog-dga monitoriza URL canonica y propaga cambios automaticos a TODOS los archivos del repo (server.py, manifest.json, sw.js, templates, scripts, library.json, README, CLAUDE.md, memorias). (3) Integra con last30days para confirmar cambios de Railway antes de propagar. (4) Backup en ~/.claude/skills/url-watchdog-dga/backups/<fecha>/ antes de tocar.",
+      "archivos": [
+        "server.py",
+        "~/.claude/skills/url-watchdog-dga/SKILL.md",
+        "~/.claude/skills/url-watchdog-dga/scripts/detect_canonical.py",
+        "~/.claude/skills/url-watchdog-dga/scripts/propagate.py"
+      ],
+      "lineas_clave": [
+        "_not_found_redirect()",
+        "PATTERN https://.+\\.up\\.railway\\.app",
+        "propagate.py shutil backup + replace"
+      ],
+      "verificacion": "python ~/.claude/skills/url-watchdog-dga/scripts/detect_canonical.py debe mostrar UNA sola URL canonica sin residuos",
       "fecha_resolucion": "2026-04-24",
       "commit": "PENDING"
     }

@@ -86,6 +86,27 @@ from flask import g as _flask_g
 def _generate_csp_nonce():
     _flask_g.csp_nonce = secrets.token_urlsafe(16)
 
+# Defensa: rutas JSON-only abiertas directo en browser -> redirigir a la app
+_JSON_ONLY_PREFIXES = ("/admin/usuarios", "/admin/cuadernos", "/admin/bloquear",
+                       "/admin/correos", "/api/")
+@app.before_request
+def _redirect_json_to_app_when_browser():
+    p = request.path or ""
+    if request.method != "GET":
+        return None
+    if not any(p == pref or p.startswith(pref + "/") or p.startswith(pref + "?") for pref in _JSON_ONLY_PREFIXES):
+        return None
+    accept = request.headers.get("Accept", "") or ""
+    xhr = request.headers.get("X-Requested-With", "")
+    fetch_mode = request.headers.get("Sec-Fetch-Mode", "")
+    fetch_dest = request.headers.get("Sec-Fetch-Dest", "")
+    is_xhr = xhr == "XMLHttpRequest" or fetch_mode in ("cors", "same-origin") and fetch_dest in ("empty", "")
+    is_browser_top = "text/html" in accept or fetch_dest == "document"
+    if is_browser_top and not is_xhr:
+        if session.get("logged_in"):
+            return redirect(url_for("index"))
+        return redirect(url_for("login"))
+
 @app.context_processor
 def _inject_csp_nonce():
     return {"csp_nonce": getattr(_flask_g, "csp_nonce", "")}
@@ -117,6 +138,14 @@ def _security_headers(response):
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
     return response
+
+# Errorhandler 404: links viejos compartidos por WhatsApp -> redirigir a /login
+@app.errorhandler(404)
+def _not_found_redirect(e):
+    accept = request.headers.get("Accept", "") or ""
+    if "text/html" in accept:
+        return redirect(url_for("login"))
+    return jsonify({"error": "Not Found", "path": request.path}), 404
 
 # ── Validación de uploads: extensión + magic bytes ──────────────────────
 _ALLOWED_CONSULTAR = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic"}
