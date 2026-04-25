@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "version": "1.8",
+    "version": "1.9",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
     "ultima_actualizacion": "2026-04-24",
-    "total_errores": 24,
+    "total_errores": 25,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -825,6 +825,42 @@
         "anti_regresion.match_codigo == codigo_esperado"
       ],
       "verificacion": "curl https://biblioteca-dga-production.up.railway.app/health/arquitectura debe devolver status:OK con anti_regresion.match_codigo:true y los 3 capa_X_ok:true",
+      "fecha_resolucion": "2026-04-24",
+      "commit": "526915d"
+    },
+    {
+      "id": "ERR-025",
+      "titulo": "Pipeline 3-capas universal: cobertura para CUALQUIER producto sin ficha previa",
+      "sintomas_usuario": [
+        "consulta nueva no responde correctamente",
+        "patron solo funciona con dron",
+        "necesita ficha manual cada vez",
+        "codigo generico .99.X aceptado",
+        "no hay alternativa cuando falla merceologia"
+      ],
+      "keywords_match": [
+        "pipeline universal",
+        "cualquier producto",
+        "auto generar ficha",
+        "codigo generico",
+        "subpartida 99 los demas",
+        "fallback gemini",
+        "cobertura 100%"
+      ],
+      "componente": "notebooklm_skill/scripts/pipeline_3_capas.py",
+      "tipo": "arquitectura/cobertura",
+      "fix_resumen": "Capa 2 ahora tiene 3 sub-capas en cascada: 2a fichas md (cache <500ms), 2b SQLite Notion, 2c Gemini-REST clasificacion estructurada (FALLBACK UNIVERSAL). Capa 1 detecta codigos genericos .99.X y rechaza si hay subpartidas mas especificas en la misma partida 4-digitos; el pipeline reintenta pasando alternativas a Gemini. Tras consulta exitosa via Gemini, se auto-genera ficha .md y merceologia_agent recarga cache; la siguiente consulta del mismo producto es cache-hit. Probado con vino (2204.21.00), tornillo (7318.14.00), bomba (8413.70.00) — TODOS clasificados correctamente sin ficha previa, ficha generada para reuso.",
+      "archivos": [
+        "notebooklm_skill/scripts/pipeline_3_capas.py"
+      ],
+      "lineas_clave": [
+        "_gemini_clasificar_producto() prompt estructurado",
+        "capa_2_notion_merceologia() 2a/2b/2c cascada",
+        "capa_1_claude_validador() codigo_generico detection",
+        "_auto_generar_ficha() crea md y recarga cache",
+        "ejecutar_pipeline() reintento si codigo_generico"
+      ],
+      "verificacion": "curl /health/arquitectura?q=<producto> con producto NUEVO debe ok+ficha_auto_generada; segunda consulta misma debe ser fuente=merceologia_md en 0ms",
       "fecha_resolucion": "2026-04-24",
       "commit": "PENDING"
     }
