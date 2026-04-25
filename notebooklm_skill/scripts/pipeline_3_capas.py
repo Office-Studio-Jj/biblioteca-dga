@@ -851,12 +851,13 @@ def _componer_respuesta_ground_truth(consulta: str, c2: dict, c1: dict) -> str:
             out.append(f"  - Excluye: {cf['exclusion_destino']}")
         out.append("")
 
-    # Resumen
+    # Resumen — formato del NotebookLM ground truth
     out.append("### Resumen")
     out.append("| Elemento | Detalle |")
     out.append("|---|---|")
+    out.append(f"| **Producto consultado** | **{consulta}** |")
     out.append(f"| Partida | {partida[:2]}.{partida[2:]} |")
-    out.append(f"| Codigo SON | {codigo} |")
+    out.append(f"| ⭐ **PARTIDA NAC. SUGERIDA** | ## **`{codigo}`** |")
     if leyes:
         ley_principal = leyes[0]
         ben = ley_principal.get("beneficio", {})
