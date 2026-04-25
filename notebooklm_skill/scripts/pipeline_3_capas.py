@@ -89,15 +89,84 @@ def capa_3_gemini_orquestador(consulta: str, notebook_id: str) -> Dict[str, Any]
     return resultado
 
 
-def capa_2_notion_merceologia(consulta: str, notebook_id: str, umbral: float = 0.4) -> Dict[str, Any]:
-    """
-    CAPA 2 — Notion / fichas merceologicas locales.
-    Busca primero en fichas markdown locales (cache rapido). Si no encuentra,
-    consulta SQLite (que se sincroniza con Notion via notion_service).
+def _gemini_clasificar_producto(consulta: str, capitulo_pista: str = "") -> Dict[str, Any]:
+    """Capa 2b: invoca Gemini-REST con prompt enfocado en clasificacion arancelaria.
+    Devuelve codigo + descripcion + capitulo extraidos de la respuesta."""
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        return {"ok": False, "error": "GEMINI_API_KEY no configurada"}
 
-    Returns:
-        {"slug": str, "codigo": str, "score": float, "fuente": "merceologia"|"notion-sqlite"|"none",
-         "respuesta": str, "elapsed_ms": int, "ok": bool}
+    try:
+        if _HERE not in sys.path:
+            sys.path.insert(0, _HERE)
+        from ask_gemini import _gemini_rest_call
+    except Exception as e:
+        return {"ok": False, "error": f"import _gemini_rest_call: {e}"}
+
+    pista = f"\nPista de capitulo SA: {capitulo_pista}" if capitulo_pista else ""
+    system = (
+        "Eres clasificador arancelario senior del Arancel de Aduanas de la Republica Dominicana "
+        "(7ma Enmienda 2022, Decreto 36-22). Tu unica tarea es devolver el codigo nacional RD "
+        "de 8 digitos (XXXX.XX.XX) mas especifico posible para el producto consultado."
+    )
+    prompt = (
+        f"Clasifica este producto: {consulta}{pista}\n\n"
+        "REGLAS OBLIGATORIAS:\n"
+        "1. PROHIBIDO devolver subpartidas genericas '.99.X' o terminadas en '.00' "
+        "si existen subpartidas mas especificas. Lee la descripcion oficial de "
+        "cada subpartida candidata y elige la que mejor describe el producto.\n"
+        "2. Codigo SIEMPRE 8 digitos formato XXXX.XX.XX. NUNCA 10 digitos.\n"
+        "3. Si el producto puede caer en varias subpartidas por peso/tamaño/uso, "
+        "indica la version mas especifica con justificacion breve.\n"
+        "4. Considera Notas Legales del Capitulo y Reglas Generales de Interpretacion "
+        "(RGI 1, 3a, 6).\n\n"
+        "FORMATO DE RESPUESTA (estricto, una linea por campo):\n"
+        "CODIGO: [XXXX.XX.XX]\n"
+        "CAPITULO: [NN]\n"
+        "PARTIDA: [XXXX]\n"
+        "SUBPARTIDA_SA: [XXXX.XX]\n"
+        "DESCRIPCION_OFICIAL: [texto breve del Arancel]\n"
+        "JUSTIFICACION: [1-2 frases]\n"
+        "RGI: [RGI X]"
+    )
+    answer, err = _gemini_rest_call(api_key, "gemini-2.5-flash", system, prompt, timeout=45)
+    if err or not answer:
+        return {"ok": False, "error": err or "respuesta vacia"}
+
+    # Parsear bloque estructurado
+    out = {"ok": True, "raw": answer[:600]}
+    for campo, regex in [
+        ("codigo", r'CODIGO:\s*(\d{4}\.\d{2}\.\d{2})'),
+        ("capitulo", r'CAPITULO:\s*(\d{2})'),
+        ("partida", r'PARTIDA:\s*(\d{4})'),
+        ("subpartida_sa", r'SUBPARTIDA_SA:\s*(\d{4}\.\d{2})'),
+        ("descripcion", r'DESCRIPCION_OFICIAL:\s*(.+)'),
+        ("justificacion", r'JUSTIFICACION:\s*(.+)'),
+        ("rgi", r'RGI:\s*(.+)'),
+    ]:
+        m = re.search(regex, answer, re.IGNORECASE)
+        if m:
+            out[campo] = m.group(1).strip().split('\n')[0][:300]
+    if not out.get("codigo"):
+        m_any = re.search(r'\b(\d{4}\.\d{2}\.\d{2})\b', answer)
+        if m_any:
+            out["codigo"] = m_any.group(1)
+    out["ok"] = bool(out.get("codigo"))
+    return out
+
+
+def capa_2_notion_merceologia(consulta: str, notebook_id: str, umbral: float = 0.4,
+                              capitulo_pista: str = "") -> Dict[str, Any]:
+    """
+    CAPA 2 — Notion / fichas merceologicas + clasificacion via Gemini.
+
+    Orden de busqueda:
+      2a. Fichas merceologicas locales (md) — match directo, <500ms
+      2b. Notion sincronizado a SQLite — si tabla existe
+      2c. Gemini-REST clasificacion estructurada — fallback universal
+
+    Cualquier consulta encuentra respuesta porque 2c siempre corre si las
+    anteriores fallan. Asi el patron 3-capas funciona para todos los productos.
     """
     t0 = time.time()
     resultado = {
@@ -110,7 +179,7 @@ def capa_2_notion_merceologia(consulta: str, notebook_id: str, umbral: float = 0
         "score": 0.0,
     }
 
-    # Sub-capa 2a: cache merceologico local (md files) — solo match, sin supervisor lento
+    # Sub-capa 2a: cache merceologico local (md files)
     try:
         if _HERE not in sys.path:
             sys.path.insert(0, _HERE)
@@ -130,7 +199,7 @@ def capa_2_notion_merceologia(consulta: str, notebook_id: str, umbral: float = 0
     except Exception as e:
         resultado["error_md"] = f"{type(e).__name__}: {str(e)[:150]}"
 
-    # Sub-capa 2b: SQLite sincronizado con Notion (si existe)
+    # Sub-capa 2b: SQLite sincronizado con Notion
     db_path = os.path.join(_HERE, "..", "..", "capa1_sqlite", "arancel_rd.db")
     if os.path.exists(db_path):
         try:
@@ -139,7 +208,6 @@ def capa_2_notion_merceologia(consulta: str, notebook_id: str, umbral: float = 0
             cur = con.cursor()
             cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='notion_merceologia'")
             if cur.fetchone():
-                # Buscar por palabras clave en titulo/resumen
                 palabras = re.findall(r'\b[a-záéíóúüñ]{4,}\b', consulta.lower())
                 if palabras:
                     like_clauses = " OR ".join(["LOWER(titulo || ' ' || resumen) LIKE ?" for _ in palabras])
@@ -164,6 +232,25 @@ def capa_2_notion_merceologia(consulta: str, notebook_id: str, umbral: float = 0
             con.close()
         except Exception as e:
             resultado["error_sqlite"] = f"{type(e).__name__}: {str(e)[:150]}"
+
+    # Sub-capa 2c: Gemini-REST clasificacion estructurada (cobertura universal)
+    g = _gemini_clasificar_producto(consulta, capitulo_pista)
+    if g.get("ok") and g.get("codigo"):
+        resultado.update({
+            "ok": True,
+            "fuente": "gemini_rest",
+            "codigo": g["codigo"],
+            "capitulo": g.get("capitulo"),
+            "partida": g.get("partida"),
+            "subpartida_sa": g.get("subpartida_sa"),
+            "descripcion": g.get("descripcion"),
+            "justificacion": g.get("justificacion"),
+            "rgi": g.get("rgi"),
+            "elapsed_ms": int((time.time() - t0) * 1000),
+        })
+        return resultado
+    else:
+        resultado["error_gemini"] = g.get("error", "sin codigo extraido")
 
     resultado["elapsed_ms"] = int((time.time() - t0) * 1000)
     return resultado
@@ -254,7 +341,31 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str) -> Dict[str, A
         resultado["base_legal"].append("Ley 150-97 - Tarifa cero sector agropecuario")
         resultado["beneficio_150_97"] = "0% DAI + Exencion ITBIS si demuestra uso agricola exclusivo"
 
-    # 5. Validacion final con Claude API (opcional)
+    # 5. Detectar codigo generico ".99.X" cuando hay alternativas mas especificas
+    #    Patron: si subpartida termina en 99 y existen otras subpartidas en la misma
+    #    partida, marcar como codigo_generico=True para que el pipeline reintente.
+    try:
+        cache_path = os.path.join(_DATA, "fuentes_nomenclatura", "arancel_cache.json")
+        with open(cache_path, "r", encoding="utf-8") as f:
+            cache_full = json.load(f)
+        codigos = cache_full.get("codigos", cache_full)
+        partida4 = codigo_propuesto[:4] if len(codigo_propuesto) >= 4 else ""
+        # codigos con la misma partida (4 primeros digitos)
+        hermanos = [c for c in codigos.keys() if c.startswith(partida4)]
+        sub_actual = codigo_propuesto[5:7] if len(codigo_propuesto) >= 7 else ""
+        subs_distintas = set(c[5:7] for c in hermanos if len(c) >= 7)
+        # Si la subpartida es .99 (las demas) Y hay otras subpartidas reales -> generico
+        if sub_actual == "99" and len(subs_distintas) > 1:
+            resultado["codigo_generico"] = True
+            resultado["alternativas_mas_especificas"] = sorted([
+                c for c in hermanos if not c.startswith(f"{partida4}.99")
+            ])[:8]
+        else:
+            resultado["codigo_generico"] = False
+    except Exception as e:
+        resultado["error_generico_check"] = f"{type(e).__name__}: {str(e)[:100]}"
+
+    # 6. Validacion final con Claude API (opcional)
     try:
         if _HERE not in sys.path:
             sys.path.insert(0, _HERE)
@@ -266,12 +377,85 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str) -> Dict[str, A
     except Exception as e:
         resultado["claude_confirmacion"] = {"error": f"{type(e).__name__}: {str(e)[:150]}"}
 
-    # OK si codigo existe Y (sin claude o claude valido)
+    # OK si codigo existe Y (sin claude o claude valido) Y NO es codigo generico
     claude_ok = (resultado.get("claude_confirmacion") is None or
                  resultado.get("claude_confirmacion", {}).get("valido") is not False)
-    resultado["ok"] = bool(resultado["codigo_existe"]) and claude_ok
+    no_generico = not resultado.get("codigo_generico", False)
+    resultado["ok"] = bool(resultado["codigo_existe"]) and claude_ok and no_generico
     resultado["elapsed_ms"] = int((time.time() - t0) * 1000)
     return resultado
+
+
+def _auto_generar_ficha(consulta: str, codigo: str, datos_capa2: dict, datos_capa1: dict) -> Optional[str]:
+    """Crea una ficha merceologica minima para que la proxima consulta sea cache-hit.
+    Solo se ejecuta si la consulta NO vino ya de merceologia_md y el codigo es valido.
+    Retorna el slug creado o None si no se generó."""
+    try:
+        # Slug desde la consulta (alfanumerico + guiones)
+        slug_raw = re.sub(r'[^a-z0-9\s-]', '', consulta.lower())
+        slug_raw = re.sub(r'\s+', '-', slug_raw.strip())[:60]
+        if not slug_raw or len(slug_raw) < 4:
+            return None
+
+        ficha_dir = os.path.join(_DATA, "merceologia")
+        os.makedirs(ficha_dir, exist_ok=True)
+        ficha_path = os.path.join(ficha_dir, f"{slug_raw}.md")
+        if os.path.exists(ficha_path):
+            return slug_raw  # ya existe, no sobreescribir
+
+        capitulo = datos_capa2.get("capitulo") or codigo[:2]
+        partida = datos_capa2.get("partida") or codigo[:4]
+        subpartida = datos_capa2.get("subpartida_sa") or codigo[:7]
+        descripcion = datos_capa2.get("descripcion") or datos_capa1.get("descripcion_oficial", "")
+        justificacion = datos_capa2.get("justificacion", "Clasificacion por Capa 2 (Gemini-REST) verificada por Capa 1 (cache + base legal).")
+        rgi = datos_capa2.get("rgi", "RGI 1")
+        gravamen = datos_capa1.get("gravamen", "verificar")
+        isc = datos_capa1.get("isc", "NO APLICA")
+
+        contenido = f"""# Ficha Merceologica — {consulta.title()}
+
+**Fecha:** auto-generada
+**Origen:** Pipeline 3 Capas (Capa 2 Gemini-REST + Capa 1 verificacion cache)
+**Slug:** `{slug_raw}`
+
+## 1. Que es
+
+- **Denominacion comercial:** {consulta}
+- **Identificacion arancelaria:** {descripcion or 'ver Arancel RD'}
+
+## 7. Codigo arancelario sugerido
+
+- **Capitulo SA:** {capitulo}
+- **Partida SA:** {partida}
+- **Subpartida SA:** {subpartida}
+- **Codigo nacional RD:** {codigo}
+- **Descripcion del codigo:** {descripcion}
+- **Gravamen esperado:** {gravamen}
+- **ISC aplicable:** {isc}
+- **RGI:** {rgi}
+- **Justificacion:** {justificacion}
+
+## Auto-validacion
+
+Esta ficha fue generada automaticamente por pipeline_3_capas.py al primer hit
+exitoso. Modificar manualmente si la clasificacion necesita ajuste de detalle
+(peso, tamaño, uso especifico, beneficios legales como Ley 150-97).
+"""
+        with open(ficha_path, "w", encoding="utf-8") as f:
+            f.write(contenido)
+
+        # Forzar recarga del cache merceologico para que el proximo hit la encuentre
+        try:
+            from merceologia_agent import _cargar_fichas
+            _cargar_fichas(forzar=True)
+        except Exception:
+            pass
+
+        print(f"[PIPELINE] Auto-generada ficha {slug_raw}.md ({codigo})")
+        return slug_raw
+    except Exception as e:
+        print(f"[PIPELINE] Error auto-generando ficha: {e}")
+        return None
 
 
 def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclaturas") -> Dict[str, Any]:
@@ -304,8 +488,9 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
         trazabilidad["tiempo_total_ms"] = int((time.time() - t0) * 1000)
         return trazabilidad
 
-    # CAPA 2: Notion/Merceologia
-    c2 = capa_2_notion_merceologia(consulta, notebook_id)
+    # CAPA 2: Notion/Merceologia (pasa pista de capitulo de Capa 3)
+    capitulo_pista = c3.get("categoria", "")
+    c2 = capa_2_notion_merceologia(consulta, notebook_id, capitulo_pista=capitulo_pista)
     trazabilidad["capas"].append(c2)
 
     codigo_propuesto = c2.get("codigo")
@@ -314,7 +499,28 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     c1 = capa_1_claude_validador(consulta, codigo_propuesto)
     trazabilidad["capas"].append(c1)
 
-    # Construir respuesta final solo si las 3 capas estan ok
+    # Reintento: si Capa 1 marca codigo_generico, pedir a Gemini que afine
+    if c1.get("codigo_generico") and c2.get("fuente") == "gemini_rest":
+        alternativas = c1.get("alternativas_mas_especificas", [])
+        if alternativas:
+            consulta_refinada = (
+                f"{consulta}. ATENCION: PROHIBIDO clasificar como {codigo_propuesto} (es generico 'los demas'). "
+                f"Elige una de estas subpartidas mas especificas segun caracteristicas del producto: "
+                f"{', '.join(alternativas[:5])}"
+            )
+            print(f"[PIPELINE] Reintentando Capa 2 — codigo {codigo_propuesto} es generico")
+            c2_retry = capa_2_notion_merceologia(consulta_refinada, notebook_id,
+                                                  capitulo_pista=capitulo_pista)
+            trazabilidad["capas"].append({**c2_retry, "capa": 2, "nombre": "Capa 2 reintento"})
+            codigo_retry = c2_retry.get("codigo")
+            if codigo_retry and codigo_retry != codigo_propuesto:
+                c1_retry = capa_1_claude_validador(consulta, codigo_retry)
+                trazabilidad["capas"].append({**c1_retry, "capa": 1, "nombre": "Capa 1 reintento"})
+                if c1_retry.get("ok"):
+                    c1, c2 = c1_retry, c2_retry
+                    codigo_propuesto = codigo_retry
+
+    # Construir respuesta final
     if c2.get("ok") and c1.get("ok"):
         trazabilidad["codigo_final"] = c1["codigo_propuesto"]
         trazabilidad["respuesta_final"] = c2.get("respuesta", "")
@@ -323,15 +529,26 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
         trazabilidad["base_legal"] = c1.get("base_legal", [])
         trazabilidad["beneficio_150_97"] = c1.get("beneficio_150_97")
         trazabilidad["patron_intacto"] = True
+
+        # Auto-generar ficha solo si vino de Gemini (no si ya existia ficha local)
+        if c2.get("fuente") == "gemini_rest":
+            slug = _auto_generar_ficha(consulta, codigo_propuesto, c2, c1)
+            if slug:
+                trazabilidad["ficha_auto_generada"] = slug
     elif c2.get("ok"):
         trazabilidad["codigo_final"] = c2.get("codigo")
         trazabilidad["respuesta_final"] = c2.get("respuesta", "")
         trazabilidad["patron_intacto"] = True
-        trazabilidad["nota"] = "Capa 1 (Claude) no verifico, usando ficha merceologica directa"
+        trazabilidad["nota"] = (
+            f"Codigo {c2.get('codigo')} aceptado por Capa 2 pero Capa 1 lo rechazo "
+            f"(generico={c1.get('codigo_generico', False)}, "
+            f"existe={c1.get('codigo_existe', False)}). "
+            f"Verificar manualmente."
+        )
     else:
         trazabilidad["respuesta_final"] = None
         trazabilidad["patron_intacto"] = False
-        trazabilidad["nota"] = "Capa 2 sin match. Pasara a Gemini directo en server.py"
+        trazabilidad["nota"] = "Capa 2 sin match (md+sqlite+gemini). Producto necesita ficha manual."
 
     trazabilidad["tiempo_total_ms"] = int((time.time() - t0) * 1000)
     return trazabilidad
