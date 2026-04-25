@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "version": "1.4",
+    "version": "1.5",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
     "ultima_actualizacion": "2026-04-24",
-    "total_errores": 20,
+    "total_errores": 21,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -679,6 +679,44 @@
         "_normalizar acepta no-str con str(txt)"
       ],
       "verificacion": "python -c \"import json; c=json.load(open('notebooklm_skill/data/fuentes_nomenclatura/arancel_cache.json','r',encoding='utf-8')); assert 'codigos' in c and isinstance(c['codigos'], dict)\"",
+      "fecha_resolucion": "2026-04-24",
+      "commit": "38c4071"
+    },
+    {
+      "id": "ERR-021",
+      "titulo": "Gemini fuera de servicio en Railway: ImportError ConfigDict pydantic circular import",
+      "sintomas_usuario": [
+        "RESPUESTA DE EMERGENCIA CACHE ARANCELARIO",
+        "El sistema de IA no pudo procesar tu consulta",
+        "no esta consultando el arancel pdf",
+        "siempre cae al cache de emergencia",
+        "Gemini no responde",
+        "consultas devuelven solo cache verificado"
+      ],
+      "keywords_match": [
+        "RESPUESTA DE EMERGENCIA",
+        "cache arancelario verificado",
+        "Gemini no responde",
+        "ConfigDict",
+        "pydantic",
+        "circular import",
+        "ImportError pydantic",
+        "fallback emergencia",
+        "IA no procesa"
+      ],
+      "componente": "requirements.txt",
+      "tipo": "deploy/dependencias/produccion",
+      "fix_resumen": "Pin explicito pydantic==2.9.2 + pydantic-core==2.23.4 + google-genai==1.7.0. Sin pin, Railway resolvia versiones que causaban circular import al inicializar pydantic en gunicorn workers. Sintoma: client = genai.Client() lanzaba ImportError, server caia siempre al fallback _consultar_cache_fallback que devuelve top-5 codigos del cache - el usuario nunca recibia respuesta de Gemini con clasificacion arancelaria real. Diagnostico via endpoint publico /health/gemini.",
+      "archivos": [
+        "requirements.txt"
+      ],
+      "lineas_clave": [
+        "pydantic==2.9.2",
+        "pydantic-core==2.23.4",
+        "google-genai==1.7.0",
+        "endpoint /health/gemini publico"
+      ],
+      "verificacion": "curl https://biblioteca-dga-production.up.railway.app/health/gemini debe devolver status:OK con latency_ms y gemini_response",
       "fecha_resolucion": "2026-04-24",
       "commit": "PENDING"
     }
