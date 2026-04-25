@@ -33,6 +33,21 @@ try:
 except Exception:
     pass
 
+# ── Precargar google.genai al toplevel para evitar circular import en handlers ──
+# Sin este import temprano, el primer request paralelo en gunicorn workers
+# causaba: AttributeError: partially initialized module 'google.genai' has
+# no attribute 'Client' (most likely due to a circular import)
+try:
+    from google import genai as _genai_global
+    from google.genai import types as _genai_types_global
+    _GENAI_AVAILABLE = True
+    print(f"[INIT] google.genai precargado OK")
+except Exception as _genai_err:
+    _genai_global = None
+    _genai_types_global = None
+    _GENAI_AVAILABLE = False
+    print(f"[INIT] google.genai no disponible: {type(_genai_err).__name__}: {_genai_err}")
+
 # ── URL pública centralizada (CAMBIAR AQUÍ si cambia el dominio Railway) ──
 _RAILWAY_PUBLIC_URL = "https://biblioteca-dga-production.up.railway.app"
 
@@ -1050,20 +1065,25 @@ def health_gemini():
         "gemini_key_len": len(gemini_key) if gemini_key else 0,
         "python": PYTHON,
     }
+    info["genai_module_loaded"] = _GENAI_AVAILABLE
+
     if not gemini_key:
         info["status"] = "FAIL"
         info["error"] = "GEMINI_API_KEY no configurada en Railway > Variables"
         return jsonify(info), 503
 
+    if not _GENAI_AVAILABLE:
+        info["status"] = "FAIL"
+        info["error"] = "Modulo google.genai no se pudo cargar al iniciar el servidor (ver logs Railway)"
+        return jsonify(info), 503
+
     try:
-        from google import genai as _genai_h
-        from google.genai import types as _types_h
-        client = _genai_h.Client(api_key=gemini_key, http_options={"timeout": 15})
+        client = _genai_global.Client(api_key=gemini_key, http_options={"timeout": 15})
         t0 = time.time()
         resp = client.models.generate_content(
             model="gemini-2.0-flash",
             contents="Responde unicamente con la palabra OK",
-            config=_types_h.GenerateContentConfig(),
+            config=_genai_types_global.GenerateContentConfig(),
         )
         elapsed = round((time.time() - t0) * 1000)
         text = (resp.text or "").strip() if hasattr(resp, "text") else ""
