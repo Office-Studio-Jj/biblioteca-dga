@@ -2880,6 +2880,15 @@ def _consultar_cache_fallback(question: str, notebook_id: str) -> "str | None":
     except Exception:
         return None
 
+    # Defensiva: el cache puede venir en formato anidado {"codigos": {...}, "metadata": ...}
+    # o en formato plano {codigo: descripcion}. Normalizar siempre al dict de codigos.
+    if isinstance(cache, dict) and "codigos" in cache and isinstance(cache["codigos"], dict):
+        codigos_dict = cache["codigos"]
+    elif isinstance(cache, dict):
+        codigos_dict = cache
+    else:
+        return None
+
     # Extraer palabras clave de la pregunta (ignorar stopwords)
     stopwords = {
         "cual", "cuál", "es", "el", "la", "los", "las", "de", "del",
@@ -2888,7 +2897,10 @@ def _consultar_cache_fallback(question: str, notebook_id: str) -> "str | None":
         "me", "puedes", "dar", "dime", "cual", "seria", "sería",
     }
 
-    def _normalizar(txt: str) -> str:
+    def _normalizar(txt) -> str:
+        # Defensa contra valores no-str (int/float/None) en el cache
+        if not isinstance(txt, str):
+            txt = str(txt) if txt is not None else ""
         txt = unicodedata.normalize("NFKD", txt.lower())
         return "".join(c for c in txt if not unicodedata.combining(c))
 
@@ -2903,7 +2915,10 @@ def _consultar_cache_fallback(question: str, notebook_id: str) -> "str | None":
 
     # Buscar en cache: score por cuantas palabras clave aparecen en la descripcion
     resultados = []
-    for codigo, descripcion in cache.items():
+    for codigo, descripcion in codigos_dict.items():
+        # Skip entradas no-str (defensiva ante metadata mezclada con codigos)
+        if not isinstance(descripcion, str):
+            continue
         desc_norm = _normalizar(descripcion)
         score = sum(1 for p in palabras if p in desc_norm)
         if score > 0:

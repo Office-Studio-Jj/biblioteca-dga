@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "version": "1.3",
+    "version": "1.4",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
     "ultima_actualizacion": "2026-04-24",
-    "total_errores": 19,
+    "total_errores": 20,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -642,6 +642,43 @@
         "propagate.py shutil backup + replace"
       ],
       "verificacion": "python ~/.claude/skills/url-watchdog-dga/scripts/detect_canonical.py debe mostrar UNA sola URL canonica sin residuos",
+      "fecha_resolucion": "2026-04-24",
+      "commit": "2d667a6"
+    },
+    {
+      "id": "ERR-020",
+      "titulo": "AttributeError 'int' object has no attribute 'lower' al consultar (cache_fallback iteraba metadata)",
+      "sintomas_usuario": [
+        "error interno procesando tu consulta",
+        "AttributeError int object has no attribute lower",
+        "INTERNO AttributeError",
+        "consulta no responde con error tecnico",
+        "detalle_tecnico INTERNO",
+        "Dron aereo para agricultura error",
+        "Error en cualquier consulta de nomenclaturas mobile"
+      ],
+      "keywords_match": [
+        "AttributeError",
+        "int object has no attribute lower",
+        "INTERNO",
+        "error interno consulta",
+        "lower",
+        "cache fallback",
+        "_consultar_cache_fallback"
+      ],
+      "componente": "server.py",
+      "tipo": "bug/python/cache",
+      "fix_resumen": "_consultar_cache_fallback iteraba sobre cache.items() top-level, agarrando metadata int (paginas=633, codigos_extraidos=7616, reparaciones_tabla=1021) en vez de los codigos. Cuando descripcion=int, _normalizar(txt.lower()) explotaba. Fix: (1) extraer codigos_dict = cache['codigos'] si existe, (2) isinstance check antes de procesar, (3) _normalizar acepta cualquier tipo y convierte a str. Excepcion se propagaba a ask_notebooklm wrapper como 'INTERNO' y mostraba mensaje generico al usuario.",
+      "archivos": [
+        "server.py"
+      ],
+      "lineas_clave": [
+        "_consultar_cache_fallback() lineas 2877-2920",
+        "codigos_dict = cache['codigos'] if isinstance",
+        "if not isinstance(descripcion, str): continue",
+        "_normalizar acepta no-str con str(txt)"
+      ],
+      "verificacion": "python -c \"import json; c=json.load(open('notebooklm_skill/data/fuentes_nomenclatura/arancel_cache.json','r',encoding='utf-8')); assert 'codigos' in c and isinstance(c['codigos'], dict)\"",
       "fecha_resolucion": "2026-04-24",
       "commit": "PENDING"
     }
