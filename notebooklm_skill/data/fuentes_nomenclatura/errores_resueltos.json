@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "version": "1.6",
+    "version": "1.7",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
     "ultima_actualizacion": "2026-04-24",
-    "total_errores": 22,
+    "total_errores": 23,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -756,7 +756,40 @@
       ],
       "verificacion": "curl https://biblioteca-dga-production.up.railway.app/health/gemini debe devolver status:OK con gemini_response='OK' o similar y latency_ms <10000",
       "fecha_resolucion": "2026-04-24",
-      "commit": "PENDING"
+      "commit": "a2ee951"
+    },
+    {
+      "id": "ERR-023",
+      "titulo": "SDK google-genai (1.7.0 y 1.16.1) ReadTimeout consistente en Railway, REST directo funciona",
+      "sintomas_usuario": [
+        "ReadTimeout Gemini todos los intentos",
+        "consulta no responde despues de fix de modelo",
+        "RESPUESTA DE EMERGENCIA persiste",
+        "modelo gemini-2.5-flash deberia funcionar pero timeout"
+      ],
+      "keywords_match": [
+        "ReadTimeout SDK",
+        "google-genai bug",
+        "httpx timeout",
+        "SDK Railway",
+        "REST directo Gemini",
+        "_gemini_rest_call"
+      ],
+      "componente": "notebooklm_skill/scripts/ask_gemini.py",
+      "tipo": "deploy/sdk/workaround",
+      "fix_resumen": "SDK google-genai 1.7.0 y 1.16.1 con httpx muestran ReadTimeout consistente en gunicorn workers Railway, mientras REST directo via urllib responde en 4-5s. Fix: implementar _gemini_rest_call() como bypass del SDK. Mismo formato JSON (system_instruction + contents + generationConfig.thinkingConfig). Retry sin thinkingConfig si Google retorna 400. Activado por env GEMINI_USE_REST=1 (default). Mantiene SDK como fallback. Resuelve el bloqueo total de consultas en mobile.",
+      "archivos": [
+        "notebooklm_skill/scripts/ask_gemini.py"
+      ],
+      "lineas_clave": [
+        "_gemini_rest_call() usa urllib.request",
+        "_USE_REST = env GEMINI_USE_REST",
+        "URL v1beta/models/{model}:generateContent",
+        "fallback gemini-2.5-flash -> gemini-2.5-pro"
+      ],
+      "verificacion": "consulta cualquier producto en cuaderno Nomenclaturas debe responder en <10s con clasificacion arancelaria estructurada (no 'RESPUESTA DE EMERGENCIA')",
+      "fecha_resolucion": "2026-04-24",
+      "commit": "348874a"
     }
   ]
 }
