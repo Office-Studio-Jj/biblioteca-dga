@@ -33,20 +33,30 @@ try:
 except Exception:
     pass
 
-# ── Precargar google.genai al toplevel para evitar circular import en handlers ──
-# Sin este import temprano, el primer request paralelo en gunicorn workers
-# causaba: AttributeError: partially initialized module 'google.genai' has
-# no attribute 'Client' (most likely due to a circular import)
+# ── Precargar TODO el stack HTTP de google.genai para evitar circular import ──
+# httpcore/httpx/google.genai tienen lazy initialization que el primer request
+# paralelo en gunicorn workers dispara, causando:
+#   AttributeError: partially initialized module 'httpcore' has no attribute
+#   'ConnectionPool' (most likely due to a circular import)
+# Solucion: forzar imports + atributos al startup, antes del fork de workers.
 try:
+    # 1. Imports basicos
+    import httpcore as _httpcore_pre
+    import httpx as _httpx_pre
+    # 2. Tocar atributos lazy para forzar inicializacion completa
+    _ = _httpcore_pre.ConnectionPool
+    _ = _httpx_pre.Client
+    # 3. google.genai (depende del stack anterior)
     from google import genai as _genai_global
     from google.genai import types as _genai_types_global
+    _ = _genai_global.Client  # Forzar inicializacion de la clase Client
     _GENAI_AVAILABLE = True
-    print(f"[INIT] google.genai precargado OK")
+    print(f"[INIT] Stack HTTP + google.genai precargado OK (httpcore/httpx/genai)")
 except Exception as _genai_err:
     _genai_global = None
     _genai_types_global = None
     _GENAI_AVAILABLE = False
-    print(f"[INIT] google.genai no disponible: {type(_genai_err).__name__}: {_genai_err}")
+    print(f"[INIT] Stack google.genai no disponible: {type(_genai_err).__name__}: {_genai_err}")
 
 # ── URL pública centralizada (CAMBIAR AQUÍ si cambia el dominio Railway) ──
 _RAILWAY_PUBLIC_URL = "https://biblioteca-dga-production.up.railway.app"
