@@ -192,11 +192,20 @@ def _gemini_clasificar_producto(consulta: str, capitulo_pista: str = "") -> Dict
         "indica la version mas especifica con justificacion breve.\n"
         "4. Considera Notas Legales del Capitulo y Reglas Generales de Interpretacion "
         "(RGI 1, 3a, 6).\n"
-        "5. ILUMINACION (regla dura — Nota 11.b Cap.85 SA):\n"
-        "   - Lampara/bombillo/tubo LED (con o sin casquillo, el elemento que GENERA luz) -> 8539.52.00\n"
-        "   - Luminaria/fixture/aplique/candelabro (el aparato que SOSTIENE o DIRIGE la luz) -> 94.05.xx\n"
-        "   - Criterio: si el producto genera luz por si mismo -> Cap.85. Si solo la sostiene -> Cap.94.\n"
-        "   - PROHIBIDO clasificar bombillos LED en 9405. Es error frecuente.\n\n"
+        "5. PRINCIPIO ELEMENTO vs APARATO (regla dura — RGI 1, Notas Legales de Capitulo):\n"
+        "   Antes de clasificar, pregunta: ¿el producto ES la cosa, o es el APARATO que la usa/contiene?\n"
+        "   El consumible/insumo/parte funcional NO va con el aparato — clasifica por su naturaleza.\n"
+        "   Ejemplos canonicos (memorizar el principio, no la lista):\n"
+        "     - Bombillo/lampara/tubo LED (genera luz) -> 8539. Luminaria/fixture (sostiene luz) -> 9405. Nota 11.b Cap.85.\n"
+        "     - Cartucho de tinta/toner -> 3215 o 9612. Impresora -> 8443.\n"
+        "     - Capsula de cafe (es cafe) -> 0901. Cafetera (aparato) -> 8516.71.\n"
+        "     - Cuchilla afeitar -> 8212. Afeitadora electrica -> 8510.\n"
+        "     - Lente fotografico -> 9002. Camara -> 9006/8525.\n"
+        "     - Pelicula/cinta -> 3705/8523. Reproductor -> 8521/8519.\n"
+        "     - Bateria/pila -> 8506/8507. Aparato a pilas -> donde corresponde.\n"
+        "   Test rapido: si el producto se CONSUME, REEMPLAZA o se INSERTA en otra cosa,\n"
+        "   probablemente NO va en la partida del aparato. Verifica Nota Legal del Capitulo.\n"
+        "   PROHIBIDO clasificar consumibles en la partida del aparato que los usa.\n\n"
         "FORMATO DE RESPUESTA (estricto, una linea por campo):\n"
         "CODIGO: [XXXX.XX.XX]\n"
         "CAPITULO: [NN]\n"
@@ -397,6 +406,44 @@ def capa_2_notion_merceologia(consulta: str, notebook_id: str, umbral: float = 0
 
     resultado["elapsed_ms"] = int((time.time() - t0) * 1000)
     return resultado
+
+
+# ── Pares ELEMENTO vs APARATO (clase de error: clasificar consumible en partida del aparato) ──
+# Estructura: cada par dice "si la consulta menciona <elemento_kw>, el codigo correcto va en
+# <partida_elemento>; si te dieron <partida_aparato>, esta MAL — pide retry".
+_PARES_ELEMENTO_APARATO = [
+    {"elem_kw": ["lampara", "bombillo", "bombilla", "foco", "tubo led", "led con casquillo", "e27", "e14"],
+     "partida_elem": "8539", "partida_aparato": "9405", "nota": "Nota 11.b Cap.85"},
+    {"elem_kw": ["cartucho tinta", "cartucho de tinta", "toner", "tinta impresora"],
+     "partida_elem": "3215", "partida_aparato": "8443", "nota": "Nota 2 Cap.84"},
+    {"elem_kw": ["capsula cafe", "capsula de cafe", "k-cup", "nespresso capsul"],
+     "partida_elem": "0901", "partida_aparato": "8516", "nota": "Cap.9 cafe"},
+    {"elem_kw": ["cuchilla afeitar", "hoja afeitar", "navaja"],
+     "partida_elem": "8212", "partida_aparato": "8510", "nota": "Cap.82 herramientas"},
+    {"elem_kw": ["lente fotografico", "objetivo camara"],
+     "partida_elem": "9002", "partida_aparato": "9006", "nota": "Nota 1 Cap.90"},
+    {"elem_kw": ["bateria recambio", "pila recambio"],
+     "partida_elem": "8506", "partida_aparato": None, "nota": "Cap.85 baterias"},
+]
+
+
+def _detectar_confusion_elemento_aparato(consulta: str, codigo: str) -> Optional[Dict[str, Any]]:
+    """Devuelve dict con razon+partida_correcta si Capa 2 clasifico el insumo
+    como aparato. Patron generalizado del bug APP-2026-001 #2."""
+    if not codigo or len(codigo) < 4:
+        return None
+    consulta_l = consulta.lower()
+    partida_dada = codigo[:4]
+    for par in _PARES_ELEMENTO_APARATO:
+        if any(kw in consulta_l for kw in par["elem_kw"]):
+            if par["partida_aparato"] and partida_dada == par["partida_aparato"]:
+                return {
+                    "clase_error": "elemento_clasificado_como_aparato",
+                    "partida_correcta": par["partida_elem"],
+                    "partida_incorrecta": partida_dada,
+                    "fundamento": par["nota"],
+                }
+    return None
 
 
 _MAPA_PARTIDAS_RGI = {
@@ -998,11 +1045,15 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     c1 = capa_1_claude_validador(consulta, codigo_propuesto, caracteristicas_capa3=caracs)
     trazabilidad["capas"].append(c1)
 
-    # Reintento: codigo generico (.99) O codigo inexistente en cache.
-    # Bug APP-2026-001 #1: antes solo reintentaba .99; ahora tambien si no existe.
+    # Reintento: codigo generico (.99) O codigo inexistente O confusion elemento/aparato.
+    # Bug APP-2026-001 #1 + #2: cubre la CLASE "consumible clasificado en partida del aparato".
+    confusion = _detectar_confusion_elemento_aparato(consulta, codigo_propuesto or "")
+    if confusion:
+        c1["confusion_elemento_aparato"] = confusion
     necesita_retry = (
         (c1.get("codigo_generico") and c2.get("fuente") == "gemini_rest") or
-        (c2.get("fuente") == "gemini_rest" and codigo_propuesto and not c1.get("codigo_existe"))
+        (c2.get("fuente") == "gemini_rest" and codigo_propuesto and not c1.get("codigo_existe")) or
+        (confusion and c2.get("fuente") == "gemini_rest")
     )
     if necesita_retry:
         alternativas = c1.get("alternativas_mas_especificas", [])
@@ -1017,8 +1068,29 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
                 alternativas = sorted([c for c in _codigos.keys() if c.startswith(p4)])[:8]
             except Exception:
                 alternativas = []
+        # Si hay confusion elemento/aparato, forzar a Capa 2 a la partida correcta
+        if confusion:
+            try:
+                cache_path = os.path.join(_DATA, "fuentes_nomenclatura", "arancel_cache.json")
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    _cache_corr = json.load(f)
+                _codigos_corr = _cache_corr.get("codigos", _cache_corr)
+                p_correcta = confusion["partida_correcta"]
+                alternativas = sorted([c for c in _codigos_corr.keys() if c.startswith(p_correcta)])[:8]
+            except Exception:
+                pass
+
         if alternativas:
-            motivo = "no existe en arancel_cache.json" if not c1.get("codigo_existe") else "es generico 'los demas'"
+            if confusion:
+                motivo = (
+                    f"clasifica el INSUMO/ELEMENTO ({confusion['fundamento']}), "
+                    f"NO el aparato. Partida correcta: {confusion['partida_correcta']}, "
+                    f"NO {confusion['partida_incorrecta']}"
+                )
+            elif not c1.get("codigo_existe"):
+                motivo = "no existe en arancel_cache.json"
+            else:
+                motivo = "es generico 'los demas'"
             consulta_refinada = (
                 f"{consulta}. ATENCION: PROHIBIDO clasificar como {codigo_propuesto} ({motivo}). "
                 f"Elige una de estas subpartidas validas del Arancel RD: "

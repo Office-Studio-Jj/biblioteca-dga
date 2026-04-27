@@ -2,8 +2,8 @@
   "_meta": {
     "version": "2.0",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
-    "ultima_actualizacion": "2026-04-25",
-    "total_errores": 26,
+    "ultima_actualizacion": "2026-04-27",
+    "total_errores": 27,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -897,6 +897,45 @@
       ],
       "verificacion": "curl /health/arquitectura?q=<producto> con producto NUEVO debe ok+ficha_auto_generada; segunda consulta misma debe ser fuente=merceologia_md en 0ms",
       "fecha_resolucion": "2026-04-24",
+      "commit": "PENDING"
+    },
+    {
+      "id": "ERR-027",
+      "titulo": "CLASE: clasificar el INSUMO/ELEMENTO en la partida del APARATO que lo usa",
+      "sintomas_usuario": [
+        "el codigo es del aparato pero pregunte por el repuesto",
+        "bombillo LED clasificado como luminaria",
+        "cartucho de tinta clasificado como impresora",
+        "capsula de cafe clasificada como cafetera",
+        "cuchilla afeitar clasificada como afeitadora",
+        "consumible da partida del aparato"
+      ],
+      "keywords_match": [
+        "elemento vs aparato",
+        "consumible",
+        "insumo",
+        "fixture",
+        "luminaria",
+        "9405 vs 8539",
+        "8443 vs 3215",
+        "8516 vs 0901",
+        "8510 vs 8212",
+        "9006 vs 9002"
+      ],
+      "componente": "notebooklm_skill/scripts/pipeline_3_capas.py",
+      "tipo": "arquitectura/clasificacion",
+      "fix_resumen": "Generalizada como CLASE de error (no instancia LED). Tres capas: (1) prompt Gemini con principio ELEMENTO vs APARATO + 6 ejemplos canonicos + test rapido (consumible/reemplazo/insercion). (2) detector estructural _detectar_confusion_elemento_aparato() con tabla _PARES_ELEMENTO_APARATO (LED/9405, tinta/8443, cafe/8516, afeitar/8510, lente/9006, bateria). (3) retry forzado a partida correcta con alternativas reales del cache. Reportado como bombillo LED -> 9405 (caso APP-2026-001 #2); generalizado para cualquier consumible.",
+      "archivos": [
+        "notebooklm_skill/scripts/pipeline_3_capas.py"
+      ],
+      "lineas_clave": [
+        "_PARES_ELEMENTO_APARATO tabla (extensible)",
+        "_detectar_confusion_elemento_aparato() retorna confusion+partida_correcta",
+        "ejecutar_pipeline() necesita_retry incluye confusion",
+        "_gemini_clasificar_producto() prompt regla 5 PRINCIPIO ELEMENTO vs APARATO"
+      ],
+      "verificacion": "consulta 'bombillo LED E27' debe dar 8539.52.00, no 9405. consulta 'cartucho tinta HP' debe dar 3215.x, no 8443.x. Agregar nuevo par a _PARES_ELEMENTO_APARATO si aparece nuevo caso (escalable como tabla, no codigo).",
+      "fecha_resolucion": "2026-04-27",
       "commit": "PENDING"
     }
   ]
