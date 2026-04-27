@@ -556,6 +556,7 @@ LEYES_RD = {
     "11-23":   {"nombre": "Reforma Aduanas y Comercio Exterior", "vigente": True},
     "253-12":  {"nombre": "Fortalecimiento Capacidad Recaudatoria", "vigente": True},
     "3489":    {"nombre": "Régimen de Aduanas (DEROGADA por 168-21)", "vigente": False},
+    "376-05":  {"nombre": "Ley Aduanas anterior (DEROGADA por 168-21)", "vigente": False, "sustituida_por": "168-21"},
     "226-06":  {"nombre": "Autonomía DGA", "vigente": True},
     "147-00":  {"nombre": "Reforma Arancelaria", "vigente": True},
     "84-99":   {"nombre": "Reactivación Económica", "vigente": True},
@@ -1218,42 +1219,45 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
         print(f"[SEGURIDAD] {alerta}")
 
     # ══ VALIDACION: Ejecutar bateria de checks ═══════════════════════════
+    # Bug APP-2026-001 #3: paralelizar checks read-only (no mutan respuesta).
+    # Los 3 que mutan (Codigo, Gravamen, FuentesPDF) van secuencial DESPUES.
     checks: List[Tuple[str, str, str]] = []
 
-    # Check 1: Codigo arancelario
+    # Mutadores en orden (secuencial — cada uno puede corregir la respuesta)
     respuesta, st_cod, msg_cod = _check_codigo_arancelario(respuesta)
     checks.append(("Codigo", st_cod, msg_cod))
-
-    # Check 2: Incoherencia producto-capitulo
-    st_inc, msg_inc = _check_incoherencia_producto(respuesta, pregunta)
-    checks.append(("Capitulo", st_inc, msg_inc))
-
-    # Check 3: Dominio tematico
-    st_dom, msg_dom = _check_dominio(respuesta, notebook_id)
-    checks.append(("Dominio", st_dom, msg_dom))
-
-    # Check 4: Leyes citadas
-    st_ley, msg_ley = _check_leyes_citadas(respuesta, notebook_id)
-    checks.append(("Leyes", st_ley, msg_ley))
-
-    # Check 5: Coherencia
-    st_coh, msg_coh = _check_coherencia(respuesta, pregunta)
-    checks.append(("Coherencia", st_coh, msg_coh))
-
-    # Check 6: Fuente
-    st_fue, msg_fue = _check_fuente(respuesta, notebook_id)
-    checks.append(("Fuente", st_fue, msg_fue))
-
-    # Check 7: Alertas de seguridad (inyecciones se bloquean automaticamente = OK)
-    checks.append(("Seguridad", "OK", "OK"))
-
-    # Check 8: Gravamen — validacion legal obligatoria
     respuesta, st_grav, msg_grav = _check_gravamen_arancelario(respuesta)
-    checks.append(("Gravamen", st_grav, msg_grav))
-
-    # Check 9: Validacion contra fuentes PDF locales (nomenclatura)
-    # _check_fuentes_pdf ahora retorna 3 valores (puede auto-corregir respuesta)
     respuesta, st_pdf, msg_pdf = _check_fuentes_pdf(respuesta, pregunta, notebook_id)
+
+    # Read-only en paralelo (5 checks independientes — todos leen respuesta corregida)
+    try:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            f_cap = pool.submit(_check_incoherencia_producto, respuesta, pregunta)
+            f_dom = pool.submit(_check_dominio, respuesta, notebook_id)
+            f_ley = pool.submit(_check_leyes_citadas, respuesta, notebook_id)
+            f_coh = pool.submit(_check_coherencia, respuesta, pregunta)
+            f_fue = pool.submit(_check_fuente, respuesta, notebook_id)
+            st_inc, msg_inc = f_cap.result()
+            st_dom, msg_dom = f_dom.result()
+            st_ley, msg_ley = f_ley.result()
+            st_coh, msg_coh = f_coh.result()
+            st_fue, msg_fue = f_fue.result()
+    except Exception as e:
+        print(f"[SUPERVISOR] Fallback secuencial (paralelo fallo: {e})")
+        st_inc, msg_inc = _check_incoherencia_producto(respuesta, pregunta)
+        st_dom, msg_dom = _check_dominio(respuesta, notebook_id)
+        st_ley, msg_ley = _check_leyes_citadas(respuesta, notebook_id)
+        st_coh, msg_coh = _check_coherencia(respuesta, pregunta)
+        st_fue, msg_fue = _check_fuente(respuesta, notebook_id)
+
+    checks.append(("Capitulo", st_inc, msg_inc))
+    checks.append(("Dominio", st_dom, msg_dom))
+    checks.append(("Leyes", st_ley, msg_ley))
+    checks.append(("Coherencia", st_coh, msg_coh))
+    checks.append(("Fuente", st_fue, msg_fue))
+    checks.append(("Seguridad", "OK", "OK"))
+    checks.append(("Gravamen", st_grav, msg_grav))
     checks.append(("FuentesPDF", st_pdf, msg_pdf))
 
     # Check 10: Codigos de alta especificidad — requieren contexto explicito en la consulta

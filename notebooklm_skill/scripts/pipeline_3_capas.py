@@ -27,6 +27,50 @@ from typing import Optional, Dict, Any
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _DATA = os.path.join(_HERE, "..", "data")
 
+# ── Cache de consultas frecuentes (TTL 7 dias) ──────────────────────────
+# Bug APP-2026-001 #5: productos repetidos no deben recorrer las 3 capas.
+_CACHE_CONSULTAS_PATH = os.path.join(_DATA, "cache_consultas.json")
+_CACHE_TTL_SEG = 7 * 24 * 3600
+
+
+def _cache_key(consulta: str, notebook_id: str) -> str:
+    import hashlib
+    norm = re.sub(r'\s+', ' ', (consulta or "").lower().strip())
+    return hashlib.sha256(f"{notebook_id}|{norm}".encode("utf-8")).hexdigest()[:24]
+
+
+def _cache_get(consulta: str, notebook_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        if not os.path.exists(_CACHE_CONSULTAS_PATH):
+            return None
+        with open(_CACHE_CONSULTAS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        entry = data.get(_cache_key(consulta, notebook_id))
+        if not entry:
+            return None
+        if time.time() - entry.get("ts", 0) > _CACHE_TTL_SEG:
+            return None
+        return entry.get("payload")
+    except Exception:
+        return None
+
+
+def _cache_put(consulta: str, notebook_id: str, payload: Dict[str, Any]) -> None:
+    try:
+        data = {}
+        if os.path.exists(_CACHE_CONSULTAS_PATH):
+            with open(_CACHE_CONSULTAS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        # Limpieza perezosa de expirados
+        now = time.time()
+        data = {k: v for k, v in data.items() if now - v.get("ts", 0) <= _CACHE_TTL_SEG}
+        data[_cache_key(consulta, notebook_id)] = {"ts": now, "payload": payload}
+        os.makedirs(os.path.dirname(_CACHE_CONSULTAS_PATH), exist_ok=True)
+        with open(_CACHE_CONSULTAS_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"[CACHE] No se pudo guardar consulta: {e}")
+
 
 def capa_3_gemini_orquestador(consulta: str, notebook_id: str) -> Dict[str, Any]:
     """
@@ -147,7 +191,12 @@ def _gemini_clasificar_producto(consulta: str, capitulo_pista: str = "") -> Dict
         "3. Si el producto puede caer en varias subpartidas por peso/tamaño/uso, "
         "indica la version mas especifica con justificacion breve.\n"
         "4. Considera Notas Legales del Capitulo y Reglas Generales de Interpretacion "
-        "(RGI 1, 3a, 6).\n\n"
+        "(RGI 1, 3a, 6).\n"
+        "5. ILUMINACION (regla dura — Nota 11.b Cap.85 SA):\n"
+        "   - Lampara/bombillo/tubo LED (con o sin casquillo, el elemento que GENERA luz) -> 8539.52.00\n"
+        "   - Luminaria/fixture/aplique/candelabro (el aparato que SOSTIENE o DIRIGE la luz) -> 94.05.xx\n"
+        "   - Criterio: si el producto genera luz por si mismo -> Cap.85. Si solo la sostiene -> Cap.94.\n"
+        "   - PROHIBIDO clasificar bombillos LED en 9405. Es error frecuente.\n\n"
         "FORMATO DE RESPUESTA (estricto, una linea por campo):\n"
         "CODIGO: [XXXX.XX.XX]\n"
         "CAPITULO: [NN]\n"
@@ -417,6 +466,16 @@ _MAPA_PARTIDAS_RGI = {
         "notas_legales": ["Cap.85 — telefonia y telecomunicaciones"],
         "exclusiones_partida": ["8471 si solo computadora sin telefonia"],
         "criterio_subpartida": "celular vs fijo vs aparato emision",
+    },
+    "8539": {
+        "trigger": ["lampara", "lampara led", "bombillo", "bombilla", "foco", "tubo led", "led con casquillo", "e27", "e14"],
+        "rgi": "RGI 1 + Nota 11.b Cap.85",
+        "notas_legales": [
+            "Nota 11.b) Capitulo 85: las lamparas y tubos LED, incluso con casquillo, clasifican en 85.39 — NO en Cap.94",
+            "Distincion clave: 85.39 = lampara (genera luz). 94.05 = luminaria (la sostiene/dirige).",
+        ],
+        "exclusiones_partida": ["94.05 luminarias/fixtures completos"],
+        "criterio_subpartida": "tipo de lampara: incandescente (8539.21/22), descarga (8539.31/32), LED (8539.52)",
     },
     "8541": {
         "trigger": ["panel solar", "fotovoltaico", "celula solar"],
@@ -908,6 +967,13 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     t0 = time.time()
     trazabilidad = {"consulta": consulta, "notebook_id": notebook_id, "capas": []}
 
+    # CACHE-HIT: si la consulta ya se resolvio en los ultimos 7 dias, devolver directo
+    cached = _cache_get(consulta, notebook_id)
+    if cached:
+        cached["tiempo_total_ms"] = int((time.time() - t0) * 1000)
+        cached["cache_hit"] = True
+        return cached
+
     # CAPA 3: Gemini orquestador
     c3 = capa_3_gemini_orquestador(consulta, notebook_id)
     trazabilidad["capas"].append(c3)
@@ -932,16 +998,33 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     c1 = capa_1_claude_validador(consulta, codigo_propuesto, caracteristicas_capa3=caracs)
     trazabilidad["capas"].append(c1)
 
-    # Reintento: si Capa 1 marca codigo_generico, pedir a Gemini que afine
-    if c1.get("codigo_generico") and c2.get("fuente") == "gemini_rest":
+    # Reintento: codigo generico (.99) O codigo inexistente en cache.
+    # Bug APP-2026-001 #1: antes solo reintentaba .99; ahora tambien si no existe.
+    necesita_retry = (
+        (c1.get("codigo_generico") and c2.get("fuente") == "gemini_rest") or
+        (c2.get("fuente") == "gemini_rest" and codigo_propuesto and not c1.get("codigo_existe"))
+    )
+    if necesita_retry:
         alternativas = c1.get("alternativas_mas_especificas", [])
+        if not alternativas and not c1.get("codigo_existe"):
+            # Sugerir hermanas de la misma partida desde el cache
+            try:
+                cache_path = os.path.join(_DATA, "fuentes_nomenclatura", "arancel_cache.json")
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    _cache = json.load(f)
+                _codigos = _cache.get("codigos", _cache)
+                p4 = codigo_propuesto[:4] if codigo_propuesto else ""
+                alternativas = sorted([c for c in _codigos.keys() if c.startswith(p4)])[:8]
+            except Exception:
+                alternativas = []
         if alternativas:
+            motivo = "no existe en arancel_cache.json" if not c1.get("codigo_existe") else "es generico 'los demas'"
             consulta_refinada = (
-                f"{consulta}. ATENCION: PROHIBIDO clasificar como {codigo_propuesto} (es generico 'los demas'). "
-                f"Elige una de estas subpartidas mas especificas segun caracteristicas del producto: "
+                f"{consulta}. ATENCION: PROHIBIDO clasificar como {codigo_propuesto} ({motivo}). "
+                f"Elige una de estas subpartidas validas del Arancel RD: "
                 f"{', '.join(alternativas[:5])}"
             )
-            print(f"[PIPELINE] Reintentando Capa 2 — codigo {codigo_propuesto} es generico")
+            print(f"[PIPELINE] Reintentando Capa 2 — codigo {codigo_propuesto} {motivo}")
             c2_retry = capa_2_notion_merceologia(consulta_refinada, notebook_id,
                                                   capitulo_pista=capitulo_pista)
             trazabilidad["capas"].append({**c2_retry, "capa": 2, "nombre": "Capa 2 reintento"})
@@ -991,6 +1074,11 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
         trazabilidad["nota"] = "Capa 2 sin match (md+sqlite+gemini). Producto necesita ficha manual."
 
     trazabilidad["tiempo_total_ms"] = int((time.time() - t0) * 1000)
+
+    # CACHE-PUT: guardar solo respuestas validas (patron intacto + codigo final)
+    if trazabilidad.get("patron_intacto") and trazabilidad.get("codigo_final"):
+        _cache_put(consulta, notebook_id, trazabilidad)
+
     return trazabilidad
 
 
