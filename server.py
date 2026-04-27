@@ -813,6 +813,25 @@ def consultar():
                 _sys.path.insert(0, _ag_path)
             from pipeline_3_capas import ejecutar_pipeline
             traz = ejecutar_pipeline(question, notebook_id)
+
+            # GATE ENTRADA (CEO-ERR-002/2026): si bloqueo, devolver mensaje de
+            # desambiguacion al usuario. NO caer al fallback Gemini — eso eludiria
+            # la barrera. Regla CEO: el gate no puede ser eludido.
+            if traz.get("gate_bloqueo"):
+                print(f"[PIPELINE_3CAPAS] gate_entrada bloqueo: {traz.get('tipo_error')}")
+                return jsonify({
+                    "answer": traz.get("respuesta_final") or
+                              "Por favor describa el producto con mas detalle (funcion, "
+                              "material, propulsion). Adjunte ficha tecnica si la tiene.",
+                    "from_cache": False,
+                    "cache_via": "gate_entrada",
+                    "meta": {
+                        "gate_bloqueo": True,
+                        "tipo": traz.get("tipo_error"),
+                        "headings_posibles": traz.get("gate_entrada", {}).get("headings_posibles", []),
+                    },
+                })
+
             if traz.get("patron_intacto") and traz.get("respuesta_final") and traz.get("codigo_final"):
                 print(f"[PIPELINE_3CAPAS] OK codigo={traz['codigo_final']} "
                       f"tiempo={traz.get('tiempo_total_ms')}ms")

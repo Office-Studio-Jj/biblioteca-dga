@@ -27,6 +27,21 @@ from typing import Optional, Dict, Any
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _DATA = os.path.join(_HERE, "..", "data")
 
+# Project root para importar sub_agentes (CEO-ERR-002/2026)
+_PROJECT_ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
+try:
+    from sub_agentes.clasificador_merceologico_auto import (
+        validar_entrada as _gate_validar_entrada,
+        validar_salida as _gate_validar_salida,
+    )
+except Exception as _e_gate:
+    print(f"[PIPELINE] Aviso: no se pudo importar gates ({_e_gate}). Pipeline opera sin barreras.")
+    _gate_validar_entrada = None
+    _gate_validar_salida = None
+
 # ── Cache de consultas frecuentes (TTL 7 dias) ──────────────────────────
 # Bug APP-2026-001 #5: productos repetidos no deben recorrer las 3 capas.
 _CACHE_CONSULTAS_PATH = os.path.join(_DATA, "cache_consultas.json")
@@ -1014,6 +1029,21 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     t0 = time.time()
     trazabilidad = {"consulta": consulta, "notebook_id": notebook_id, "capas": []}
 
+    # GATE ENTRADA (CEO-ERR-002/2026) — barrera ANTES de cache y de cualquier capa.
+    # No puede ser eludida: input ambiguo o insuficiente nunca toca clasificacion.
+    if _gate_validar_entrada is not None:
+        gate_in = _gate_validar_entrada(consulta)
+        trazabilidad["gate_entrada"] = gate_in
+        if not gate_in.get("ok"):
+            trazabilidad["gate_bloqueo"] = True
+            trazabilidad["tipo_error"] = gate_in.get("tipo")
+            trazabilidad["respuesta_final"] = gate_in.get("mensaje", "")
+            trazabilidad["codigo_final"] = None
+            trazabilidad["patron_intacto"] = False
+            trazabilidad["tiempo_total_ms"] = int((time.time() - t0) * 1000)
+            print(f"[PIPELINE] GATE_ENTRADA bloqueo: {gate_in.get('tipo')} — {consulta!r}")
+            return trazabilidad
+
     # CACHE-HIT: si la consulta ya se resolvio en los ultimos 7 dias, devolver directo
     cached = _cache_get(consulta, notebook_id)
     if cached:
@@ -1145,10 +1175,33 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
         trazabilidad["patron_intacto"] = False
         trazabilidad["nota"] = "Capa 2 sin match (md+sqlite+gemini). Producto necesita ficha manual."
 
+    # GATE SALIDA (CEO-ERR-002/2026) — barrera antes de retornar resultado.
+    # Valida nivel nacional RD >= 8 digitos con formato XXXX.XX.XX.
+    if _gate_validar_salida is not None and trazabilidad.get("codigo_final"):
+        gate_out = _gate_validar_salida(
+            trazabilidad.get("codigo_final") or "",
+            rgi=trazabilidad.get("rgi") or "",
+            fuente_db={"existe": True} if trazabilidad.get("patron_intacto") else None,
+        )
+        trazabilidad["gate_salida"] = gate_out
+        trazabilidad["metadatos_legales"] = {
+            "fuente":            gate_out["fuente"],
+            "rgi_aplicada":      gate_out["rgi_aplicada"],
+            "base_legal":        gate_out["base_legal"],
+            "nota_verificacion": gate_out["nota_verificacion"],
+        }
+        if gate_out["advertencias"]:
+            trazabilidad["advertencias"] = gate_out["advertencias"]
+        if not gate_out["nivel_valido"]:
+            # Codigo no cumple nivel nacional — degradar patron_intacto
+            trazabilidad["patron_intacto"] = False
+            print(f"[PIPELINE] GATE_SALIDA rechazo: {gate_out['advertencias']}")
+
     trazabilidad["tiempo_total_ms"] = int((time.time() - t0) * 1000)
 
-    # CACHE-PUT: guardar solo respuestas validas (patron intacto + codigo final)
-    if trazabilidad.get("patron_intacto") and trazabilidad.get("codigo_final"):
+    # CACHE-PUT: solo respuestas validas (patron intacto + codigo final + gate salida ok)
+    if (trazabilidad.get("patron_intacto") and trazabilidad.get("codigo_final")
+            and trazabilidad.get("gate_salida", {}).get("nivel_valido", True)):
         _cache_put(consulta, notebook_id, trazabilidad)
 
     return trazabilidad

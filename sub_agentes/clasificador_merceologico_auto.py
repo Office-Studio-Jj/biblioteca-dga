@@ -41,6 +41,157 @@ from capa1_sqlite.orquestador_capa3 import (
 _SON_RE = re.compile(r'\b(\d{4}\.\d{2}\.\d{2}(?:\.\d{2})?)\b')
 
 
+# ── Diccionario de términos ambiguos (CEO-ERR-002/2026) ──────────────────
+
+_TERMINOS_AMBIGUOS: dict[str, dict] = {
+    "scooter":      {"headings": ["87.11", "87.12", "87.03"],
+                     "preguntas": "¿Tiene motor de combustión interna (sí/no)? ¿Velocidad máxima (km/h)? Adjunte ficha técnica."},
+    "scooters":     {"headings": ["87.11", "87.12", "87.03"],
+                     "preguntas": "¿Tiene motor de combustión interna (sí/no)? ¿Velocidad máxima (km/h)? Adjunte ficha técnica."},
+    "motor":        {"headings": ["84.07", "84.08", "85.01"],
+                     "preguntas": "¿Tipo de motor (combustión interna / eléctrico)? ¿Uso previsto? ¿Potencia (kW)?"},
+    "motores":      {"headings": ["84.07", "84.08", "85.01"],
+                     "preguntas": "¿Tipo de motor (combustión interna / eléctrico)? ¿Uso previsto? ¿Potencia (kW)?"},
+    "batería":      {"headings": ["85.06", "85.07", "85.39"],
+                     "preguntas": "¿Es recargable (sí/no)? ¿Química (Li-ion, plomo, alcalina)?"},
+    "bateria":      {"headings": ["85.06", "85.07", "85.39"],
+                     "preguntas": "¿Es recargable (sí/no)? ¿Química (Li-ion, plomo, alcalina)?"},
+    "panel":        {"headings": ["85.41", "76.10", "94.06"],
+                     "preguntas": "¿Material? ¿Función (solar, estructural, decorativo)?"},
+    "paneles":      {"headings": ["85.41", "76.10", "94.06"],
+                     "preguntas": "¿Material? ¿Función (solar, estructural, decorativo)?"},
+    "cable":        {"headings": ["74.13", "76.05", "85.44"],
+                     "preguntas": "¿Material (cobre, aluminio, acero)? ¿Uso eléctrico (sí/no)?"},
+    "cables":       {"headings": ["74.13", "76.05", "85.44"],
+                     "preguntas": "¿Material (cobre, aluminio, acero)? ¿Uso eléctrico (sí/no)?"},
+    "equipo":       {"headings": ["Cap.84", "Cap.85", "Cap.90"],
+                     "preguntas": "¿Función específica del equipo? ¿Sector de uso?"},
+    "equipos":      {"headings": ["Cap.84", "Cap.85", "Cap.90"],
+                     "preguntas": "¿Función específica del equipo? ¿Sector de uso?"},
+    "dispositivo":  {"headings": ["Cap.84", "Cap.85", "Cap.90"],
+                     "preguntas": "¿Función específica? ¿Sector de uso?"},
+    "dispositivos": {"headings": ["Cap.84", "Cap.85", "Cap.90"],
+                     "preguntas": "¿Función específica? ¿Sector de uso?"},
+    "accesorio":    {"headings": ["múltiples capítulos"],
+                     "preguntas": "¿Accesorio de qué producto principal?"},
+    "accesorios":   {"headings": ["múltiples capítulos"],
+                     "preguntas": "¿Accesorio de qué producto principal?"},
+    "repuesto":     {"headings": ["múltiples capítulos"],
+                     "preguntas": "¿Repuesto de qué máquina o sistema?"},
+    "repuestos":    {"headings": ["múltiples capítulos"],
+                     "preguntas": "¿Repuesto de qué máquina o sistema?"},
+}
+
+# Calificadores técnicos que resuelven la ambigüedad cuando acompañan al término
+_TECH_QUALIFIERS = {
+    "electrico", "electrica", "electricos", "electricas",
+    "eléctrico", "eléctrica", "eléctricos", "eléctricas",
+    "combustion", "combustión", "gasolina", "diesel", "diésel",
+    "cilindro", "cilindros", "cc", "kw", "hp", "cv", "watts",
+    "voltio", "voltios", "volt", "amperio", "amperios", "amp",
+    "litio", "plomo", "alcalina", "niquel", "hidruro",
+    "cobre", "aluminio", "acero", "hierro", "zinc", "bronce",
+    "solar", "fotovoltaico", "monocristalino", "policristalino",
+    "recargable", "primaria", "secundaria",
+    "patineta", "ciclomotor", "vespa", "kick", "bicicleta",
+    "sin motor", "con motor",
+}
+
+
+def validar_entrada(termino: str) -> dict:
+    """
+    Gate ENTRADA (CEO-ERR-002/2026). Primera barrera del pipeline.
+    Regla: nunca emitir código arancelario con input ambiguo o insuficiente.
+    Si el término es ambiguo y carece de calificadores técnicos → detener.
+    """
+    if not termino or not termino.strip():
+        return {
+            "ok": False,
+            "tipo": "ENTRADA_INSUFICIENTE",
+            "mensaje": "Describa el producto con función, material y propulsión. Adjunte ficha técnica.",
+        }
+    norm = termino.strip().lower()
+    # Limpiar puntuación preservando letras (incluye tildes/ñ) y números
+    norm_tok = re.sub(r"[^\w\sáéíóúñü]", " ", norm, flags=re.UNICODE)
+    tokens = norm_tok.split()
+    token_set = set(tokens)
+
+    # Check diccionario de términos ambiguos
+    token_ambiguo = None
+    for tok in tokens:
+        if tok in _TERMINOS_AMBIGUOS:
+            token_ambiguo = tok
+            break
+
+    if token_ambiguo:
+        tiene_qualifier = bool(token_set & _TECH_QUALIFIERS)
+        # "sin motor" y "con motor" son frases, verificar en texto completo
+        if not tiene_qualifier:
+            tiene_qualifier = "sin motor" in norm or "con motor" in norm
+        if not tiene_qualifier:
+            info = _TERMINOS_AMBIGUOS[token_ambiguo]
+            headings_str = ", ".join(info["headings"])
+            return {
+                "ok": False,
+                "tipo": "AMBIGUO",
+                "termino_ambiguo": token_ambiguo,
+                "headings_posibles": info["headings"],
+                "mensaje": (
+                    f"El término '{token_ambiguo}' puede corresponder a: {headings_str}. "
+                    f"Indique: {info['preguntas']}"
+                ),
+            }
+
+    # Check longitud/especificidad mínima
+    if len(norm) < 5:
+        return {
+            "ok": False,
+            "tipo": "ENTRADA_POCO_ESPECIFICA",
+            "mensaje": (
+                "Descripción insuficiente. Indique función principal, material, "
+                "propulsión y uso previsto. Adjunte ficha técnica."
+            ),
+        }
+    return {"ok": True}
+
+
+def validar_salida(son: str, rgi: str = "", fuente_db: dict | None = None) -> dict:
+    """
+    Gate SALIDA (CEO-ERR-002/2026). Última barrera antes de emitir resultado.
+    Valida nivel nacional RD >= 8 dígitos. Agrega metadatos obligatorios.
+    Regla anti-fallback: ausencia del elemento constitutivo del heading = exclusión total.
+    """
+    digits_only = re.sub(r"[^0-9]", "", son or "")
+    resultado: dict = {
+        "son_validado": son,
+        "nivel_valido": False,
+        "advertencias": [],
+        "fuente": "Arancel DGA (www.aduanas.gob.do)",
+        "rgi_aplicada": rgi or "Indicar RGI aplicable (RGI 1–6 SA 2022)",
+        "base_legal": "Ley 3489 del 14/02/1953 | Ley 168-21 | Decreto 36-22",
+        "nota_verificacion": "Validar con aforador acreditado. Fuente definitiva: www.aduanas.gob.do",
+    }
+    if len(digits_only) < 8:
+        resultado["advertencias"].append(
+            f"Código '{son}' tiene {len(digits_only)} dígitos significativos — "
+            "se requieren 8 (XXXX.XX.XX). Verificar en Arancel DGA."
+        )
+        return resultado
+    # Formato obligatorio con puntos (CLAUDE.md): XXXX.XX.XX o XXXX.XX.XX.XX
+    if not _SON_RE.match((son or "").strip()):
+        resultado["advertencias"].append(
+            f"Código '{son}' no cumple formato XXXX.XX.XX. "
+            "Re-emitir con puntos. Fuente: Arancel DGA."
+        )
+        return resultado
+    resultado["nivel_valido"] = True
+    if fuente_db is not None and not fuente_db:
+        resultado["advertencias"].append(
+            f"Código {son} no encontrado en base local. Confirmar en www.aduanas.gob.do."
+        )
+    return resultado
+
+
 # ── Etapa 1: Ficha merceologica (Gemini) ─────────────────────────────────
 
 _PROMPT_FICHA = """Eres un analista aduanero RD. Devuelve SOLO JSON valido con esta estructura exacta:
@@ -176,6 +327,10 @@ REGLAS:
 - Si dudas, elige el mas especifico
 - Cita nota legal o partida explicativa en justificacion
 - NO inventes codigos, solo candidatos coherentes con las notas
+- REGLA ANTI-FALLBACK (CEO-ERR-002/2026): si el elemento constitutivo del heading
+  NO aplica al producto, EXCLUIR el heading completo incluido su "Los demas".
+  Evaluar headings alternativos antes de usar cualquier clausula residual.
+  Nunca clasificar bajo un heading cuyo criterio de inclusion el producto no cumple.
 """
 
 
@@ -269,7 +424,8 @@ def _resolver_ds_id(notion, db_id: str) -> str:
 
 def clasificar_producto(descripcion: str, publicar: bool = False) -> dict:
     """
-    Pipeline completo de 7 etapas. Retorna dict con todas las etapas + SON final.
+    Pipeline completo con gates de entrada/salida (CEO-ERR-002/2026).
+    [GATE_IN] → [1-6 etapas] → [GATE_OUT]
     """
     t0 = time.time()
     resultado = {
@@ -279,6 +435,15 @@ def clasificar_producto(descripcion: str, publicar: bool = False) -> dict:
         "confianza":    "",
         "validado":     False,
     }
+
+    # [GATE ENTRADA] — barrera antes de clasificar
+    gate_entrada = validar_entrada(descripcion)
+    resultado["etapas"]["0_gate_entrada"] = gate_entrada
+    if not gate_entrada["ok"]:
+        resultado["error"] = gate_entrada["tipo"]
+        resultado["mensaje_usuario"] = gate_entrada["mensaje"]
+        resultado["latencia_total_ms"] = round((time.time() - t0) * 1000, 1)
+        return resultado
 
     # [1] Ficha
     ficha = generar_ficha_merceologica(descripcion)
@@ -322,6 +487,22 @@ def clasificar_producto(descripcion: str, publicar: bool = False) -> dict:
         resultado["etapas"]["6_notion"] = pub
     else:
         resultado["etapas"]["6_notion"] = {"ok": False, "razon": "no solicitado"}
+
+    # [GATE SALIDA] — barrera antes de retornar resultado
+    gate_salida = validar_salida(
+        resultado["son_final"],
+        rgi=refinado.get("rgi_aplicada", ""),
+        fuente_db=capa1.get("exacto"),
+    )
+    resultado["etapas"]["7_gate_salida"] = gate_salida
+    resultado["metadatos"] = {
+        "fuente":            gate_salida["fuente"],
+        "rgi_aplicada":      gate_salida["rgi_aplicada"],
+        "base_legal":        gate_salida["base_legal"],
+        "nota_verificacion": gate_salida["nota_verificacion"],
+    }
+    if gate_salida["advertencias"]:
+        resultado["advertencias"] = gate_salida["advertencias"]
 
     resultado["latencia_total_ms"] = round((time.time() - t0) * 1000, 1)
     return resultado

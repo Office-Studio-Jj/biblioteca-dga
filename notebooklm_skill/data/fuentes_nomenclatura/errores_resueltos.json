@@ -3,7 +3,7 @@
     "version": "2.0",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
     "ultima_actualizacion": "2026-04-27",
-    "total_errores": 27,
+    "total_errores": 29,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -935,6 +935,78 @@
         "_gemini_clasificar_producto() prompt regla 5 PRINCIPIO ELEMENTO vs APARATO"
       ],
       "verificacion": "consulta 'bombillo LED E27' debe dar 8539.52.00, no 9405. consulta 'cartucho tinta HP' debe dar 3215.x, no 8443.x. Agregar nuevo par a _PARES_ELEMENTO_APARATO si aparece nuevo caso (escalable como tabla, no codigo).",
+      "fecha_resolucion": "2026-04-27",
+      "commit": "PENDING"
+    },
+    {
+      "id": "ERR-028",
+      "titulo": "CEO-ERR-001-A: Código emitido en nivel HS genérico (< 8 dígitos) en lugar de subpartida nacional RD",
+      "sintomas_usuario": [
+        "código arancelario incompleto",
+        "solo 6 dígitos en el resultado",
+        "da XXXX.XX sin la apertura nacional",
+        "partida sin subpartida",
+        "código genérico en vez del nacional"
+      ],
+      "keywords_match": [
+        "codigo incompleto",
+        "6 digitos",
+        "partida generica",
+        "sin subpartida",
+        "nivel hs",
+        "sin apertura",
+        "codigo corto"
+      ],
+      "componente": "sub_agentes/clasificador_merceologico_auto.py — gate_salida",
+      "tipo": "clasificacion/nivel-nacional",
+      "fix_resumen": "Gate SALIDA (validar_salida) rechaza códigos con < 8 dígitos significativos y agrega advertencia obligatoria. El pipeline no puede emitir un SON con menos de 8 dígitos sin marcar el resultado como no válido. Regla: el nivel mínimo RD es XXXX.XX.XX (8 dígitos). La apertura nacional puede extenderse a XXXX.XX.XX si existe en el Arancel DGA. Fix implementado en CEO-ERR-002/2026.",
+      "archivos": [
+        "sub_agentes/clasificador_merceologico_auto.py"
+      ],
+      "lineas_clave": [
+        "validar_salida() — len(digits_only) < 8 → nivel_valido=False + advertencia",
+        "resultado['etapas']['7_gate_salida']",
+        "resultado['advertencias']"
+      ],
+      "verificacion": "clasificar_producto('bicicleta de montaña 26 pulgadas') → etapas.7_gate_salida.nivel_valido debe ser True y son_final debe tener formato XXXX.XX.XX",
+      "fecha_resolucion": "2026-04-27",
+      "commit": "PENDING"
+    },
+    {
+      "id": "ERR-029",
+      "titulo": "CEO-ERR-002-B: Heading incorrecto por fallback residual mal aplicado — ausencia del elemento constitutivo = exclusión total, no residual",
+      "sintomas_usuario": [
+        "scooter clasificado como motocicleta",
+        "patineta eléctrica en 87.11",
+        "8711.20.29 para scooter sin motor de émbolo",
+        "Los demás del heading incorrecto",
+        "residual mal aplicado",
+        "ausencia de motor da 'Los demás'"
+      ],
+      "keywords_match": [
+        "heading incorrecto",
+        "fallback residual",
+        "los demas equivocado",
+        "8711.20.29 scooter",
+        "sin motor de embolo",
+        "patineta en 87.11",
+        "excluir heading",
+        "elemento constitutivo",
+        "anti-fallback"
+      ],
+      "componente": "sub_agentes/clasificador_merceologico_auto.py — _PROMPT_REFINAR + gate_entrada",
+      "tipo": "clasificacion/logica-heading",
+      "fix_resumen": "Dos correcciones: (1) Gate ENTRADA detecta 'scooter/scooters' como término ambiguo sin calificadores técnicos (motor/electrico/sin motor/velocidad) → detiene y pide especificación. (2) Regla ANTI-FALLBACK en _PROMPT_REFINAR: si el elemento constitutivo del heading NO aplica al producto, excluir el heading completo incluido su 'Los demás' — evaluar headings alternativos antes de usar residuales. Error concreto: scooter eléctrico sin motor de émbolo alternativo → sistema cayó en 8711.20.29 (Los demás 87.11) en lugar de excluir 87.11 y clasificar en 8712.60.14. Normas: RGI 1 y 6 SA 2022 | Notas Cap. 87 | Ley 3489 del 14/02/1953.",
+      "archivos": [
+        "sub_agentes/clasificador_merceologico_auto.py"
+      ],
+      "lineas_clave": [
+        "_TERMINOS_AMBIGUOS['scooter'] → headings [87.11, 87.12, 87.03]",
+        "validar_entrada() — token_ambiguo check + _TECH_QUALIFIERS",
+        "_PROMPT_REFINAR — REGLA ANTI-FALLBACK",
+        "validar_salida() — metadatos obligatorios (fuente DGA, RGI, base legal)"
+      ],
+      "verificacion": "clasificar_producto('Scooters') → error='AMBIGUO' sin código. clasificar_producto('patineta eléctrica kick scooter sin motor de combustión 25 km/h') → son_final debe ser 8712.xx.xx, NO 8711.xx.xx",
       "fecha_resolucion": "2026-04-27",
       "commit": "PENDING"
     }
