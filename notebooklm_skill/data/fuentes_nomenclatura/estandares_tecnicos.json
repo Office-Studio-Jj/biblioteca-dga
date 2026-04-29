@@ -130,7 +130,7 @@
   ],
   "reglas_indotel": {
     "descripcion": "INDOTEL aplica SOLO si el producto contiene módulo de radiofrecuencia activo",
-    "keywords_rf": ["Bluetooth", "Wi-Fi", "WiFi", "ZigBee", "RF", "LTE", "NFC", "4G", "5G", "GSM", "GPRS", "LoRa", "Sigfox", "radio", "inalámbrico transmisión"],
+    "keywords_rf": ["Bluetooth", "Wi-Fi", "WiFi", "ZigBee", "LTE", "NFC", "4G", "5G", "GSM", "GPRS", "LoRa", "Sigfox", "radiofrecuencia", "RF module", "transmisor inalámbrico", "antena emisora"],
     "fuente_legal": "Ley 153-98 Telecomunicaciones RD · Nota Adicional 1 Cap.85 Arancel RD",
     "instruccion": "Si el texto del producto NO contiene ninguna de estas keywords → INDOTEL NO aplica. Si contiene → INDOTEL OBLIGATORIO."
   }

@@ -938,20 +938,26 @@ def _rag_context_from_cache(question: str) -> str:
     try:
         cache_path = os.path.join(_DATA_DIR, 'arancel_cache.json')
         with open(cache_path, 'r', encoding='utf-8') as f:
-            cache = json.load(f)
+            cache_raw = json.load(f)
+        # Soporta dos formatos: dict plano o wrapper {codigos: {...}}
+        cache = cache_raw.get('codigos', cache_raw) if isinstance(cache_raw, dict) else {}
 
-        q_words = set(re.findall(r'\b\w{4,}\b', question.lower()))
+        # Stopwords genéricas que no aportan señal merceológica
+        _SW = {'para', 'producto', 'tipo', 'todos', 'demas', 'demás', 'otros',
+               'cada', 'esta', 'este', 'estos', 'como', 'cual', 'sobre',
+               'desde', 'hasta', 'entre', 'porque', 'segun', 'según'}
+        q_words = set(w for w in re.findall(r'\b\w{4,}\b', question.lower()) if w not in _SW)
         hits = []
         for codigo, desc in cache.items():
             if not isinstance(desc, str):
                 continue
             desc_lower = desc.lower()
             score = sum(1 for w in q_words if w in desc_lower)
-            if score >= 2:
+            if score >= 1:
                 hits.append((score, codigo, desc))
 
         hits.sort(key=lambda x: -x[0])
-        top = hits[:6]
+        top = hits[:8]
         if not top:
             return ""
 
@@ -1116,17 +1122,32 @@ def _detectar_partidas_concurrentes(answer: str, question: str) -> str:
             grav_data = json.load(gf)
         cache_path = os.path.join(_DATA_DIR, 'arancel_cache.json')
         with open(cache_path, 'r', encoding='utf-8') as cf:
-            cache = json.load(cf)
+            _raw = json.load(cf)
+        cache = _raw.get('codigos', _raw) if isinstance(_raw, dict) else {}
     except Exception:
         return answer
 
+    cache_codigos = cache.get('codigos', cache) if isinstance(cache, dict) else {}
+
     opciones = []
     for cod in codigos_unicos[:3]:
-        g = float(grav_data.get(cod, {}).get('g', 14))
-        desc = cache.get(cod, "Sin descripción en cache")[:80]
-        # ITBIS: 18% por defecto, 0% si cap.90
-        cap = cod[:2]
-        itbis = 0 if cap == "90" else 18
+        # DAI: lookup posicional → fallback Capa 1 SQLite
+        g = grav_data.get(cod, {}).get('g')
+        if g is None:
+            g_capa1 = _capa1_grav(cod)
+            g = g_capa1 if g_capa1 is not None else 14
+        g = float(g)
+        desc = cache_codigos.get(cod, "Sin descripción en cache")[:80] if isinstance(cache_codigos, dict) else "—"
+        # ITBIS: leer de Capa 1 (columna EX.ITBIS); fallback heurístico
+        itbis = 18
+        try:
+            global _capa1_mod
+            if _capa1_mod is not None:
+                _r = _capa1_mod.consultar_son_exacto(cod)
+                if _r and "EXENTO" in str(_r.get("itbis", "")).upper():
+                    itbis = 0
+        except Exception:
+            pass
         # Carga sobre $1,000 CIF
         carga = (g / 100 * 1000) + (itbis / 100 * (1000 + g / 100 * 1000))
         opciones.append({"cod": cod, "desc": desc, "dai": g, "itbis": itbis, "carga_1000": round(carga, 2)})
@@ -1229,7 +1250,7 @@ def _bloquear_sensor_8512(answer: str, question: str) -> str:
             answer, count=1
         )
         answer += bloque
-        print(f"[SENSOR-8512] BLOQUEADO 8512.30.00 → {nuevo_cod} para sensor vehicular")
+        print(f"[SENSOR-8512] BLOQUEADO 8512.30.00 -> {nuevo_cod} para sensor vehicular")
     except Exception as _e:
         print(f"[SENSOR-8512] Error: {_e}")
         answer += (
