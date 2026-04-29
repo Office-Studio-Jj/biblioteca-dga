@@ -95,6 +95,13 @@ _TECH_QUALIFIERS = {
     "recargable", "primaria", "secundaria",
     "patineta", "ciclomotor", "vespa", "kick", "bicicleta",
     "sin motor", "con motor",
+    # CEO Audit 28-Abr-2026: estándares técnicos digitales que desambiguan cable/dispositivo
+    "hdmi", "usb", "usb-c", "usb-a", "usb-b", "usb3", "usb4", "lightning",
+    "ethernet", "rj45", "cat5", "cat6", "cat7", "cat8",
+    "thunderbolt", "displayport", "vga", "dvi",
+    "obd", "obd-ii", "obd2",
+    "bluetooth", "wifi", "wi-fi", "zigbee", "lte", "nfc",
+    "biometrico", "biométrico", "biometric",
 }
 
 
