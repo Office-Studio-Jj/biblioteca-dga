@@ -1,0 +1,106 @@
+{
+  "_meta": {
+    "descripcion": "Lógica condicional de sensores vehiculares. Reemplaza 8512.30.00 (INCORRECTO). CEO Audit 28-Apr-2026.",
+    "fuente_legal": "SA 7ma Enmienda OMA · Nota 2 Sección XVII · RGI 1, 3(c) · Arancel RD Cap.90 · Ley 168-21 · Dec.755-22",
+    "version": "1.0",
+    "regla_critica": "8512.30.00 es SOLO para bocinas y alarmas sonoras. NUNCA para sensores electrónicos de medición.",
+    "base_legal_exclusion": "Nota 2 Sección XVII SA: los instrumentos y aparatos del Capítulo 90 quedan expresamente excluidos de la partida 87.08, aunque sean identificables como partes de vehículos."
+  },
+  "codigo_bloqueado": {
+    "codigo": "8512.30.00",
+    "descripcion_oficial": "Aparatos de señalización acústica (bocinas, sirenas, alarmas sonoras para vehículos)",
+    "uso_correcto": "SOLO bocinas eléctricas, sirenas acústicas y alarmas sonoras para vehículos",
+    "uso_incorrecto": "Sensores electrónicos de medición para vehículos — NUNCA usar para sensores",
+    "dai_incorrecto": 14,
+    "itbis_incorrecto": 18,
+    "accion": "BLOQUEAR y redirigir a tabla de tipos de sensor"
+  },
+  "tipos_de_sensor": [
+    {
+      "tipo": "Motor — RPM, posición cigüeñal, árbol de levas, sincronización",
+      "keywords": ["RPM", "cigüeñal", "árbol de levas", "CMP sensor", "CKP sensor", "sensor de árbol", "sensor cigüeñal", "sensor de posición motor", "sincronización motor", "sensor de fase"],
+      "codigo_rd": "9031.80.11",
+      "descripcion_oficial": "Aparatos para regular motores de vehículos — Instrumentos y aparatos para medir o verificar Cap.87",
+      "dai": 0,
+      "itbis": 18,
+      "itbis_status": "GRAVADO",
+      "isc": "NO APLICA",
+      "permisos": "NINGUNO",
+      "nota_legal": "Cap.90 instrumento de medida/verificación. Nota 2 Sección XVII SA excluye de 87.08."
+    },
+    {
+      "tipo": "Nivel — combustible, líquidos, coolant (flotante o electrónico)",
+      "keywords": ["sensor de nivel", "nivel de combustible", "nivel de líquido", "sensor flotante", "fuel level sensor", "sensor coolant level", "nivel de agua", "sensor de tanque"],
+      "codigo_rd": "9026.10.11",
+      "descripcion_oficial": "Medidores de caudal, nivel o presión de líquidos o gases — Medidores de carburantes para vehículos",
+      "dai": 0,
+      "itbis": 18,
+      "itbis_status": "GRAVADO",
+      "isc": "NO APLICA",
+      "permisos": "NINGUNO",
+      "nota_legal": "9026 cubre medidores de nivel/flujo/presión. DAI 0% — instrumento Cap.90."
+    },
+    {
+      "tipo": "Semiconductor — transductor de presión, flujo, en microchip",
+      "keywords": ["transductor", "semiconductor", "MEMS sensor", "sensor de presión chip", "pressure transducer", "MAP sensor", "MAF sensor", "sensor de flujo masa", "sensor presión turbo"],
+      "codigo_rd": "8541.51.19",
+      "descripcion_oficial": "Demás transductores basados en semiconductores — otros transductores fotosensibles/presión",
+      "dai": 0,
+      "itbis": 18,
+      "itbis_status": "GRAVADO",
+      "isc": "NO APLICA",
+      "permisos": "NINGUNO",
+      "nota_legal": "Dispositivos semiconductores → Cap.85.41. DAI 0% para componentes electrónicos activos."
+    },
+    {
+      "tipo": "Temperatura — termopar, termistor, RTD, sensor ECT, IAT",
+      "keywords": ["sensor de temperatura", "ECT sensor", "IAT sensor", "termistor vehicular", "sensor coolant temp", "temperatura de motor", "temperatura de aceite", "temperature sensor"],
+      "codigo_rd": "9025.19",
+      "descripcion_oficial": "Termómetros y pirómetros sin combinar con otros instrumentos — Los demás",
+      "dai": 0,
+      "itbis": 18,
+      "itbis_status": "GRAVADO",
+      "isc": "NO APLICA",
+      "permisos": "NINGUNO",
+      "nota_legal": "Sensor temperatura → 9025. DAI 0%."
+    },
+    {
+      "tipo": "Velocidad, aceleración, posición, ABS — IMU, giroscopio",
+      "keywords": ["sensor de velocidad", "ABS sensor", "sensor ABS", "acelerómetro", "giroscopio", "IMU", "VSS sensor", "sensor de rueda", "reluctor", "sensor posición", "wheel speed sensor"],
+      "codigo_rd": "9031.80",
+      "descripcion_oficial": "Instrumentos, aparatos y máquinas de medida o verificación — Los demás",
+      "dai": 0,
+      "itbis": 18,
+      "itbis_status": "GRAVADO",
+      "isc": "NO APLICA",
+      "permisos": "NINGUNO",
+      "nota_legal": "Instrumento medida/verificación → 9031.80. DAI 0%. Extensión nacional requiere verificación en Arancel DGA.",
+      "alerta": "Verificar extensión nacional (.11/.19/.90) en Arancel RD vigente."
+    },
+    {
+      "tipo": "Oxígeno — Lambda/O2, sensor de gases escape",
+      "keywords": ["sensor lambda", "sensor O2", "sensor oxígeno", "sensor de gases", "sensor de escape", "oxygen sensor", "wideband sensor", "AFR sensor"],
+      "codigo_rd": "9027.10",
+      "descripcion_oficial": "Aparatos e instrumentos para análisis de gases o humos",
+      "dai": 0,
+      "itbis": 18,
+      "itbis_status": "GRAVADO",
+      "isc": "NO APLICA",
+      "permisos": "NINGUNO",
+      "nota_legal": "Sensor análisis gases → 9027. DAI 0%."
+    },
+    {
+      "tipo": "Detonación / Knock sensor",
+      "keywords": ["knock sensor", "sensor de detonación", "sensor de vibración motor", "sensor golpeteo"],
+      "codigo_rd": "9031.80",
+      "descripcion_oficial": "Instrumentos y aparatos de medida o verificación — Los demás",
+      "dai": 0,
+      "itbis": 18,
+      "itbis_status": "GRAVADO",
+      "isc": "NO APLICA",
+      "permisos": "NINGUNO",
+      "nota_legal": "Sensor de medida/detección → 9031.80. DAI 0%."
+    }
+  ],
+  "mensaje_correccion": "CORRECCIÓN CEO 28-ABR-2026: El código 8512.30.00 (Aparatos de señalización acústica) NO aplica para sensores electrónicos de medición vehicular. Los sensores electrónicos de vehículos se clasifican en el Capítulo 90 del SA (Instrumentos de medida y verificación), con DAI=0% según el Arancel RD. Base legal: Nota 2 Sección XVII SA."
+}
