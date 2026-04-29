@@ -1223,6 +1223,24 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
     # Los 3 que mutan (Codigo, Gravamen, FuentesPDF) van secuencial DESPUES.
     checks: List[Tuple[str, str, str]] = []
 
+    # CEO AUDIT 28-ABR-2026: Bloqueo preventivo 8512.30.00 para sensores vehiculares
+    if notebook_id == "biblioteca-de-nomenclaturas" and "8512.30.00" in respuesta:
+        _kw_sensor = ['sensor', 'transductor', 'medidor', 'rpm', 'temperatura', 'presión',
+                      'velocidad', 'oxígeno', 'lambda', 'nivel', 'knock', 'ckp', 'cmp', 'maf',
+                      'map', 'abs sensor', 'cigüeñal', 'árbol de levas', 'detonac']
+        _p_lower = pregunta.lower()
+        if any(kw in _p_lower for kw in _kw_sensor):
+            print("[SUPERVISOR-8512] ALERTA: 8512.30.00 en respuesta para producto tipo sensor. "
+                  "CEO Audit 28-Abr-2026 — código reservado solo para bocinas/alarmas acústicas.")
+            respuesta += (
+                "\n\n---SUPERVISOR_ALERTA_8512---"
+                "\nALERTA CEO: 8512.30.00 es INCORRECTO para sensores electrónicos de vehículos."
+                "\nUSO CORRECTO de 8512.30.00: bocinas eléctricas y aparatos de señalización ACÚSTICA."
+                "\nCLASIFICAR SENSORES en Cap.90 (DAI=0%) según Nota 2 Sección XVII SA."
+                "\nRECOMENDACIÓN: Ver tabla sensores_vehiculos.json para código correcto según tipo."
+                "\n---FIN_SUPERVISOR_ALERTA---"
+            )
+
     # Mutadores en orden (secuencial — cada uno puede corregir la respuesta)
     respuesta, st_cod, msg_cod = _check_codigo_arancelario(respuesta)
     checks.append(("Codigo", st_cod, msg_cod))

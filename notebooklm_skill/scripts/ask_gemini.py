@@ -924,6 +924,321 @@ def _corregir_isc_con_lookup(answer: str, notebook_id: str) -> str:
     return answer
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# CEO AUDIT 28-ABR-2026 — Correcciones #1, #2, #3, #4, #5
+# ══════════════════════════════════════════════════════════════════════════════
+
+_DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'fuentes_nomenclatura')
+
+
+def _rag_context_from_cache(question: str) -> str:
+    """CORRECCIÓN #1: RAG lightweight — busca partidas candidatas en arancel_cache.json
+    antes de llamar a Gemini. Devuelve bloque de contexto con códigos + gravámenes reales.
+    Reemplaza el comportamiento 'sin contexto' de Capa 2."""
+    try:
+        cache_path = os.path.join(_DATA_DIR, 'arancel_cache.json')
+        with open(cache_path, 'r', encoding='utf-8') as f:
+            cache = json.load(f)
+
+        q_words = set(re.findall(r'\b\w{4,}\b', question.lower()))
+        hits = []
+        for codigo, desc in cache.items():
+            if not isinstance(desc, str):
+                continue
+            desc_lower = desc.lower()
+            score = sum(1 for w in q_words if w in desc_lower)
+            if score >= 2:
+                hits.append((score, codigo, desc))
+
+        hits.sort(key=lambda x: -x[0])
+        top = hits[:6]
+        if not top:
+            return ""
+
+        lineas = ["CONTEXTO DESDE BIBLIOTECA DGA (Arancel RD — 0% IA):"]
+        for _, cod, desc in top:
+            lineas.append(f"  [{cod}] {desc[:120]}")
+
+        # Enriquecer con gravamen de Capa 1
+        try:
+            grav_path = os.path.join(_DATA_DIR, 'gravamenes_lookup.json')
+            with open(grav_path, 'r', encoding='utf-8') as gf:
+                grav_data = json.load(gf)
+            lineas_enr = [lineas[0]]
+            for _, cod, desc in top:
+                g = grav_data.get(cod, {}).get('g', '?')
+                lineas_enr.append(f"  [{cod}] DAI={g}% — {desc[:100]}")
+            lineas = lineas_enr
+        except Exception:
+            pass
+
+        return "\n".join(lineas)
+    except Exception as _e:
+        print(f"[RAG-CACHE] Error: {_e}")
+        return ""
+
+
+def _detectar_estandar_tecnico(question: str) -> dict | None:
+    """CORRECCIÓN #2: Detecta estándar técnico internacional en el texto.
+    Si HDMI, USB-C, OBD, Bluetooth, etc. → devuelve clasificación directa sin preguntas."""
+    try:
+        est_path = os.path.join(_DATA_DIR, 'estandares_tecnicos.json')
+        with open(est_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        q_upper = question.upper()
+        for est in data.get('estandares', []):
+            for kw in est.get('keywords', []):
+                if kw.upper() in q_upper:
+                    return est
+    except Exception as _e:
+        print(f"[ESTANDAR-TECNICO] Error: {_e}")
+    return None
+
+
+def _bloque_estandar_tecnico(est: dict) -> str:
+    """Convierte un estándar técnico detectado en texto de refuerzo para el prompt."""
+    lineas = [
+        f"\nESTÁNDAR TÉCNICO DETECTADO ({est['id']}):",
+        f"  Clasificación directa sugerida: {est.get('codigo_rd', est.get('codigo_rd_opcion_a', 'ver opciones'))}",
+        f"  Descripción: {est.get('descripcion')}",
+        f"  DAI: {est.get('dai', '?')}%",
+        f"  ITBIS: {est.get('itbis_status', '?')}",
+        f"  ISC: {est.get('isc', 'NO APLICA')}",
+        f"  Permisos: {est.get('permisos', 'NINGUNO')}",
+        f"  RGI: {est.get('rgi_aplicada', 'RGI 1')}",
+    ]
+    if est.get('disputa'):
+        lineas.append(f"  *** DISPUTA: {est.get('nota', '')}")
+        lineas.append(f"  Opción A: {est.get('codigo_rd_opcion_a')} — DAI={est.get('dai_a')}% ITBIS={est.get('itbis_status_a')}")
+        lineas.append(f"  Opción B: {est.get('codigo_rd_opcion_b')} — DAI={est.get('dai_b')}% ITBIS={est.get('itbis_status_b')}")
+    if est.get('alerta'):
+        lineas.append(f"  ALERTA: {est['alerta']}")
+    lineas.append("  INSTRUCCIÓN: Usar este código directamente. NO preguntar por material.")
+    return "\n".join(lineas)
+
+
+def _verificar_itbis_capa1(answer: str, codigo: str) -> str:
+    """CORRECCIÓN #3: Verifica ITBIS contra Capa 1 SQLite — columna EX.ITBIS.
+    Si Capa 1 dice EXENTO y Gemini puso 18%, corrige. Base legal: Arancel RD columna EX."""
+    global _capa1_mod
+    try:
+        if _capa1_mod is None:
+            import importlib.util as _ilu
+            _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            _spec = _ilu.spec_from_file_location(
+                "orquestador_capa3",
+                os.path.join(_root, "capa1_sqlite", "orquestador_capa3.py")
+            )
+            _capa1_mod = _ilu.module_from_spec(_spec)
+            _spec.loader.exec_module(_capa1_mod)
+        result = _capa1_mod.consultar_son_exacto(codigo)
+        if not result:
+            return answer
+        itbis_capa1 = str(result.get("itbis", "")).upper().strip()
+        if not itbis_capa1:
+            return answer
+
+        m_itbis = re.search(r'ITBIS:\s*([^\n\r]+)', answer)
+        itbis_gemini = m_itbis.group(1).strip() if m_itbis else ""
+
+        if "EXENTO" in itbis_capa1 and "EXENTO" not in itbis_gemini.upper():
+            nuevo = "EXENTO — verificado en columna EX.ITBIS del Arancel RD (Capa 1 SQLite, 0% IA)"
+            print(f"[ITBIS-GATE] CORRECCIÓN EX.ITBIS: '{itbis_gemini}' → EXENTO para {codigo}")
+            if m_itbis:
+                answer = answer[:m_itbis.start()] + f"ITBIS: {nuevo}" + answer[m_itbis.end():]
+            answer += (
+                f"\n\n---CORRECCION_ITBIS_AUTOMATICA---"
+                f"\nCODIGO: {codigo}"
+                f"\nITBIS_ORIGINAL: {itbis_gemini}"
+                f"\nITBIS_CORREGIDO: EXENTO"
+                f"\nFUENTE: arancel_rd.db SQLite columna EX.ITBIS (0% IA)"
+                f"\nBASE_LEGAL: Arancel RD 7ma Enmienda OMA — columna EX. del código {codigo}"
+                f"\n---FIN_CORRECCION_ITBIS---"
+            )
+        elif "EXENTO" not in itbis_capa1 and "EXENTO" in itbis_gemini.upper():
+            nuevo = "18% sobre (CIF + Gravamen) — verificado en Arancel RD (Capa 1 SQLite)"
+            print(f"[ITBIS-GATE] CORRECCIÓN: Gemini puso EXENTO pero Capa1 dice gravado para {codigo}")
+            if m_itbis:
+                answer = answer[:m_itbis.start()] + f"ITBIS: {nuevo}" + answer[m_itbis.end():]
+    except Exception as _e:
+        print(f"[ITBIS-GATE] Error: {_e}")
+    return answer
+
+
+def _verificar_indotel(answer: str, question: str) -> str:
+    """CORRECCIÓN #3: INDOTEL solo aplica si el producto contiene módulo RF activo.
+    Elimina INDOTEL falso si el producto no tiene Bluetooth/Wi-Fi/LTE/NFC/ZigBee."""
+    try:
+        est_path = os.path.join(_DATA_DIR, 'estandares_tecnicos.json')
+        with open(est_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        rf_keywords = [k.upper() for k in data.get('reglas_indotel', {}).get('keywords_rf', [])]
+    except Exception:
+        rf_keywords = ["BLUETOOTH", "WI-FI", "WIFI", "LTE", "NFC", "ZIGBEE", "RF", "4G", "5G", "GSM", "RADIO"]
+
+    tiene_indotel_en_resp = bool(re.search(r'INDOTEL', answer, re.IGNORECASE))
+    if not tiene_indotel_en_resp:
+        return answer
+
+    texto_completo = (question + " " + answer).upper()
+    tiene_rf = any(kw in texto_completo for kw in rf_keywords)
+
+    if not tiene_rf:
+        print(f"[INDOTEL-GATE] FALSO POSITIVO INDOTEL — producto sin módulo RF. Eliminando.")
+        answer = re.sub(
+            r'(OTROS_PERMISOS:\s*)([^\n]*INDOTEL[^\n]*)',
+            r'\1NINGUNO — INDOTEL eliminado: producto no contiene módulo RF activo (Ley 153-98)',
+            answer, flags=re.IGNORECASE
+        )
+        answer = re.sub(
+            r'(RESTRICCIONES:\s*)([^\n]*INDOTEL[^\n]*)',
+            r'\1NINGUNA — INDOTEL no aplica: sin módulo RF en el producto',
+            answer, flags=re.IGNORECASE
+        )
+    return answer
+
+
+def _detectar_partidas_concurrentes(answer: str, question: str) -> str:
+    """CORRECCIÓN #4: Detector de partidas concurrentes. Si hay 2+ partidas en la respuesta
+    con diferencial fiscal > $50/$1,000 CIF, agrega tabla comparativa y alerta DGA."""
+    codigos = re.findall(r'\b(\d{4}\.\d{2}\.\d{2})\b', answer)
+    codigos_unicos = list(dict.fromkeys(codigos))
+    if len(codigos_unicos) < 2:
+        return answer
+
+    # Ya hay tabla concurrente en la respuesta
+    if '---PARTIDAS_CONCURRENTES---' in answer:
+        return answer
+
+    try:
+        grav_path = os.path.join(_DATA_DIR, 'gravamenes_lookup.json')
+        with open(grav_path, 'r', encoding='utf-8') as gf:
+            grav_data = json.load(gf)
+        cache_path = os.path.join(_DATA_DIR, 'arancel_cache.json')
+        with open(cache_path, 'r', encoding='utf-8') as cf:
+            cache = json.load(cf)
+    except Exception:
+        return answer
+
+    opciones = []
+    for cod in codigos_unicos[:3]:
+        g = float(grav_data.get(cod, {}).get('g', 14))
+        desc = cache.get(cod, "Sin descripción en cache")[:80]
+        # ITBIS: 18% por defecto, 0% si cap.90
+        cap = cod[:2]
+        itbis = 0 if cap == "90" else 18
+        # Carga sobre $1,000 CIF
+        carga = (g / 100 * 1000) + (itbis / 100 * (1000 + g / 100 * 1000))
+        opciones.append({"cod": cod, "desc": desc, "dai": g, "itbis": itbis, "carga_1000": round(carga, 2)})
+
+    if len(opciones) < 2:
+        return answer
+
+    cargas = [o["carga_1000"] for o in opciones]
+    diferencial = max(cargas) - min(cargas)
+
+    if diferencial < 30:
+        return answer
+
+    lineas = ["\n\n---PARTIDAS_CONCURRENTES---"]
+    lineas.append("DETECTOR CEO: Se identificaron múltiples partidas aplicables.")
+    lineas.append(f"{'CÓDIGO':<14} {'DAI':>5} {'ITBIS':>6} {'CARGA/$1000CIF':>16}  DESCRIPCIÓN")
+    lineas.append("-" * 80)
+    for o in sorted(opciones, key=lambda x: x["carga_1000"]):
+        marca = " ← MÁS FAVORABLE" if o["carga_1000"] == min(cargas) else ""
+        lineas.append(f"{o['cod']:<14} {o['dai']:>4}% {o['itbis']:>5}%  ${o['carga_1000']:>12,.2f}{marca}")
+        lineas.append(f"{'':14}   {o['desc']}")
+    lineas.append(f"\nDIFERENCIAL FISCAL: ${diferencial:,.2f} por cada $1,000 CIF")
+
+    if diferencial > 50:
+        lineas.append("⚠ ALERTA CLASIFICACIÓN EN DISPUTA: Diferencial > $50/$1,000 CIF.")
+        lineas.append("  → Aplicar RGI 3a): partida con descripción más específica prevalece.")
+        lineas.append("  → Recomendada Consulta Vinculante DGA — Art. 5 Ley 168-21.")
+
+    lineas.append("---FIN_PARTIDAS_CONCURRENTES---")
+    print(f"[PARTIDAS-CONC] {len(opciones)} partidas detectadas, diferencial=${diferencial:.2f}")
+    return answer + "\n".join(lineas)
+
+
+def _bloquear_sensor_8512(answer: str, question: str) -> str:
+    """CORRECCIÓN #5: Bloquea 8512.30.00 cuando se usa para sensores vehiculares.
+    8512.30.00 = SOLO bocinas/alarmas acústicas. Sensores → Cap.90 con DAI=0%."""
+    if '8512.30.00' not in answer:
+        return answer
+
+    keywords_sensor = [
+        'sensor', 'transductor', 'medidor', 'detector', 'monitor',
+        'temperatura', 'presión', 'velocidad', 'oxígeno', 'lambda',
+        'nivel', 'rpm', 'ckp', 'cmp', 'maf', 'map', 'abs sensor',
+        'knock', 'imc', 'detonac', 'cigüeñal', 'árbol de levas'
+    ]
+    q_lower = question.lower()
+    es_sensor = any(kw in q_lower for kw in keywords_sensor)
+
+    if not es_sensor:
+        return answer
+
+    try:
+        sv_path = os.path.join(_DATA_DIR, 'sensores_vehiculos.json')
+        with open(sv_path, 'r', encoding='utf-8') as f:
+            sv_data = json.load(f)
+
+        # Buscar tipo de sensor en la pregunta
+        tipo_detectado = None
+        for tipo in sv_data.get('tipos_de_sensor', []):
+            for kw in tipo.get('keywords', []):
+                if kw.lower() in q_lower:
+                    tipo_detectado = tipo
+                    break
+            if tipo_detectado:
+                break
+
+        if tipo_detectado:
+            nuevo_cod = tipo_detectado['codigo_rd']
+            nuevo_desc = tipo_detectado['descripcion_oficial']
+            nuevo_dai = tipo_detectado['dai']
+            nota_legal = tipo_detectado['nota_legal']
+        else:
+            # Sin tipo específico → genérico Cap.90
+            nuevo_cod = "9031.80"
+            nuevo_desc = "Instrumentos y aparatos de medida o verificación — Los demás"
+            nuevo_dai = 0
+            nota_legal = "Nota 2 Sección XVII SA — instrumentos Cap.90 excluidos de Cap.87"
+
+        bloque = (
+            f"\n\n---CORRECCIÓN_CEO_8512---"
+            f"\nCÓDIGO_BLOQUEADO: 8512.30.00 — INCORRECTO para sensores electrónicos"
+            f"\nRAZÓN: 8512.30.00 es SOLO para bocinas y alarmas acústicas de vehículos"
+            f"\nCÓDIGO_CORRECTO: {nuevo_cod}"
+            f"\nDESCRIPCIÓN: {nuevo_desc}"
+            f"\nDAI_CORRECTO: {nuevo_dai}% (Cap.90 — instrumento de medida)"
+            f"\nNOTA_LEGAL: {nota_legal}"
+            f"\nFUENTE: CEO Audit 28-Abr-2026 + Nota 2 Sección XVII SA"
+            f"\n---FIN_CORRECCIÓN_CEO_8512---"
+        )
+
+        # Sustituir en la respuesta
+        answer = re.sub(
+            r'SUBPARTIDA_NAC:\s*8512\.30\.00',
+            f'SUBPARTIDA_NAC: {nuevo_cod} [CORREGIDO — ver bloque CEO abajo]',
+            answer
+        )
+        answer = re.sub(
+            r'GRAVAMEN:\s*\d+\s*%',
+            f'GRAVAMEN: {nuevo_dai}% — NMF Cap.90 (instrumento medida/verificación)',
+            answer, count=1
+        )
+        answer += bloque
+        print(f"[SENSOR-8512] BLOQUEADO 8512.30.00 → {nuevo_cod} para sensor vehicular")
+    except Exception as _e:
+        print(f"[SENSOR-8512] Error: {_e}")
+        answer += (
+            "\n\n⚠ CORRECCIÓN CEO: 8512.30.00 es INCORRECTO para sensores vehiculares. "
+            "Clasificar en Cap.90 (DAI=0%) según Nota 2 Sección XVII SA."
+        )
+    return answer
+
+
 # ── Arancel PDF: contexto real para consultas de nomenclatura ─────────────
 _ARANCEL_PDF = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "arancel_7ma_enmienda.pdf")
 _ARANCEL_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "arancel_gemini_cache.json")
@@ -1107,6 +1422,13 @@ def ask_gemini(question, notebook_id, _intento=1):
     # Refuerzo critico para nomenclatura
     refuerzo = ""
     if notebook_id == "biblioteca-de-nomenclaturas":
+        # CEO #1: RAG context — partidas candidatas desde Biblioteca DGA ANTES de llamar a Gemini
+        _rag_ctx = _rag_context_from_cache(question)
+
+        # CEO #2: Detección de estándar técnico internacional (HDMI/USB/BT/OBD/etc.)
+        _est_tecnico = _detectar_estandar_tecnico(question)
+        _est_bloque = _bloque_estandar_tecnico(_est_tecnico) if _est_tecnico else ""
+
         refuerzo = (
             "\n\nRECORDATORIO CRITICO PARA ESTA CONSULTA:"
             "\n1. Arancel RD usa EXACTAMENTE 8 digitos (XXXX.XX.XX). NUNCA 10."
@@ -1114,8 +1436,14 @@ def ask_gemini(question, notebook_id, _intento=1):
             "\n3. Si no conoces la descripcion oficial exacta, usa SOLO 6 digitos."
             "\n4. VAPERS: SIEMPRE 8543.40.11 o 8543.40.12."
             "\n5. NO EXISTEN: 9018.90.91, 8543.70.70, 8543.40.00."
-            "\n6. Consulta tu conocimiento del Arancel 7ma Enmienda de la RD."
-            "\n7. Lee la columna GRAV. para el gravamen y EX. ITBIS para exenciones.\n"
+            "\n6. Lee la columna GRAV. para el gravamen y EX. ITBIS para exenciones."
+            "\n7. ISC SOLO aplica a partidas: 8521, 8525, 8527, 8528 (Ley 11-92 Art.375). NUNCA al resto del Cap.85."
+            "\n8. INDOTEL: SOLO si el producto contiene Bluetooth/Wi-Fi/LTE/NFC/ZigBee/RF. Verificar ficha técnica."
+            "\n9. DAI Cap.90 = 0%. NO asumir 14% para instrumentos de medida/verificación."
+            "\n10. 8512.30.00 es SOLO bocinas/alarmas acústicas. NUNCA para sensores vehiculares."
+            + ("\n\n" + _rag_ctx if _rag_ctx else "")
+            + (_est_bloque if _est_bloque else "")
+            + "\n"
         )
 
     # Reformular la pregunta si es un reintento (intento > 1)
@@ -1328,6 +1656,24 @@ def ask_gemini(question, notebook_id, _intento=1):
 
         # ── GATE ISC: corregir ISC antes del gate de gravamen ──
         answer = _corregir_isc_con_lookup(answer, notebook_id)
+
+        # ── CEO GATES (nomenclatura) ──────────────────────────────────────
+        if notebook_id == "biblioteca-de-nomenclaturas" and answer:
+            _m_final = re.search(r'SUBPARTIDA_NAC:\s*(\d{4}\.\d{2}\.\d{2})', answer)
+            _cod_final = _m_final.group(1) if _m_final else None
+
+            # CEO #5: Bloquear 8512.30.00 para sensores vehiculares
+            answer = _bloquear_sensor_8512(answer, question)
+
+            # CEO #3: Verificar EX.ITBIS contra Capa 1 SQLite
+            if _cod_final:
+                answer = _verificar_itbis_capa1(answer, _cod_final)
+
+            # CEO #3: Verificar INDOTEL — solo si hay módulo RF real
+            answer = _verificar_indotel(answer, question)
+
+            # CEO #4: Detector de partidas concurrentes
+            answer = _detectar_partidas_concurrentes(answer, question)
 
         # ── COMPUERTA FINAL DE SEGURIDAD LEGAL — ultimo paso siempre ──
         answer = _compuerta_final_gravamen(answer, notebook_id)
