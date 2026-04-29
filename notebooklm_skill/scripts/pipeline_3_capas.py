@@ -42,29 +42,6 @@ except Exception as _e_gate:
     _gate_validar_entrada = None
     _gate_validar_salida = None
 
-# CEO AUDIT 28-ABR-2026 — Tabla de estandares tecnicos para bypass del gate ambiguo
-_ESTANDARES_PATH = os.path.join(_DATA, "fuentes_nomenclatura", "estandares_tecnicos.json")
-_estandares_cache = None
-
-
-def _detectar_estandar_para_bypass(consulta: str):
-    """CEO #2: detecta HDMI/USB/OBD/Bluetooth/etc. para bypassear gate ambiguo.
-    Devuelve el dict del estandar o None."""
-    global _estandares_cache
-    try:
-        if _estandares_cache is None:
-            with open(_ESTANDARES_PATH, 'r', encoding='utf-8') as f:
-                _estandares_cache = json.load(f)
-        q_upper = (consulta or "").upper()
-        for est in _estandares_cache.get('estandares', []):
-            for kw in est.get('keywords', []):
-                if kw.upper() in q_upper:
-                    return est
-    except Exception as _e:
-        print(f"[ESTANDAR-BYPASS] Error: {_e}")
-    return None
-
-
 # ── Cache de consultas frecuentes (TTL 7 dias) ──────────────────────────
 # Bug APP-2026-001 #5: productos repetidos no deben recorrer las 3 capas.
 _CACHE_CONSULTAS_PATH = os.path.join(_DATA, "cache_consultas.json")
@@ -1052,22 +1029,9 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     t0 = time.time()
     trazabilidad = {"consulta": consulta, "notebook_id": notebook_id, "capas": []}
 
-    # CEO AUDIT 28-ABR-2026 (CORRECCION #2): bypass del gate ambiguo si hay estandar
-    # tecnico internacional en la consulta (HDMI/USB/OBD/Bluetooth/Biometrico/etc.).
-    # El identificador tecnico desambigua el producto sin necesidad de pedir material.
-    _bypass_estandar = _detectar_estandar_para_bypass(consulta)
-    if _bypass_estandar:
-        trazabilidad["bypass_estandar_tecnico"] = {
-            "id": _bypass_estandar.get("id"),
-            "codigo_sugerido": _bypass_estandar.get("codigo_rd") or _bypass_estandar.get("codigo_rd_opcion_a"),
-        }
-        print(f"[PIPELINE] BYPASS gate por estandar tecnico: {_bypass_estandar.get('id')} -> "
-              f"{trazabilidad['bypass_estandar_tecnico']['codigo_sugerido']}")
-
     # GATE ENTRADA (CEO-ERR-002/2026) — barrera ANTES de cache y de cualquier capa.
     # No puede ser eludida: input ambiguo o insuficiente nunca toca clasificacion.
-    # EXCEPCION CEO 28-ABR-2026: si hay estandar tecnico detectado, no bloquear por ambiguedad.
-    if _gate_validar_entrada is not None and not _bypass_estandar:
+    if _gate_validar_entrada is not None:
         gate_in = _gate_validar_entrada(consulta)
         trazabilidad["gate_entrada"] = gate_in
         if not gate_in.get("ok"):
