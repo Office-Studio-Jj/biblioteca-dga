@@ -54,6 +54,14 @@
       "exclusion_destino": "verificar quilataje y material"
     },
     {
+      "id": "adorno-vs-trofeo",
+      "partidas_en_conflicto": ["7117", "8306"],
+      "ganadora": "depende_funcion",
+      "razon": "Medallas/trofeos/reconocimientos -> 83.06 (Nota Explicativa). Solo adorno personal -> 71.17. Criterio 0 funcional determina: portado sobre el cuerpo = 71, entregado como distincion = 83.",
+      "trigger_keywords": ["medalla", "medallon", "trofeo", "copa premiacion", "placa conmemorativa", "reconocimiento deportivo"],
+      "exclusion_destino": "Cap. 71 excluido si funcion es reconocimiento/trofeo (Nota 83.06 Decreto 755-22)"
+    },
+    {
       "id": "auriculares-vs-altavoces",
       "partidas_en_conflicto": ["8518", "8517"],
       "ganadora": "depende_microfono",

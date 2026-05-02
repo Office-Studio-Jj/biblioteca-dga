@@ -36,11 +36,13 @@ try:
     from sub_agentes.clasificador_merceologico_auto import (
         validar_entrada as _gate_validar_entrada,
         validar_salida as _gate_validar_salida,
+        validar_exclusion_capitulos as _tool9_validar_exclusion,
     )
 except Exception as _e_gate:
     print(f"[PIPELINE] Aviso: no se pudo importar gates ({_e_gate}). Pipeline opera sin barreras.")
     _gate_validar_entrada = None
     _gate_validar_salida = None
+    _tool9_validar_exclusion = None
 
 # ── Cache de consultas frecuentes (TTL 7 dias) ──────────────────────────
 # Bug APP-2026-001 #5: productos repetidos no deben recorrer las 3 capas.
@@ -198,6 +200,12 @@ def _gemini_clasificar_producto(consulta: str, capitulo_pista: str = "") -> Dict
     )
     prompt = (
         f"Clasifica este producto: {consulta}{pista}\n\n"
+        "CRITERIO 0 — IDENTIDAD FUNCIONAL (responder PRIMERO, es determinante):\n"
+        "El articulo esta destinado a:\n"
+        "  [A] ser portado habitualmente sobre el cuerpo como adorno personal -> Cap. 71\n"
+        "  [B] ser entregado como distincion, trofeo o reconocimiento -> Cap. 83\n"
+        "  [C] uso industrial, tecnico, comercial o domestico especifico -> especificar\n"
+        "El Criterio 0 PREVALECE sobre composicion material si hay conflicto.\n\n"
         "REGLAS OBLIGATORIAS:\n"
         "1. PROHIBIDO devolver subpartidas genericas '.99.X' o terminadas en '.00' "
         "si existen subpartidas mas especificas. Lee la descripcion oficial de "
@@ -222,6 +230,8 @@ def _gemini_clasificar_producto(consulta: str, capitulo_pista: str = "") -> Dict
         "   probablemente NO va en la partida del aparato. Verifica Nota Legal del Capitulo.\n"
         "   PROHIBIDO clasificar consumibles en la partida del aparato que los usa.\n\n"
         "FORMATO DE RESPUESTA (estricto, una linea por campo):\n"
+        "CRITERIO_0: [A|B|C]\n"
+        "JUSTIFICACION_0: [por que elegiste A, B o C]\n"
         "CODIGO: [XXXX.XX.XX]\n"
         "CAPITULO: [NN]\n"
         "PARTIDA: [XXXX]\n"
@@ -237,6 +247,8 @@ def _gemini_clasificar_producto(consulta: str, capitulo_pista: str = "") -> Dict
     # Parsear bloque estructurado
     out = {"ok": True, "raw": answer[:600]}
     for campo, regex in [
+        ("criterio_0", r'CRITERIO_0:\s*([ABC])'),
+        ("justificacion_0", r'JUSTIFICACION_0:\s*(.+)'),
         ("codigo", r'CODIGO:\s*(\d{4}\.\d{2}\.\d{2})'),
         ("capitulo", r'CAPITULO:\s*(\d{2})'),
         ("partida", r'PARTIDA:\s*(\d{4})'),
@@ -651,6 +663,27 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
         resultado["notas_legales"] = [f"Consultar Notas Legales del Cap. {codigo_propuesto[:2]}"]
         resultado["exclusiones_partida"] = []
         resultado["criterio_subpartida"] = "Ver descripcion oficial del Arancel"
+
+    # 4b. Tool #9 — Validar exclusion de capitulo (BUG-001/BUG-004 fix)
+    if _tool9_validar_exclusion is not None and codigo_propuesto:
+        cap_prop = codigo_propuesto[:2] if len(codigo_propuesto) >= 2 else ""
+        criterio_0_capa2 = ""
+        # Extraer criterio_0 del resultado de Capa 2 si esta disponible
+        if isinstance(caracteristicas_capa3, dict):
+            criterio_0_capa2 = caracteristicas_capa3.get("criterio_0", "")
+        exclusion = _tool9_validar_exclusion(
+            capitulo_propuesto=cap_prop,
+            descripcion_producto=consulta,
+            criterio_0=criterio_0_capa2,
+        )
+        resultado["exclusion_rgi1"] = exclusion
+        if exclusion.get("excluido"):
+            resultado["capitulo_excluido"] = cap_prop
+            resultado["capitulo_redirigido"] = exclusion["capitulo_final"]
+            resultado["norma_exclusion"] = exclusion.get("norma_citada", "")
+            resultado["texto_nota_exclusion"] = exclusion.get("texto_nota", "")
+            resultado["ok"] = False
+            resultado["razon_rechazo"] = exclusion["razon"]
 
     # 5. Sugerir SON alternativa si caracteristicas de Capa 3 lo indican
     #    Caso clasico: drone agricola por peso (8806.23.19 vs 8806.24.19)
@@ -1075,6 +1108,29 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     c1 = capa_1_claude_validador(consulta, codigo_propuesto, caracteristicas_capa3=caracs)
     trazabilidad["capas"].append(c1)
 
+    # Tool #9: si Capa 1 detecto exclusion por RGI 1, reintentar con capitulo correcto
+    if c1.get("exclusion_rgi1", {}).get("excluido") and c2.get("fuente") == "gemini_rest":
+        cap_redir = c1["exclusion_rgi1"]["capitulo_final"]
+        partida_redir = c1["exclusion_rgi1"].get("partida_alternativa", "")
+        print(f"[PIPELINE] Tool #9 excluyo Cap.{c1['capitulo_excluido']} -> redirigir a Cap.{cap_redir}")
+        trazabilidad["exclusion_rgi1"] = c1["exclusion_rgi1"]
+        consulta_redir = (
+            f"{consulta}. ATENCION: Cap. {c1['capitulo_excluido']} EXCLUIDO por Nota Legal "
+            f"({c1.get('norma_exclusion','')}). Clasificar en Cap. {cap_redir}"
+            + (f", partida {partida_redir}" if partida_redir else "")
+            + "."
+        )
+        c2_redir = capa_2_notion_merceologia(consulta_redir, notebook_id,
+                                              capitulo_pista=cap_redir)
+        trazabilidad["capas"].append({**c2_redir, "capa": 2, "nombre": "Capa 2 reclasificacion RGI1"})
+        codigo_redir = c2_redir.get("codigo")
+        if codigo_redir:
+            c1_redir = capa_1_claude_validador(consulta, codigo_redir, caracteristicas_capa3=caracs)
+            trazabilidad["capas"].append({**c1_redir, "capa": 1, "nombre": "Capa 1 reclasificacion RGI1"})
+            if c1_redir.get("codigo_existe"):
+                c1, c2 = c1_redir, c2_redir
+                codigo_propuesto = codigo_redir
+
     # Reintento: codigo generico (.99) O codigo inexistente O confusion elemento/aparato.
     # Bug APP-2026-001 #1 + #2: cubre la CLASE "consumible clasificado en partida del aparato".
     confusion = _detectar_confusion_elemento_aparato(consulta, codigo_propuesto or "")
@@ -1154,6 +1210,9 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
         trazabilidad["son_sugerencias"] = c1.get("son_sugerencias_por_caracteristicas", [])
         trazabilidad["respuesta_final"] = _componer_respuesta_ground_truth(consulta, c2, c1)
         trazabilidad["patron_intacto"] = True
+        if trazabilidad.get("exclusion_rgi1"):
+            trazabilidad["rgi1_aplicada"] = True
+            trazabilidad["norma_exclusion_citada"] = trazabilidad["exclusion_rgi1"].get("norma_citada", "")
 
         # Auto-generar ficha solo si vino de Gemini (no si ya existia ficha local)
         if c2.get("fuente") == "gemini_rest":

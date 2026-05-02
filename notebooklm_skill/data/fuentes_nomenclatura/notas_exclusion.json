@@ -1,0 +1,230 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "fecha": "2026-05-02",
+    "descripcion": "Tabla de exclusiones cruzadas entre capitulos. BUG-003 fix: validacion cruzada de notas legales. Fuente: Decreto 755-22, SA 7ma Enmienda, Notas OMA/WCO.",
+    "uso": "Pipeline busca aqui ANTES de confirmar un SON. Si producto_patron match + capitulo_propuesto == capitulo_excluye => RECHAZAR y redirigir a capitulo_incluye."
+  },
+  "exclusiones": [
+    {
+      "id": "EX-001",
+      "producto_patron": ["medalla", "medallon", "trofeo", "copa premiacion", "placa conmemorativa"],
+      "capitulo_excluye": "71",
+      "capitulo_incluye": "83",
+      "partida_incluye": "8306",
+      "texto_nota": "Partida 83.06: medallas y medallones, EXCEPTO los que constituyan articulos de adorno personal (Cap. 71). Medallas deportivas/trofeos/reconocimientos -> Cap. 83.",
+      "excepcion": "adorno personal",
+      "criterio_0": "B",
+      "fuente": "Decreto 755-22, Nota Explicativa 83.06 OMA/WCO"
+    },
+    {
+      "id": "EX-002",
+      "producto_patron": ["estatuilla", "busto decorativo", "figura ornamental"],
+      "capitulo_excluye": "71",
+      "capitulo_incluye": "83",
+      "partida_incluye": "8306",
+      "texto_nota": "Partida 83.06: estatuillas y demas articulos de ornamentacion de metal comun. Si no es adorno personal -> Cap. 83.",
+      "excepcion": "adorno personal de metal precioso",
+      "criterio_0": "B",
+      "fuente": "Decreto 755-22, Nota Explicativa 83.06"
+    },
+    {
+      "id": "EX-003",
+      "producto_patron": ["lampara", "bombillo", "bombilla", "foco", "tubo led", "led casquillo", "e27", "e14"],
+      "capitulo_excluye": "94",
+      "capitulo_incluye": "85",
+      "partida_incluye": "8539",
+      "texto_nota": "Nota 11.b Cap.85: lamparas y tubos LED, incluso con casquillo, clasifican en 85.39. Luminaria/fixture (sostiene la lampara) -> 94.05.",
+      "excepcion": "luminaria completa con estructura de soporte",
+      "criterio_0": "C",
+      "fuente": "Nota 11.b Capitulo 85, SA 7ma Enmienda"
+    },
+    {
+      "id": "EX-004",
+      "producto_patron": ["cartucho tinta", "cartucho de tinta", "toner", "tinta impresora"],
+      "capitulo_excluye": "84",
+      "capitulo_incluye": "32",
+      "partida_incluye": "3215",
+      "texto_nota": "Tintas de imprimir -> 32.15. La impresora -> 84.43. El consumible NO clasifica con el aparato.",
+      "excepcion": "cartucho como parte integral de impresora sin extraer",
+      "criterio_0": "C",
+      "fuente": "Nota 2 Cap.84, RGI 1"
+    },
+    {
+      "id": "EX-005",
+      "producto_patron": ["capsula cafe", "capsula de cafe", "k-cup", "nespresso", "dolce gusto capsula"],
+      "capitulo_excluye": "85",
+      "capitulo_incluye": "09",
+      "partida_incluye": "0901",
+      "texto_nota": "Cafe en capsulas -> 09.01 (cafe). La cafetera -> 85.16.71. El contenido prevalece sobre el envase.",
+      "excepcion": "cafetera completa con capsulas incluidas como accesorio",
+      "criterio_0": "C",
+      "fuente": "Cap. 9, RGI 1"
+    },
+    {
+      "id": "EX-006",
+      "producto_patron": ["cuchilla afeitar", "hoja afeitar", "navaja afeitar", "repuesto afeitar"],
+      "capitulo_excluye": "85",
+      "capitulo_incluye": "82",
+      "partida_incluye": "8212",
+      "texto_nota": "Cuchillas y hojas de afeitar -> 82.12. Afeitadora electrica -> 85.10.",
+      "excepcion": "afeitadora electrica completa",
+      "criterio_0": "C",
+      "fuente": "Cap. 82, RGI 1"
+    },
+    {
+      "id": "EX-007",
+      "producto_patron": ["plastico envase", "botella plastica", "envase plastico", "recipiente plastico"],
+      "capitulo_excluye": "73",
+      "capitulo_incluye": "39",
+      "partida_incluye": "3923",
+      "texto_nota": "Articulos para transporte/envasado de plastico -> 39.23. Articulos similares de hierro/acero -> 73.10/73.11.",
+      "excepcion": "envase con componente metalico predominante",
+      "criterio_0": "C",
+      "fuente": "Cap. 39 vs Cap. 73, RGI 1 + RGI 3b (materia predominante)"
+    },
+    {
+      "id": "EX-008",
+      "producto_patron": ["cable electrico", "conductor electrico", "cable aislado"],
+      "capitulo_excluye": "74",
+      "capitulo_incluye": "85",
+      "partida_incluye": "8544",
+      "texto_nota": "Hilos y cables aislados para electricidad -> 85.44. Alambre/hilo de cobre sin aislar -> 74.08.",
+      "excepcion": "alambre de cobre sin aislamiento electrico",
+      "criterio_0": "C",
+      "fuente": "Nota 3 Cap.85, Nota 1.d Cap.74"
+    },
+    {
+      "id": "EX-009",
+      "producto_patron": ["tornillo acero", "perno acero", "tuerca acero"],
+      "capitulo_excluye": "76",
+      "capitulo_incluye": "73",
+      "partida_incluye": "7318",
+      "texto_nota": "Tornillos/pernos/tuercas de hierro o acero -> 73.18. De aluminio -> 76.16. De cobre -> 74.15.",
+      "excepcion": "tornilleria de aluminio o cobre",
+      "criterio_0": "C",
+      "fuente": "Cap. 73 vs Cap. 76, RGI 1 (material constitutivo)"
+    },
+    {
+      "id": "EX-010",
+      "producto_patron": ["mueble metal", "estante metal", "estanteria metal"],
+      "capitulo_excluye": "73",
+      "capitulo_incluye": "94",
+      "partida_incluye": "9403",
+      "texto_nota": "Muebles de metal -> 94.03. Manufacturas de hierro/acero sin funcion de mueble -> Cap. 73.",
+      "excepcion": "estructura metalica sin funcion de mobiliario",
+      "criterio_0": "C",
+      "fuente": "Nota 2 Cap.94, RGI 1"
+    },
+    {
+      "id": "EX-011",
+      "producto_patron": ["juguete volador", "dron juguete", "avion juguete", "helicoptero juguete"],
+      "capitulo_excluye": "88",
+      "capitulo_incluye": "95",
+      "partida_incluye": "9503",
+      "texto_nota": "Juguetes voladores sin capacidad de carga util -> 95.03. Aeronaves no tripuladas con carga util -> 88.06.",
+      "excepcion": "UAV con capacidad de carga util o equipamiento integrado",
+      "criterio_0": "C",
+      "fuente": "Nota Legal 1 Cap.88, SA 7ma Enmienda"
+    },
+    {
+      "id": "EX-012",
+      "producto_patron": ["suplemento alimenticio", "vitamina", "multivitaminico"],
+      "capitulo_excluye": "30",
+      "capitulo_incluye": "21",
+      "partida_incluye": "2106",
+      "texto_nota": "Suplementos alimenticios/vitaminas sin indicacion terapeutica -> 21.06. Medicamentos con dosis terapeutica -> 30.04.",
+      "excepcion": "producto con registro sanitario como medicamento y dosis terapeutica",
+      "criterio_0": "C",
+      "fuente": "Nota 1.a Cap.30, RGI 1"
+    },
+    {
+      "id": "EX-013",
+      "producto_patron": ["cigarrillo electronico", "vapeador", "vape", "ecig", "pod vape"],
+      "capitulo_excluye": "24",
+      "capitulo_incluye": "85",
+      "partida_incluye": "8543",
+      "texto_nota": "Cigarrillos electronicos -> 8543.40 (VII Enmienda). NO Cap. 24 (tabaco). Dispositivo electronico, no producto de tabaco.",
+      "excepcion": "liquido/esencia para vape clasifica aparte",
+      "criterio_0": "C",
+      "fuente": "Nota VII Enmienda SA 2022, 8543.40"
+    },
+    {
+      "id": "EX-014",
+      "producto_patron": ["lente optico", "lente fotografico", "objetivo camara"],
+      "capitulo_excluye": "85",
+      "capitulo_incluye": "90",
+      "partida_incluye": "9002",
+      "texto_nota": "Lentes y elementos de optica montados -> 90.02. Camara fotografica/video -> 85.25/90.06.",
+      "excepcion": "camara completa con lente integrado",
+      "criterio_0": "C",
+      "fuente": "Nota 1 Cap.90, RGI 1"
+    },
+    {
+      "id": "EX-015",
+      "producto_patron": ["bateria recambio", "pila recambio", "bateria repuesto", "power bank"],
+      "capitulo_excluye": "84",
+      "capitulo_incluye": "85",
+      "partida_incluye": "8507",
+      "texto_nota": "Acumuladores electricos (baterias recargables) -> 85.07. Pilas -> 85.06. NO clasificar con el aparato que las usa.",
+      "excepcion": "aparato completo vendido con bateria incluida",
+      "criterio_0": "C",
+      "fuente": "Cap. 85, RGI 1"
+    },
+    {
+      "id": "EX-016",
+      "producto_patron": ["panel solar", "modulo fotovoltaico", "celula solar"],
+      "capitulo_excluye": "84",
+      "capitulo_incluye": "85",
+      "partida_incluye": "8541",
+      "texto_nota": "Celulas y modulos fotovoltaicos -> 85.41. Equipos que usan energia solar (bombas, etc.) -> Cap. 84.",
+      "excepcion": "sistema solar completo con bomba integrada",
+      "criterio_0": "C",
+      "fuente": "Cap. 85, RGI 1"
+    },
+    {
+      "id": "EX-017",
+      "producto_patron": ["reloj pulsera", "reloj bolsillo", "smartwatch"],
+      "capitulo_excluye": "85",
+      "capitulo_incluye": "91",
+      "partida_incluye": "9101",
+      "texto_nota": "Relojes de pulsera/bolsillo -> Cap. 91. Incluso smartwatches con funcion horaria principal -> 91.01/91.02.",
+      "excepcion": "dispositivo electronico sin funcion horaria principal",
+      "criterio_0": "C",
+      "fuente": "Nota 1 Cap.91, RGI 1"
+    },
+    {
+      "id": "EX-018",
+      "producto_patron": ["silla ruedas", "andador", "muleta", "protesis"],
+      "capitulo_excluye": "87",
+      "capitulo_incluye": "90",
+      "partida_incluye": "9021",
+      "texto_nota": "Articulos de ortopedia y protesis -> 90.21. Sillas de ruedas -> 87.13. Vehiculos para invalidos con motor -> 87.03.",
+      "excepcion": "vehiculo motorizado para invalidos",
+      "criterio_0": "C",
+      "fuente": "Cap. 90 vs Cap. 87, RGI 1"
+    },
+    {
+      "id": "EX-019",
+      "producto_patron": ["tubo acero", "tuberia acero", "cano acero"],
+      "capitulo_excluye": "84",
+      "capitulo_incluye": "73",
+      "partida_incluye": "7304",
+      "texto_nota": "Tubos de hierro/acero sin costura -> 73.04. Con costura -> 73.06. Tuberias como parte de maquina -> verificar Cap. 84.",
+      "excepcion": "tuberia integrada como parte de maquina completa",
+      "criterio_0": "C",
+      "fuente": "Cap. 73, RGI 1"
+    },
+    {
+      "id": "EX-020",
+      "producto_patron": ["instrumento musica electronico", "teclado musical", "guitarra electrica", "sintetizador"],
+      "capitulo_excluye": "85",
+      "capitulo_incluye": "92",
+      "partida_incluye": "9207",
+      "texto_nota": "Instrumentos musicales electronicos -> 92.07. Amplificadores/altavoces -> 85.18. La funcion musical prevalece.",
+      "excepcion": "equipo de sonido sin funcion de instrumento",
+      "criterio_0": "C",
+      "fuente": "Cap. 92 vs Cap. 85, RGI 1"
+    }
+  ]
+}

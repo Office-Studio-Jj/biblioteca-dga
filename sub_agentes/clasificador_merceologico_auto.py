@@ -40,6 +40,82 @@ from capa1_sqlite.orquestador_capa3 import (
 
 _SON_RE = re.compile(r'\b(\d{4}\.\d{2}\.\d{2}(?:\.\d{2})?)\b')
 
+# ── Datos de exclusion entre capitulos (BUG-003/BUG-004) ──────────────────
+_NOTAS_EXCLUSION_PATH = os.path.join(
+    _HERE, "..", "notebooklm_skill", "data", "fuentes_nomenclatura", "notas_exclusion.json"
+)
+_EXCLUSIONES_CACHE: list | None = None
+
+
+def _cargar_exclusiones() -> list:
+    global _EXCLUSIONES_CACHE
+    if _EXCLUSIONES_CACHE is not None:
+        return _EXCLUSIONES_CACHE
+    try:
+        with open(_NOTAS_EXCLUSION_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        _EXCLUSIONES_CACHE = data.get("exclusiones", [])
+    except Exception as e:
+        print(f"[CLASIF-AUTO] Error cargando notas_exclusion.json: {e}")
+        _EXCLUSIONES_CACHE = []
+    return _EXCLUSIONES_CACHE
+
+
+def validar_exclusion_capitulos(
+    capitulo_propuesto: str,
+    descripcion_producto: str,
+    criterio_0: str = "",
+    notas_context: dict | None = None,
+) -> dict:
+    """
+    Tool #9 — Arbitro legal final (BUG-004 fix).
+    Verifica si el capitulo propuesto esta excluido por Notas Legales
+    para este producto. Aplica RGI 1 explicita.
+
+    Returns:
+        {aprobado, capitulo_final, norma_citada, rgi_aplicada, razon}
+    """
+    exclusiones = _cargar_exclusiones()
+    desc_lower = descripcion_producto.lower()
+    cap = str(capitulo_propuesto).strip().zfill(2)
+
+    for ex in exclusiones:
+        if ex.get("capitulo_excluye") != cap:
+            continue
+        patrones = ex.get("producto_patron", [])
+        match_patron = any(p.lower() in desc_lower for p in patrones)
+        if not match_patron:
+            continue
+
+        excepcion = (ex.get("excepcion") or "").lower()
+        if excepcion and excepcion in desc_lower:
+            continue
+
+        if criterio_0 and ex.get("criterio_0"):
+            if criterio_0.upper() != ex["criterio_0"].upper():
+                continue
+
+        return {
+            "aprobado": False,
+            "excluido": True,
+            "capitulo_propuesto": cap,
+            "capitulo_final": ex["capitulo_incluye"],
+            "partida_alternativa": ex.get("partida_incluye", ""),
+            "norma_citada": ex.get("fuente", "Decreto 755-22"),
+            "texto_nota": ex.get("texto_nota", ""),
+            "rgi_aplicada": "RGI_1",
+            "razon": f"Nota Legal excluye Cap. {cap} para este producto -> redirigir a Cap. {ex['capitulo_incluye']}",
+        }
+
+    return {
+        "aprobado": True,
+        "excluido": False,
+        "capitulo_final": cap,
+        "norma_citada": "",
+        "rgi_aplicada": "RGI_1_VALIDADO",
+        "razon": f"Cap. {cap} no excluido para '{descripcion_producto[:80]}'",
+    }
+
 
 # ── Diccionario de términos ambiguos (CEO-ERR-002/2026) ──────────────────
 
@@ -201,9 +277,12 @@ def validar_salida(son: str, rgi: str = "", fuente_db: dict | None = None) -> di
 
 # ── Etapa 1: Ficha merceologica (Gemini) ─────────────────────────────────
 
-_PROMPT_FICHA = """Eres un analista aduanero RD. Devuelve SOLO JSON valido con esta estructura exacta:
+_PROMPT_FICHA = """Eres un especialista en merceologia aduanera bajo el sistema arancelario RD (Decreto 755-22).
+Devuelve SOLO JSON valido con esta estructura exacta:
 
 {{
+  "criterio_0":      "A|B|C",
+  "justificacion_0": "<por que elegiste A, B o C — 1 frase>",
   "que_es":          "<descripcion breve, 1 frase>",
   "materia":         "<material principal de fabricacion>",
   "funcion":         "<funcion tecnica principal>",
@@ -214,6 +293,13 @@ _PROMPT_FICHA = """Eres un analista aduanero RD. Devuelve SOLO JSON valido con e
   "keywords":        ["kw1","kw2","kw3","kw4","kw5"],
   "capitulos_probables": ["85","84"]
 }}
+
+CRITERIO 0 — IDENTIDAD FUNCIONAL (responder PRIMERO, es determinante):
+El articulo esta destinado a:
+  [A] ser portado habitualmente sobre el cuerpo como adorno personal → Cap. 71
+  [B] ser entregado como distincion, trofeo o reconocimiento → Cap. 83
+  [C] uso industrial, tecnico, comercial o domestico especifico → especificar
+El Criterio 0 PREVALECE sobre composicion material si hay conflicto.
 
 Producto: {producto}
 
@@ -266,7 +352,7 @@ def generar_ficha_merceologica(descripcion: str) -> dict:
     ficha = _parsear_json_gemini(raw) or {}
 
     # Normalizar campos obligatorios
-    for k in ["que_es", "materia", "funcion", "uso", "usuarios", "clasificacion", "son_sugerido"]:
+    for k in ["criterio_0", "justificacion_0", "que_es", "materia", "funcion", "uso", "usuarios", "clasificacion", "son_sugerido"]:
         ficha.setdefault(k, "")
     ficha.setdefault("keywords", [])
     ficha.setdefault("capitulos_probables", [])
@@ -466,6 +552,23 @@ def clasificar_producto(descripcion: str, publicar: bool = False) -> dict:
     if cap_principal:
         notas = leer_notas_capitulo(cap_principal)
     resultado["etapas"]["3_notas"] = notas
+
+    # [3.1] RGI 1 — Validar exclusion de capitulo ANTES de refinar SON (BUG-001 fix)
+    exclusion = validar_exclusion_capitulos(
+        capitulo_propuesto=cap_principal or "",
+        descripcion_producto=descripcion,
+        criterio_0=ficha.get("criterio_0", ""),
+        notas_context=notas,
+    )
+    resultado["etapas"]["31_exclusion_rgi1"] = exclusion
+    if exclusion.get("excluido"):
+        cap_principal = exclusion["capitulo_final"]
+        if cap_principal not in caps:
+            caps.insert(0, cap_principal)
+        resultado["etapas"]["2_capitulos"] = caps
+        notas = leer_notas_capitulo(cap_principal)
+        resultado["etapas"]["3_notas_reclasificado"] = notas
+        resultado["reclasificado_por_rgi1"] = True
 
     # [3.5] Biblioteca RAG
     keywords = ficha.get("keywords", [])
