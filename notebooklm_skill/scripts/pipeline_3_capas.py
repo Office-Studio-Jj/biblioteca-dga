@@ -4,11 +4,11 @@ PIPELINE 3 CAPAS — Arquitectura Two-Brain DGA
 
 Orquesta las 3 capas en el orden correcto, con verificacion de cada una:
 
-    CAPA 3 (Gemini) → mesa de reparticion / orquestador
-       ↓ identifica el producto y decide ruta
-    CAPA 2 (Notion/Merceologia) → busca ficha del producto
-       ↓ extrae codigo + datos clasificacion
-    CAPA 1 (Claude/SQLite) → confirma codigo + cargas + base legal
+    CAPA 3 (Gemini pre-filtro) → solo identifica Capitulo SA candidato (2 digitos)
+       ↓ NO clasifica SON — Decision CEO 03-May-2026 Opcion B
+    CAPA 2 (Notion/Merceologia) → busca ficha del producto usando capitulo candidato
+       ↓ fuente="gemini_prefiltro" cuando Gemini fue pre-filtro
+    CAPA 1 (Claude/SQLite ARBITRO LEGAL) → RGI 1-6 + Notas Legales + SON exacta
 
 Cada capa registra su resultado en `trazabilidad`. Si una capa falla, la
 siguiente compensa. El resultado final es la mejor combinacion verificada.
@@ -178,9 +178,16 @@ def capa_3_gemini_orquestador(consulta: str, notebook_id: str) -> Dict[str, Any]
     return resultado
 
 
-def _gemini_clasificar_producto(consulta: str, capitulo_pista: str = "") -> Dict[str, Any]:
-    """Capa 2b: invoca Gemini-REST con prompt enfocado en clasificacion arancelaria.
-    Devuelve codigo + descripcion + capitulo extraidos de la respuesta."""
+def _gemini_identificar_capitulo(consulta: str) -> Dict[str, Any]:
+    """
+    PRE-FILTRO Gemini — CEO Decision 03-May-2026 (Opcion B).
+
+    Gemini YA NO clasifica SON. Su unico rol: identificar el Capitulo SA
+    candidato (2 digitos) usando lenguaje natural. Claude API (Capa 1)
+    es el arbitro legal final con RGI 1-6 + Notas Legales + cache 7616.
+
+    Devuelve: capitulo (str 2 digitos), criterio_0, justificacion, candidatos_alt
+    """
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         return {"ok": False, "error": "GEMINI_API_KEY no configurada"}
@@ -192,80 +199,60 @@ def _gemini_clasificar_producto(consulta: str, capitulo_pista: str = "") -> Dict
     except Exception as e:
         return {"ok": False, "error": f"import _gemini_rest_call: {e}"}
 
-    pista = f"\nPista de capitulo SA: {capitulo_pista}" if capitulo_pista else ""
     system = (
-        "Eres clasificador arancelario senior del Arancel de Aduanas de la Republica Dominicana "
-        "(7ma Enmienda 2022, Decreto 36-22). Tu unica tarea es devolver el codigo nacional RD "
-        "de 8 digitos (XXXX.XX.XX) mas especifico posible para el producto consultado."
+        "Eres un pre-filtro arancelario del Sistema Armonizado SA (7ma Enmienda 2022). "
+        "Tu UNICO trabajo es identificar el Capitulo SA de 2 digitos mas probable para "
+        "el producto descrito. NO clasificas a nivel de Partida ni Subpartida. "
+        "NO devuelves codigos de 8 digitos. Solo el Capitulo y la razon. "
+        "Claude API se encargara de la clasificacion SON final con las Notas Legales."
     )
     prompt = (
-        f"Clasifica este producto: {consulta}{pista}\n\n"
-        "CRITERIO 0 — IDENTIDAD FUNCIONAL (responder PRIMERO, es determinante):\n"
-        "El articulo esta destinado a:\n"
-        "  [A] ser portado habitualmente sobre el cuerpo como adorno personal -> Cap. 71\n"
-        "  [B] ser entregado como distincion, trofeo o reconocimiento -> Cap. 83\n"
-        "  [C] uso industrial, tecnico, comercial o domestico especifico -> especificar\n"
-        "El Criterio 0 PREVALECE sobre composicion material si hay conflicto.\n\n"
-        "REGLAS OBLIGATORIAS:\n"
-        "1. PROHIBIDO devolver subpartidas genericas '.99.X' o terminadas en '.00' "
-        "si existen subpartidas mas especificas. Lee la descripcion oficial de "
-        "cada subpartida candidata y elige la que mejor describe el producto.\n"
-        "2. Codigo SIEMPRE 8 digitos formato XXXX.XX.XX. NUNCA 10 digitos.\n"
-        "3. Si el producto puede caer en varias subpartidas por peso/tamaño/uso, "
-        "indica la version mas especifica con justificacion breve.\n"
-        "4. Considera Notas Legales del Capitulo y Reglas Generales de Interpretacion "
-        "(RGI 1, 3a, 6).\n"
-        "5. PRINCIPIO ELEMENTO vs APARATO (regla dura — RGI 1, Notas Legales de Capitulo):\n"
-        "   Antes de clasificar, pregunta: ¿el producto ES la cosa, o es el APARATO que la usa/contiene?\n"
-        "   El consumible/insumo/parte funcional NO va con el aparato — clasifica por su naturaleza.\n"
-        "   Ejemplos canonicos (memorizar el principio, no la lista):\n"
-        "     - Bombillo/lampara/tubo LED (genera luz) -> 8539. Luminaria/fixture (sostiene luz) -> 9405. Nota 11.b Cap.85.\n"
-        "     - Cartucho de tinta/toner -> 3215 o 9612. Impresora -> 8443.\n"
-        "     - Capsula de cafe (es cafe) -> 0901. Cafetera (aparato) -> 8516.71.\n"
-        "     - Cuchilla afeitar -> 8212. Afeitadora electrica -> 8510.\n"
-        "     - Lente fotografico -> 9002. Camara -> 9006/8525.\n"
-        "     - Pelicula/cinta -> 3705/8523. Reproductor -> 8521/8519.\n"
-        "     - Bateria/pila -> 8506/8507. Aparato a pilas -> donde corresponde.\n"
-        "   Test rapido: si el producto se CONSUME, REEMPLAZA o se INSERTA en otra cosa,\n"
-        "   probablemente NO va en la partida del aparato. Verifica Nota Legal del Capitulo.\n"
-        "   PROHIBIDO clasificar consumibles en la partida del aparato que los usa.\n\n"
-        "FORMATO DE RESPUESTA (estricto, una linea por campo):\n"
-        "CRITERIO_0: [A|B|C]\n"
-        "JUSTIFICACION_0: [por que elegiste A, B o C]\n"
-        "CODIGO: [XXXX.XX.XX]\n"
+        f"Identifica el Capitulo SA (2 digitos) para: {consulta}\n\n"
+        "CRITERIO 0 — IDENTIDAD FUNCIONAL (determina el Capitulo):\n"
+        "  [A] adorno personal portatil -> Cap. 71\n"
+        "  [B] distincion/trofeo/reconocimiento deportivo -> Cap. 83\n"
+        "  [C] aparato electronico/telecomunicacion -> Cap. 84-85\n"
+        "  [D] vehiculo/aeronave -> Cap. 86-89\n"
+        "  [E] uso industrial/tecnico/agricola/farmaceutico -> especificar\n\n"
+        "PRINCIPIO ELEMENTO vs APARATO: si el producto es consumible/repuesto, "
+        "NO va en el capitulo del aparato. Ejemplo: bombillo -> Cap.85, no Cap.94.\n\n"
+        "FORMATO DE RESPUESTA:\n"
+        "CRITERIO_0: [A|B|C|D|E]\n"
         "CAPITULO: [NN]\n"
-        "PARTIDA: [XXXX]\n"
-        "SUBPARTIDA_SA: [XXXX.XX]\n"
-        "DESCRIPCION_OFICIAL: [texto breve del Arancel]\n"
-        "JUSTIFICACION: [1-2 frases]\n"
-        "RGI: [RGI X]"
+        "CAPITULOS_ALT: [NN, NN] (hasta 2 alternativas si hay duda)\n"
+        "RAZON: [1 frase explicando por que ese capitulo]"
     )
-    answer, err = _gemini_rest_call(api_key, "gemini-2.5-flash", system, prompt, timeout=45)
+    answer, err = _gemini_rest_call(api_key, "gemini-2.5-flash", system, prompt, timeout=30)
     if err or not answer:
         return {"ok": False, "error": err or "respuesta vacia"}
 
-    # Parsear bloque estructurado
-    out = {"ok": True, "raw": answer[:600]}
+    out = {"ok": True, "raw": answer[:400], "rol": "pre_filtro_capitulo"}
     for campo, regex in [
-        ("criterio_0", r'CRITERIO_0:\s*([ABC])'),
-        ("justificacion_0", r'JUSTIFICACION_0:\s*(.+)'),
-        ("codigo", r'CODIGO:\s*(\d{4}\.\d{2}\.\d{2})'),
-        ("capitulo", r'CAPITULO:\s*(\d{2})'),
-        ("partida", r'PARTIDA:\s*(\d{4})'),
-        ("subpartida_sa", r'SUBPARTIDA_SA:\s*(\d{4}\.\d{2})'),
-        ("descripcion", r'DESCRIPCION_OFICIAL:\s*(.+)'),
-        ("justificacion", r'JUSTIFICACION:\s*(.+)'),
-        ("rgi", r'RGI:\s*(.+)'),
+        ("criterio_0",    r'CRITERIO_0:\s*([A-E])'),
+        ("capitulo",      r'CAPITULO:\s*(\d{1,2})'),
+        ("capitulos_alt", r'CAPITULOS_ALT:\s*(.+)'),
+        ("razon",         r'RAZON:\s*(.+)'),
     ]:
         m = re.search(regex, answer, re.IGNORECASE)
         if m:
-            out[campo] = m.group(1).strip().split('\n')[0][:300]
-    if not out.get("codigo"):
-        m_any = re.search(r'\b(\d{4}\.\d{2}\.\d{2})\b', answer)
-        if m_any:
-            out["codigo"] = m_any.group(1)
-    out["ok"] = bool(out.get("codigo"))
+            out[campo] = m.group(1).strip().split('\n')[0][:200]
+    if out.get("capitulo"):
+        out["capitulo"] = out["capitulo"].zfill(2)
+    out["ok"] = bool(out.get("capitulo"))
     return out
+
+
+# Alias de compatibilidad — codigo legado que llame a _gemini_clasificar_producto
+# recibe el capitulo candidato como "codigo" para no romper callers existentes.
+def _gemini_clasificar_producto(consulta: str, capitulo_pista: str = "") -> Dict[str, Any]:
+    """Alias de compatibilidad hacia _gemini_identificar_capitulo (Opcion B CEO)."""
+    res = _gemini_identificar_capitulo(consulta)
+    if res.get("ok") and res.get("capitulo"):
+        res["capitulo_candidato"] = res["capitulo"]
+        # NO emitir 'codigo' — Capa 1 es la que clasifica SON final
+        res["codigo"] = None
+        res["_opcion_b"] = True
+    return res
 
 
 def _capa2_verificar_pdfs(consulta: str, capa3: dict) -> Dict[str, Any]:
@@ -403,22 +390,21 @@ def capa_2_notion_merceologia(consulta: str, notebook_id: str, umbral: float = 0
         except Exception as e:
             resultado["error_sqlite"] = f"{type(e).__name__}: {str(e)[:150]}"
 
-    # Sub-capa 2c: Gemini-REST clasificacion estructurada (cobertura universal)
+    # Sub-capa 2c: Gemini PRE-FILTRO — solo identifica Capitulo candidato (Opcion B CEO)
     g = _gemini_clasificar_producto(consulta, capitulo_pista)
-    if g.get("ok") and g.get("codigo"):
+    if g.get("ok") and g.get("capitulo_candidato"):
+        # Gemini entrega Capitulo, NO codigo SON. Capa 1 (Claude) clasificara SON final.
         resultado.update({
             "ok": True,
-            "fuente": "gemini_rest",
-            "codigo": g["codigo"],
-            "capitulo": g.get("capitulo"),
-            "partida": g.get("partida"),
-            "subpartida_sa": g.get("subpartida_sa"),
-            "descripcion": g.get("descripcion"),
-            "justificacion": g.get("justificacion"),
-            "rgi": g.get("rgi"),
+            "fuente": "gemini_prefiltro",
+            "capitulo_candidato": g["capitulo_candidato"],
+            "criterio_0_gemini": g.get("criterio_0"),
+            "razon_gemini": g.get("razon"),
+            "capitulos_alt": g.get("capitulos_alt"),
+            "_opcion_b": True,
             "elapsed_ms": int((time.time() - t0) * 1000),
         })
-        # Sub-capa 2d: validar contra PDFs del cuaderno la categoria de Capa 3
+        # Sub-capa 2d: validar contra PDFs del cuaderno
         if capa3_resultado:
             verif = _capa2_verificar_pdfs(consulta, capa3_resultado)
             resultado["verificacion_pdfs"] = verif
@@ -429,7 +415,7 @@ def capa_2_notion_merceologia(consulta: str, notebook_id: str, umbral: float = 0
                 )
         return resultado
     else:
-        resultado["error_gemini"] = g.get("error", "sin codigo extraido")
+        resultado["error_gemini"] = g.get("error", "sin capitulo candidato extraido (Opcion B)")
 
     resultado["elapsed_ms"] = int((time.time() - t0) * 1000)
     return resultado
@@ -1103,13 +1089,35 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
 
     codigo_propuesto = c2.get("codigo")
 
+    # Opcion B CEO: si Capa 2 fue pre-filtro Gemini (capitulo_candidato), Capa 1
+    # recibe el capitulo como pista para su busqueda SON — no hay codigo todavia.
+    capitulo_gemini = c2.get("capitulo_candidato") if c2.get("_opcion_b") else None
+    if capitulo_gemini and not codigo_propuesto:
+        # Intentar encontrar SON mas especifico dentro del capitulo candidato via cache
+        try:
+            cache_path = os.path.join(_DATA, "fuentes_nomenclatura", "arancel_cache.json")
+            with open(cache_path, "r", encoding="utf-8") as f:
+                _cache_opb = json.load(f)
+            _codigos_opb = _cache_opb.get("codigos", _cache_opb)
+            candidatos = [c for c in _codigos_opb.keys() if c.startswith(capitulo_gemini)]
+            if candidatos:
+                codigo_propuesto = candidatos[0]
+                c2["codigo"] = codigo_propuesto
+                c2["fuente_opcion_b"] = f"capitulo_{capitulo_gemini}_primer_candidato"
+        except Exception:
+            pass
+
     # CAPA 1: Claude/SQLite verificador (recibe caracteristicas detectadas en Capa 3)
     caracs = c3.get("caracteristicas_detectadas", {})
+    if capitulo_gemini:
+        caracs["capitulo_candidato_gemini"] = capitulo_gemini
+        caracs["criterio_0_gemini"] = c2.get("criterio_0_gemini", "")
     c1 = capa_1_claude_validador(consulta, codigo_propuesto, caracteristicas_capa3=caracs)
     trazabilidad["capas"].append(c1)
 
     # Tool #9: si Capa 1 detecto exclusion por RGI 1, reintentar con capitulo correcto
-    if c1.get("exclusion_rgi1", {}).get("excluido") and c2.get("fuente") == "gemini_rest":
+    fuente_c2 = c2.get("fuente", "")
+    if c1.get("exclusion_rgi1", {}).get("excluido") and fuente_c2 in ("gemini_rest", "gemini_prefiltro"):
         cap_redir = c1["exclusion_rgi1"]["capitulo_final"]
         partida_redir = c1["exclusion_rgi1"].get("partida_alternativa", "")
         print(f"[PIPELINE] Tool #9 excluyo Cap.{c1['capitulo_excluido']} -> redirigir a Cap.{cap_redir}")
@@ -1136,10 +1144,11 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     confusion = _detectar_confusion_elemento_aparato(consulta, codigo_propuesto or "")
     if confusion:
         c1["confusion_elemento_aparato"] = confusion
+    _es_gemini_fuente = fuente_c2 in ("gemini_rest", "gemini_prefiltro")
     necesita_retry = (
-        (c1.get("codigo_generico") and c2.get("fuente") == "gemini_rest") or
-        (c2.get("fuente") == "gemini_rest" and codigo_propuesto and not c1.get("codigo_existe")) or
-        (confusion and c2.get("fuente") == "gemini_rest")
+        (c1.get("codigo_generico") and _es_gemini_fuente) or
+        (_es_gemini_fuente and codigo_propuesto and not c1.get("codigo_existe")) or
+        (confusion and _es_gemini_fuente)
     )
     if necesita_retry:
         alternativas = c1.get("alternativas_mas_especificas", [])

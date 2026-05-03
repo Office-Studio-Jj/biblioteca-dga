@@ -2,7 +2,7 @@
   "_meta": {
     "version": "2.0",
     "descripcion": "Registro de errores reportados mas de una vez. Fuente para auto-correccion.",
-    "ultima_actualizacion": "2026-04-21"
+    "ultima_actualizacion": "2026-05-03"
   },
   "errores": [
     {
@@ -166,6 +166,11 @@
     "Cache-first es OBLIGATORIO no condicional para datos arancelarios",
     "ISC gate ejecuta ANTES del gate gravamen - orden importa",
     "Reconfigurar stdout a UTF-8 con errors=replace en produccion Railway/Linux",
-    "Toda respuesta IA con emoji debe pasar por _safe_print() defensivo"
+    "Toda respuesta IA con emoji debe pasar por _safe_print() defensivo",
+    "Gemini SOLO pre-filtro (Capitulo 2 digitos) — NUNCA clasificador SON final (Decision CEO 03-May-2026)",
+    "Claude API es arbitro legal: RGI 1-6 secuencial + Notas Legales + recorrido SON completo",
+    "Toda clasificacion debe considerar regimen aduanero (Ley 168-21 Arts. 118-180) antes de emitir liquidacion",
+    "Tool #9 validar_exclusion_capitulos obligatorio antes de asignar SON",
+    "Referencias legales completas: Ley + Articulo + Titulo + Seccion + Capitulo + Partida del Decreto 755-22"
   ]
 }

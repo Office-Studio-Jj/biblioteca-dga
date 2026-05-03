@@ -2,8 +2,8 @@
   "_meta": {
     "version": "2.0",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
-    "ultima_actualizacion": "2026-04-27",
-    "total_errores": 29,
+    "ultima_actualizacion": "2026-05-03",
+    "total_errores": 31,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -1009,6 +1009,93 @@
       "verificacion": "clasificar_producto('Scooters') → error='AMBIGUO' sin código. clasificar_producto('patineta eléctrica kick scooter sin motor de combustión 25 km/h') → son_final debe ser 8712.xx.xx, NO 8711.xx.xx",
       "fecha_resolucion": "2026-04-27",
       "commit": "PENDING"
+    },
+    {
+      "id": "ERR-030",
+      "titulo": "BUG-006: Ausencia de validacion de regimenes aduaneros en clasificacion",
+      "sintomas_usuario": [
+        "clasificacion sin regimen",
+        "liquidacion tributaria incorrecta",
+        "no pregunta si es importacion definitiva o zona franca",
+        "DAI calculado sin considerar DR-CAFTA",
+        "admision temporal no refleja exencion"
+      ],
+      "keywords_match": [
+        "regimen aduanero",
+        "importacion definitiva",
+        "admision temporal",
+        "zona franca",
+        "reimportacion",
+        "drawback",
+        "DR-CAFTA",
+        "liquidacion incorrecta",
+        "sin regimen"
+      ],
+      "componente": "sub_agentes/clasificador_merceologico_auto.py + server.py",
+      "tipo": "clasificacion/regimen-aduanero",
+      "fix_resumen": "El motor emite SON + DAI sin considerar regimen de destino. Ley 168-21 Arts. 118-180 define que el tratamiento tributario depende del regimen (definitiva, temporal, zona franca, transito, drawback). Fix requerido: (1) preguntar regimen al usuario o inferir del contexto, (2) aplicar exenciones/reducciones segun regimen ANTES de emitir liquidacion, (3) si DR-CAFTA aplica verificar origen conforme Res. DGA 357-05. Sin este modulo, toda liquidacion es potencialmente incorrecta bajo Art. 142 Ley 168-21.",
+      "archivos": [
+        "sub_agentes/clasificador_merceologico_auto.py",
+        "server.py",
+        "notebooklm_skill/scripts/pipeline_3_capas.py"
+      ],
+      "lineas_clave": [
+        "TODO: modulo_regimenes_aduaneros()",
+        "Ley 168-21 Arts. 118-180",
+        "DR-CAFTA Cap. 3 preferencias",
+        "Ley 11-92 Arts. 335-382 ITBIS segun regimen"
+      ],
+      "verificacion": "Clasificacion de producto con regimen='admision temporal' debe mostrar DAI=0% o exencion aplicable. Producto con origen CAFTA debe aplicar preferencia arancelaria.",
+      "fecha_resolucion": "2026-05-03",
+      "commit": "PENDING",
+      "origen": "Informe CEO + Informe Tecnico Mayo 2026 - BUG-006 propuesto",
+      "prioridad": "ALTA",
+      "estado": "PENDIENTE_IMPLEMENTACION"
+    },
+    {
+      "id": "ERR-031",
+      "titulo": "CEO-DECISION: Gemini degradado a pre-filtro — Claude arbitro legal (Opcion B aprobada)",
+      "sintomas_usuario": [
+        "Gemini clasifica mal al nivel SON",
+        "confunde subpartidas dentro del mismo capitulo",
+        "medalla en Cap.71 en vez de Cap.83",
+        "bodycam 0% vs 20% no distingue",
+        "tirilla glucosa confundida con embarazo",
+        "descripcion merceologica superficial"
+      ],
+      "keywords_match": [
+        "Gemini clasificacion incorrecta",
+        "SON incorrecto",
+        "subpartida mal",
+        "Gemini no distingue",
+        "opcion B",
+        "pre-filtro",
+        "Claude arbitro",
+        "Tool 9",
+        "validar exclusion capitulos"
+      ],
+      "componente": "notebooklm_skill/scripts/ask_gemini.py + pipeline_3_capas.py",
+      "tipo": "arquitectura/decision-CEO",
+      "fix_resumen": "DECISION CEO 03-MAY-2026: Gemini SOLO identifica Capitulo candidato (2 digitos). Claude API toma control total de clasificacion SON con: (1) acceso Notas Legales via Notion/cache, (2) Tool #9 validar_exclusion_capitulos, (3) aplicacion secuencial RGI 1-6 Decreto 755-22, (4) recorrido TODAS las SON dentro de subpartida antes de emitir. Flujo: Usuario describe → Gemini identifica Cap. → Claude lee Notas Legales → Claude aplica RGI 1 → Claude recorre SON → Claude emite con fundamento legal. NO ejecutar Opcion A ni C sin autorizacion CEO.",
+      "archivos": [
+        "notebooklm_skill/scripts/ask_gemini.py",
+        "notebooklm_skill/scripts/pipeline_3_capas.py",
+        "sub_agentes/clasificador_merceologico_auto.py"
+      ],
+      "lineas_clave": [
+        "Gemini role: SOLO capitulo candidato 2 digitos",
+        "Claude API: clasificador legal principal",
+        "Tool #9: validar_exclusion_capitulos()",
+        "RGI 1-6 secuencial obligatorio",
+        "Notas Legales Seccion/Capitulo acceso directo"
+      ],
+      "verificacion": "Consulta 'medalla deportiva metal comun' debe: Gemini→Cap.83 o Cap.71, Claude→lee Nota Legal Cap.83 Partida 83.06 + exclusion Cap.71 Nota 9→emite 8306.xx.xx con cita legal. Consulta 'bodycam policial' debe: Claude distingue entre 8525.81.11/12/19 citando Ley 171-12.",
+      "fecha_resolucion": "2026-05-03",
+      "commit": "PENDING",
+      "origen": "Informe Tecnico Auditoria + Dictamen CEO Mayo 2026 - Opcion B APROBADA",
+      "prioridad": "CRITICA",
+      "estado": "PENDIENTE_IMPLEMENTACION",
+      "bugs_que_resuelve": ["BUG-004 medalla", "BUG-005 bodycam", "BUG-006 tirilla glucosa"]
     }
   ]
 }
