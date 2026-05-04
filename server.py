@@ -836,7 +836,7 @@ def consultar():
                 print(f"[PIPELINE_3CAPAS] OK codigo={traz['codigo_final']} "
                       f"tiempo={traz.get('tiempo_total_ms')}ms")
                 _set_cached(question, notebook_id, traz["respuesta_final"])
-                return jsonify({
+                _resp_p3c = {
                     "answer": traz["respuesta_final"],
                     "from_cache": True,
                     "cache_via": "pipeline_3_capas",
@@ -849,7 +849,20 @@ def consultar():
                         "conflictos": [c.get("id") for c in traz.get("conflictos_posibles", [])],
                         "tiempo_ms": traz.get("tiempo_total_ms"),
                     },
-                })
+                }
+                # Segunda fuente automática: Notion
+                try:
+                    import sys as _sys2
+                    _ns2 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notion_service")
+                    if _ns2 not in _sys2.path:
+                        _sys2.path.insert(0, _ns2)
+                    from buscar_notion import buscar as _bn2
+                    _fuentes2 = _bn2(question, notebook_id, timeout=3.0)
+                    if _fuentes2:
+                        _resp_p3c["fuentes_notion"] = _fuentes2
+                except Exception:
+                    pass
+                return jsonify(_resp_p3c)
             else:
                 print(f"[PIPELINE_3CAPAS] no resolvio (patron={traz.get('patron_intacto')}, "
                       f"codigo={traz.get('codigo_final')}). Fallback a flujo normal.")
@@ -904,6 +917,20 @@ def consultar():
     tiene_imagen = bool(producto_identificado) or (archivo is not None)
     timeout_consulta = 90 if tiene_imagen else 60
 
+    # Lanzar búsqueda Notion en paralelo (segunda fuente automática, timeout 5s)
+    _notion_future = None
+    try:
+        from concurrent.futures import ThreadPoolExecutor as _TPE
+        import sys as _sys
+        _ns_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notion_service")
+        if _ns_path not in _sys.path:
+            _sys.path.insert(0, _ns_path)
+        from buscar_notion import buscar as _buscar_notion
+        _notion_executor = _TPE(max_workers=1)
+        _notion_future = _notion_executor.submit(_buscar_notion, question, notebook_id, 5.0)
+    except Exception as _ne:
+        print(f"[NOTION_SEARCH] No disponible: {_ne}")
+
     try:
         answer = ask_notebooklm(question, notebook_id, timeout=timeout_consulta)
         # Guardar en cache solo consultas de texto (no imágenes, no errores)
@@ -912,6 +939,22 @@ def consultar():
         resp = {"answer": answer}
         if producto_identificado:
             resp["producto_identificado"] = producto_identificado
+
+        # Adjuntar fuentes Notion automáticamente
+        if _notion_future is not None:
+            try:
+                fuentes = _notion_future.result(timeout=1.0)
+                if fuentes:
+                    resp["fuentes_notion"] = fuentes
+                    print(f"[NOTION_SEARCH] {len(fuentes)} fuente(s) adjuntadas")
+            except Exception:
+                pass
+            finally:
+                try:
+                    _notion_executor.shutdown(wait=False)
+                except Exception:
+                    pass
+
         return jsonify(resp)
     except subprocess.TimeoutExpired:
         return jsonify({"error": "Tiempo de espera agotado. Intenta de nuevo."}), 504

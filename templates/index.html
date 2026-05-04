@@ -483,6 +483,44 @@
     }
 
     /* ── Conformidad y ficha técnica ── */
+    /* ── Fuentes Notion ── */
+    .fuentes-notion-header {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--primary, #2d6cdf);
+      margin-bottom: 8px;
+      letter-spacing: 0.02em;
+    }
+    .fuentes-notion-list { display: flex; flex-direction: column; gap: 6px; }
+    .fuente-notion-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border, #e2e8f0);
+      background: var(--card-bg, #f8fafc);
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .fuente-notion-item:hover { background: var(--hover-bg, #eef2ff); }
+    .fuente-notion-bd {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--primary, #2d6cdf);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .fuente-notion-titulo {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text, #1e293b);
+    }
+    .fuente-notion-resumen {
+      font-size: 0.74rem;
+      color: var(--text-muted, #64748b);
+      line-height: 1.4;
+    }
     .conformity-section {
       margin-top: 16px;
       padding-top: 14px;
@@ -865,6 +903,9 @@
 
         <!-- ── Panel Supervisor Arancelario (solo nomenclatura) ── -->
         <div id="supervisorBox" class="supervisor-box" style="display:none;"></div>
+
+        <!-- ── Fuentes Notion (segunda fuente automática) ── -->
+        <div id="fuentesNotionBox" style="display:none;margin-top:12px;"></div>
 
         <!-- ── Conformidad ── -->
         <div id="conformitySection" class="conformity-section" style="display:none;">
@@ -2017,6 +2058,21 @@
       </div>`;
   }
 
+  /* ── Fuentes Notion — segunda fuente automática ── */
+  function _renderFuentesNotion(fuentes) {
+    const box = document.getElementById('fuentesNotionBox');
+    if (!box) return;
+    if (!fuentes || fuentes.length === 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const items = fuentes.map(f => `
+      <a href="${f.url}" target="_blank" rel="noopener" class="fuente-notion-item">
+        <span class="fuente-notion-bd">${f.bd}</span>
+        <span class="fuente-notion-titulo">${f.titulo}</span>
+        ${f.resumen ? `<span class="fuente-notion-resumen">${f.resumen.substring(0,120)}…</span>` : ''}
+      </a>`).join('');
+    box.innerHTML = `<div class="fuentes-notion-header">📚 Fuentes relacionadas en Biblioteca</div><div class="fuentes-notion-list">${items}</div>`;
+    box.style.display = 'block';
+  }
+
   /* ── Tarjeta compacta de Nomenclatura — solo lo esencial técnico ── */
   function _renderNomenclaturaCard(nd, supData, fullAnalysis, bodyEl) {
     // 1. Extraer impuestos: primero de DATOS_CLASIFICACION, fallback a supervisor checks
@@ -2168,6 +2224,8 @@
     });
     const supBox = document.getElementById('supervisorBox');
     if (supBox) supBox.style.display = 'none';
+    const fnBox = document.getElementById('fuentesNotionBox');
+    if (fnBox) { fnBox.style.display = 'none'; fnBox.innerHTML = ''; }
     document.getElementById('otherNbGrid').classList.remove('show');
     document.getElementById('btnRetry').style.display = 'none';
     document.getElementById('saveOkMsg').style.display = 'none';
@@ -2307,6 +2365,9 @@
         }
         saveHistory(q, selName, data.answer, _lastNomenclaturaData);
         document.getElementById('conformitySection').style.display = 'block';
+
+        // 5. Fuentes Notion automáticas (segunda fuente)
+        _renderFuentesNotion(data.fuentes_notion || []);
       }
     } catch(e) {
       clearTimeout(_tid);
@@ -2596,6 +2657,7 @@
         saveHistory(q, _retryNbName, data.answer, _lastNomenclaturaData);
         document.getElementById('fichaSection').style.display = 'none';
         document.getElementById('conformitySection').style.display = 'block';
+        _renderFuentesNotion(data.fuentes_notion || []);
       }
     } catch(e) {
       clearTimeout(_tidR);

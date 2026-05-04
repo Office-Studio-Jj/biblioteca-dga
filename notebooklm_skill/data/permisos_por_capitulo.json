@@ -1,0 +1,1045 @@
+{
+  "metadata": {
+    "descripcion": "Catálogo de permisos y autorizaciones requeridas por capítulo SA para importaciones a República Dominicana",
+    "version": "1.0",
+    "fecha_creacion": "2026-05-04",
+    "base_legal_general": "Ley 168-21 (General de Aduanas), Decreto 755-22 (Reglamento), Decreto 36-22 (Arancel Nacional 7ma Enmienda)"
+  },
+  "capitulo_01": {
+    "nombre": "Animales vivos",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - Dirección General de Ganadería (DIGEGA)",
+        "base_legal": "Ley 4030-55 sobre Sanidad Pecuaria; Ley 311-68 sobre Sanidad Animal",
+        "aplica_a": "Todos los animales vivos del capítulo",
+        "tramite": "Permiso zoosanitario de importación emitido por DIGEGA previo al embarque"
+      },
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00 sobre Medio Ambiente y Recursos Naturales; CITES",
+        "aplica_a": "Especies protegidas o en peligro de extinción listadas en CITES",
+        "tramite": "Permiso CITES de importación emitido por Medio Ambiente"
+      }
+    ]
+  },
+  "capitulo_02": {
+    "nombre": "Carne y despojos comestibles",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - DIGEGA",
+        "base_legal": "Ley 4030-55; Ley 311-68; Decreto 755-22 Art. 48",
+        "aplica_a": "Todas las carnes y despojos comestibles",
+        "tramite": "Certificado zoosanitario del país de origen + permiso de importación DIGEGA"
+      },
+      {
+        "entidad": "Ministerio de Salud Pública (MSP)",
+        "base_legal": "Ley 42-01 General de Salud, Arts. 112-119",
+        "aplica_a": "Carnes para consumo humano",
+        "tramite": "Registro sanitario de alimentos y certificado de inspección sanitaria"
+      }
+    ]
+  },
+  "capitulo_03": {
+    "nombre": "Pescados y crustáceos, moluscos y demás invertebrados acuáticos",
+    "permisos": [
+      {
+        "entidad": "Consejo Dominicano de Pesca y Acuicultura (CODOPESCA)",
+        "base_legal": "Ley 307-04 sobre Pesca; Reglamento de aplicación",
+        "aplica_a": "Todos los productos pesqueros y acuícolas",
+        "tramite": "Permiso de importación de productos pesqueros emitido por CODOPESCA"
+      },
+      {
+        "entidad": "Ministerio de Salud Pública (MSP)",
+        "base_legal": "Ley 42-01 General de Salud",
+        "aplica_a": "Productos pesqueros para consumo humano",
+        "tramite": "Registro sanitario de alimentos"
+      }
+    ]
+  },
+  "capitulo_04": {
+    "nombre": "Leche y productos lácteos; huevos de ave; miel natural",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - DIGEGA",
+        "base_legal": "Ley 4030-55; Ley 311-68",
+        "aplica_a": "Leche, productos lácteos, huevos",
+        "tramite": "Certificado zoosanitario y permiso de importación DIGEGA"
+      },
+      {
+        "entidad": "Ministerio de Salud Pública (MSP)",
+        "base_legal": "Ley 42-01, Arts. 112-119; Reglamento General de Control de Riesgos en Alimentos y Bebidas",
+        "aplica_a": "Productos lácteos procesados para consumo humano",
+        "tramite": "Registro sanitario de alimentos ante la Dirección General de Medicamentos, Alimentos y Productos Sanitarios (DIGEMAPS)"
+      }
+    ]
+  },
+  "capitulo_05": {
+    "nombre": "Los demás productos de origen animal",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - DIGEGA",
+        "base_legal": "Ley 4030-55; Ley 311-68",
+        "aplica_a": "Productos de origen animal no comestibles (huesos, cuernos, plumas)",
+        "tramite": "Permiso zoosanitario de importación"
+      },
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00; CITES",
+        "aplica_a": "Productos derivados de especies CITES (marfil, coral, caparazones)",
+        "tramite": "Permiso CITES de importación"
+      }
+    ]
+  },
+  "capitulo_06": {
+    "nombre": "Plantas vivas y productos de la floricultura",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55; Ley 311-68; Normas CIPF/FAO",
+        "aplica_a": "Todas las plantas vivas, esquejes, bulbos, semillas para siembra",
+        "tramite": "Permiso fitosanitario de importación + certificado fitosanitario del país de origen"
+      }
+    ]
+  },
+  "capitulo_07": {
+    "nombre": "Hortalizas, plantas, raíces y tubérculos alimenticios",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55; Ley 311-68",
+        "aplica_a": "Hortalizas frescas y refrigeradas",
+        "tramite": "Permiso fitosanitario de importación y certificado fitosanitario de origen"
+      },
+      {
+        "entidad": "Ministerio de Salud Pública (MSP)",
+        "base_legal": "Ley 42-01",
+        "aplica_a": "Hortalizas procesadas o envasadas para consumo humano",
+        "tramite": "Registro sanitario de alimentos"
+      }
+    ]
+  },
+  "capitulo_08": {
+    "nombre": "Frutas y frutos comestibles; cortezas de agrios (cítricos), melones o sandías",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55; Ley 311-68",
+        "aplica_a": "Frutas frescas",
+        "tramite": "Permiso fitosanitario de importación + certificado fitosanitario de origen + inspección en puerto"
+      }
+    ]
+  },
+  "capitulo_09": {
+    "nombre": "Café, té, yerba mate y especias",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55",
+        "aplica_a": "Café, té y especias en estado natural",
+        "tramite": "Permiso fitosanitario de importación"
+      },
+      {
+        "entidad": "Instituto Dominicano del Café (INDOCAFE)",
+        "base_legal": "Ley 340 de creación del INDOCAFE",
+        "aplica_a": "Café verde y tostado",
+        "tramite": "Autorización de importación de INDOCAFE"
+      }
+    ]
+  },
+  "capitulo_10": {
+    "nombre": "Cereales",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55; Ley 311-68",
+        "aplica_a": "Todos los cereales (trigo, arroz, maíz, sorgo)",
+        "tramite": "Permiso fitosanitario de importación + certificado fitosanitario de origen"
+      },
+      {
+        "entidad": "Instituto de Estabilización de Precios (INESPRE)",
+        "base_legal": "Ley 526-69 modificada",
+        "aplica_a": "Arroz, habichuelas y otros productos de la canasta básica",
+        "tramite": "Cuota de importación cuando aplique contingente arancelario (DR-CAFTA)"
+      }
+    ]
+  },
+  "capitulo_11": {
+    "nombre": "Productos de la molinería; malta; almidón y fécula; inulina; gluten de trigo",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55",
+        "aplica_a": "Harinas y productos de molinería de origen vegetal",
+        "tramite": "Certificado fitosanitario de origen"
+      },
+      {
+        "entidad": "Ministerio de Salud Pública (MSP)",
+        "base_legal": "Ley 42-01; Norma para harinas fortificadas",
+        "aplica_a": "Harinas de trigo para consumo humano",
+        "tramite": "Registro sanitario + verificación de fortificación con hierro y ácido fólico"
+      }
+    ]
+  },
+  "capitulo_12": {
+    "nombre": "Semillas y frutos oleaginosos; plantas industriales o medicinales; paja y forraje",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55; Ley 311-68",
+        "aplica_a": "Semillas para siembra, plantas medicinales",
+        "tramite": "Permiso fitosanitario de importación + análisis de laboratorio"
+      }
+    ]
+  },
+  "capitulo_13": {
+    "nombre": "Gomas, resinas y demás jugos y extractos vegetales",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55",
+        "aplica_a": "Extractos y jugos vegetales en estado natural",
+        "tramite": "Certificado fitosanitario de origen cuando proceda"
+      }
+    ]
+  },
+  "capitulo_14": {
+    "nombre": "Materias trenzables y demás productos de origen vegetal",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55",
+        "aplica_a": "Materias vegetales para trenzar (bambú, ratán, mimbre)",
+        "tramite": "Permiso fitosanitario de importación"
+      }
+    ]
+  },
+  "capitulo_15": {
+    "nombre": "Grasas y aceites animales o vegetales; grasas alimenticias elaboradas; ceras",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP) - DIGEMAPS",
+        "base_legal": "Ley 42-01 General de Salud, Arts. 112-119",
+        "aplica_a": "Aceites y grasas comestibles para consumo humano",
+        "tramite": "Registro sanitario de alimentos ante DIGEMAPS"
+      },
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 del Sistema Dominicano para la Calidad (SIDOCAL)",
+        "aplica_a": "Aceites comestibles envasados",
+        "tramite": "Certificado de conformidad con normas NORDOM aplicables"
+      }
+    ]
+  },
+  "capitulo_16": {
+    "nombre": "Preparaciones de carne, pescado o crustáceos",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP) - DIGEMAPS",
+        "base_legal": "Ley 42-01, Arts. 112-119",
+        "aplica_a": "Embutidos, conservas de carne y pescado",
+        "tramite": "Registro sanitario de alimentos procesados"
+      },
+      {
+        "entidad": "Dirección General de Impuestos Internos (DGII)",
+        "base_legal": "Ley 11-92 Código Tributario, Arts. 335-337",
+        "aplica_a": "Todos los productos del capítulo",
+        "tramite": "Registro como contribuyente importador + ITBIS 18%"
+      }
+    ]
+  },
+  "capitulo_17": {
+    "nombre": "Azúcares y artículos de confitería",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP) - DIGEMAPS",
+        "base_legal": "Ley 42-01",
+        "aplica_a": "Confitería, caramelos, chocolates, preparaciones con azúcar",
+        "tramite": "Registro sanitario de alimentos"
+      },
+      {
+        "entidad": "Instituto Azucarero Dominicano (INAZUCAR)",
+        "base_legal": "Ley 618-65 de creación del INAZUCAR",
+        "aplica_a": "Azúcar de caña y remolacha",
+        "tramite": "Cuota de importación y autorización de INAZUCAR"
+      }
+    ]
+  },
+  "capitulo_18": {
+    "nombre": "Cacao y sus preparaciones",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP) - DIGEMAPS",
+        "base_legal": "Ley 42-01",
+        "aplica_a": "Chocolate y preparaciones alimenticias con cacao",
+        "tramite": "Registro sanitario de alimentos"
+      },
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55",
+        "aplica_a": "Cacao en grano",
+        "tramite": "Certificado fitosanitario de origen"
+      }
+    ]
+  },
+  "capitulo_19": {
+    "nombre": "Preparaciones a base de cereales, harina, almidón, fécula o leche; pastelería",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP) - DIGEMAPS",
+        "base_legal": "Ley 42-01, Arts. 112-119",
+        "aplica_a": "Pan, galletas, pastas, preparaciones alimenticias",
+        "tramite": "Registro sanitario de alimentos procesados"
+      }
+    ]
+  },
+  "capitulo_20": {
+    "nombre": "Preparaciones de hortalizas, frutas u otros frutos o demás partes de plantas",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP) - DIGEMAPS",
+        "base_legal": "Ley 42-01",
+        "aplica_a": "Conservas, jugos, mermeladas, frutas en almíbar",
+        "tramite": "Registro sanitario de alimentos"
+      }
+    ]
+  },
+  "capitulo_21": {
+    "nombre": "Preparaciones alimenticias diversas",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP) - DIGEMAPS",
+        "base_legal": "Ley 42-01, Arts. 112-119",
+        "aplica_a": "Salsas, condimentos, sopas, helados, preparaciones para bebidas",
+        "tramite": "Registro sanitario de alimentos"
+      }
+    ]
+  },
+  "capitulo_22": {
+    "nombre": "Bebidas, líquidos alcohólicos y vinagre",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP) - DIGEMAPS",
+        "base_legal": "Ley 42-01",
+        "aplica_a": "Todas las bebidas para consumo humano",
+        "tramite": "Registro sanitario de bebidas"
+      },
+      {
+        "entidad": "Dirección General de Impuestos Internos (DGII)",
+        "base_legal": "Ley 11-92 Código Tributario, Arts. 361-382 (ISC); Ley 146-00",
+        "aplica_a": "Bebidas alcohólicas (cervezas, vinos, licores, ron)",
+        "tramite": "Pago de Impuesto Selectivo al Consumo (ISC) + registro de importador de bebidas alcohólicas ante DGII"
+      },
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL; NORDOM 1-71 (Ron dominicano)",
+        "aplica_a": "Bebidas alcohólicas y no alcohólicas envasadas",
+        "tramite": "Certificado de conformidad con normas NORDOM de etiquetado"
+      }
+    ]
+  },
+  "capitulo_23": {
+    "nombre": "Residuos y desperdicios de las industrias alimentarias; alimentos preparados para animales",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - DIGEGA",
+        "base_legal": "Ley 4030-55; Ley 311-68",
+        "aplica_a": "Alimentos preparados para animales, premezclas",
+        "tramite": "Registro y permiso de importación de alimentos para animales"
+      }
+    ]
+  },
+  "capitulo_24": {
+    "nombre": "Tabaco y sucedáneos del tabaco elaborados",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Impuestos Internos (DGII)",
+        "base_legal": "Ley 11-92 Código Tributario, Arts. 361-382 (ISC)",
+        "aplica_a": "Cigarrillos, cigarros, tabaco para fumar",
+        "tramite": "Pago de ISC ad valorem + registro como importador de productos del tabaco"
+      },
+      {
+        "entidad": "Ministerio de Salud Pública (MSP)",
+        "base_legal": "Ley 42-01; Ley 48-00 General sobre Tabaco",
+        "aplica_a": "Todos los productos del tabaco",
+        "tramite": "Advertencias sanitarias en etiquetado conforme Ley 48-00"
+      }
+    ]
+  },
+  "capitulo_25": {
+    "nombre": "Sal; azufre; tierras y piedras; yesos, cales y cementos",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Energía y Minas",
+        "base_legal": "Ley 146-71 de Minería",
+        "aplica_a": "Minerales no metálicos, sal industrial, azufre",
+        "tramite": "Permiso de importación de minerales cuando proceda"
+      },
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL",
+        "aplica_a": "Cemento Portland y cales para construcción",
+        "tramite": "Certificado de conformidad con normas NORDOM de construcción"
+      }
+    ]
+  },
+  "capitulo_26": {
+    "nombre": "Minerales metalíferos, escorias y cenizas",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Energía y Minas",
+        "base_legal": "Ley 146-71 de Minería y su reglamento",
+        "aplica_a": "Minerales metalíferos, concentrados",
+        "tramite": "Autorización del Ministerio de Energía y Minas para importación de minerales"
+      }
+    ]
+  },
+  "capitulo_27": {
+    "nombre": "Combustibles minerales, aceites minerales; materias bituminosas; ceras minerales",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Industria, Comercio y MiPymes (MIC)",
+        "base_legal": "Ley 112-00 de Hidrocarburos",
+        "aplica_a": "Gasolina, gasoil, fuel oil, GLP, gas natural",
+        "tramite": "Licencia de importación de hidrocarburos emitida por MIC"
+      },
+      {
+        "entidad": "Dirección General de Impuestos Internos (DGII)",
+        "base_legal": "Ley 112-00; Ley 11-92 Arts. 361-382",
+        "aplica_a": "Todos los combustibles y derivados del petróleo",
+        "tramite": "Pago de ISC específico por galón + impuesto ad valorem según tipo de combustible"
+      },
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00, Arts. 76-82",
+        "aplica_a": "Combustibles y productos contaminantes",
+        "tramite": "Evaluación de impacto ambiental cuando proceda"
+      }
+    ]
+  },
+  "capitulo_28": {
+    "nombre": "Productos químicos inorgánicos",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP)",
+        "base_legal": "Ley 42-01 General de Salud",
+        "aplica_a": "Químicos para uso farmacéutico o sanitario",
+        "tramite": "Registro sanitario y autorización de DIGEMAPS"
+      },
+      {
+        "entidad": "Consejo Nacional de Drogas (CND)",
+        "base_legal": "Ley 50-88 sobre Drogas y Sustancias Controladas",
+        "aplica_a": "Precursores químicos controlados (ácidos, anhídridos, solventes listados)",
+        "tramite": "Licencia de importación de precursores químicos emitida por el CND"
+      },
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL; Sistema Globalmente Armonizado (SGA)",
+        "aplica_a": "Productos químicos peligrosos",
+        "tramite": "Fichas de datos de seguridad (SDS) y etiquetado SGA"
+      }
+    ]
+  },
+  "capitulo_29": {
+    "nombre": "Productos químicos orgánicos",
+    "permisos": [
+      {
+        "entidad": "Consejo Nacional de Drogas (CND)",
+        "base_legal": "Ley 50-88 sobre Drogas y Sustancias Controladas",
+        "aplica_a": "Precursores químicos orgánicos controlados",
+        "tramite": "Licencia de importación de precursores"
+      },
+      {
+        "entidad": "Ministerio de Salud Pública (MSP)",
+        "base_legal": "Ley 42-01",
+        "aplica_a": "Productos químicos orgánicos de uso farmacéutico",
+        "tramite": "Autorización de importación de materias primas farmacéuticas"
+      }
+    ]
+  },
+  "capitulo_30": {
+    "nombre": "Productos farmacéuticos",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP) - DIGEMAPS",
+        "base_legal": "Ley 42-01 General de Salud, Arts. 113-130; Decreto 246-06 Reglamento de Medicamentos",
+        "aplica_a": "Todos los medicamentos, vacunas, sueros, reactivos de diagnóstico",
+        "tramite": "Registro sanitario de medicamento ante DIGEMAPS + certificado de libre venta del país de origen + análisis de control de calidad"
+      },
+      {
+        "entidad": "Consejo Nacional de Drogas (CND)",
+        "base_legal": "Ley 50-88 sobre Drogas y Sustancias Controladas",
+        "aplica_a": "Medicamentos que contienen sustancias controladas (opiáceos, psicotrópicos)",
+        "tramite": "Licencia especial de importación del CND + cuota autorizada"
+      }
+    ]
+  },
+  "capitulo_31": {
+    "nombre": "Abonos",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55; regulaciones fitosanitarias",
+        "aplica_a": "Fertilizantes y abonos para uso agrícola",
+        "tramite": "Registro de producto fertilizante ante el Ministerio de Agricultura"
+      }
+    ]
+  },
+  "capitulo_32": {
+    "nombre": "Extractos curtientes o tintóreos; taninos; pigmentos; pinturas; tintas",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00, Arts. 76-82",
+        "aplica_a": "Pinturas con plomo, solventes tóxicos",
+        "tramite": "Evaluación ambiental y permiso de importación de sustancias tóxicas"
+      },
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL",
+        "aplica_a": "Pinturas y recubrimientos para uso en construcción",
+        "tramite": "Certificado de conformidad con normas NORDOM sobre contenido de plomo"
+      }
+    ]
+  },
+  "capitulo_33": {
+    "nombre": "Aceites esenciales y resinoides; preparaciones de perfumería, de tocador o de cosmética",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP) - DIGEMAPS",
+        "base_legal": "Ley 42-01 General de Salud; Reglamento de Cosméticos",
+        "aplica_a": "Perfumes, cosméticos, productos de higiene personal, jabones de tocador",
+        "tramite": "Registro sanitario de productos cosméticos ante DIGEMAPS + notificación sanitaria obligatoria"
+      }
+    ]
+  },
+  "capitulo_34": {
+    "nombre": "Jabón; agentes de superficie orgánicos; preparaciones para lavar; velas",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP) - DIGEMAPS",
+        "base_legal": "Ley 42-01",
+        "aplica_a": "Jabones y detergentes de uso doméstico",
+        "tramite": "Notificación sanitaria obligatoria"
+      },
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL",
+        "aplica_a": "Detergentes y productos de limpieza",
+        "tramite": "Certificado de conformidad con normas NORDOM de etiquetado y biodegradabilidad"
+      }
+    ]
+  },
+  "capitulo_35": {
+    "nombre": "Materias albuminoideas; productos a base de almidón o fécula modificados; colas; enzimas",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP)",
+        "base_legal": "Ley 42-01",
+        "aplica_a": "Colas y adhesivos de uso alimentario, enzimas para alimentos",
+        "tramite": "Registro sanitario cuando sea para uso en alimentos"
+      }
+    ]
+  },
+  "capitulo_36": {
+    "nombre": "Pólvoras y explosivos; artículos de pirotecnia; fósforos (cerillas); aleaciones pirofóricas; materias inflamables",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Defensa - Dirección General de Control de Armas",
+        "base_legal": "Ley 631 sobre Armas de Fuego; Decreto 309-06",
+        "aplica_a": "Pólvoras, explosivos, detonadores, fulminantes",
+        "tramite": "Permiso especial de importación del Ministerio de Defensa + escolta militar para transporte"
+      },
+      {
+        "entidad": "Ministerio de Interior y Policía",
+        "base_legal": "Ley 631; Reglamento de Pirotecnia",
+        "aplica_a": "Artículos de pirotecnia (fuegos artificiales)",
+        "tramite": "Autorización de importación + almacenamiento controlado"
+      }
+    ]
+  },
+  "capitulo_37": {
+    "nombre": "Productos fotográficos o cinematográficos",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL",
+        "aplica_a": "Productos fotográficos y químicos de revelado",
+        "tramite": "Certificado de conformidad cuando proceda"
+      }
+    ]
+  },
+  "capitulo_38": {
+    "nombre": "Productos diversos de las industrias químicas",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP)",
+        "base_legal": "Ley 42-01",
+        "aplica_a": "Insecticidas, fungicidas, herbicidas, desinfectantes de uso doméstico",
+        "tramite": "Registro sanitario de plaguicidas de uso doméstico"
+      },
+      {
+        "entidad": "Ministerio de Agricultura",
+        "base_legal": "Ley 4030-55; Reglamento de Plaguicidas de Uso Agrícola",
+        "aplica_a": "Plaguicidas y herbicidas de uso agrícola",
+        "tramite": "Registro de plaguicida agrícola ante el Departamento de Sanidad Vegetal"
+      },
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00; Convenio de Estocolmo; Convenio de Rotterdam",
+        "aplica_a": "Contaminantes orgánicos persistentes (COPs), sustancias peligrosas",
+        "tramite": "Consentimiento previo informado (PIC) para sustancias listadas en Rotterdam"
+      }
+    ]
+  },
+  "capitulo_39": {
+    "nombre": "Plástico y sus manufacturas",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL; NORDOM aplicables",
+        "aplica_a": "Envases plásticos para alimentos y bebidas",
+        "tramite": "Certificado de conformidad con normas NORDOM de migración y seguridad alimentaria"
+      },
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00; Ley 225-20 sobre Gestión Integral de Residuos Sólidos",
+        "aplica_a": "Plásticos de un solo uso (según regulación vigente)",
+        "tramite": "Verificación de cumplimiento con restricciones ambientales"
+      }
+    ]
+  },
+  "capitulo_40": {
+    "nombre": "Caucho y sus manufacturas",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL",
+        "aplica_a": "Neumáticos nuevos y recauchutados para vehículos",
+        "tramite": "Certificado de conformidad con normas NORDOM de seguridad vehicular"
+      }
+    ]
+  },
+  "capitulo_41": {
+    "nombre": "Pieles (excepto la peletería) y cueros",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00; CITES",
+        "aplica_a": "Pieles de especies protegidas (cocodrilo, caimán, serpientes CITES)",
+        "tramite": "Permiso CITES de importación"
+      }
+    ]
+  },
+  "capitulo_42": {
+    "nombre": "Manufacturas de cuero; artículos de talabartería o guarnicionería; artículos de viaje",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00; CITES",
+        "aplica_a": "Artículos fabricados con pieles de especies CITES",
+        "tramite": "Permiso CITES cuando el material provenga de especies protegidas"
+      }
+    ]
+  },
+  "capitulo_43": {
+    "nombre": "Peletería y confecciones de peletería; peletería facticia o artificial",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00; CITES",
+        "aplica_a": "Pieles finas de especies protegidas",
+        "tramite": "Permiso CITES de importación"
+      }
+    ]
+  },
+  "capitulo_44": {
+    "nombre": "Madera, carbón vegetal y manufacturas de madera",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00 sobre Medio Ambiente; CITES Apéndices I/II/III",
+        "aplica_a": "Maderas tropicales protegidas (caoba, ébano, palo de rosa, cedro)",
+        "tramite": "Permiso CITES de importación + certificado de origen legal de la madera"
+      },
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55; NIMF-15 (norma internacional para embalajes de madera)",
+        "aplica_a": "Embalajes y pallets de madera",
+        "tramite": "Tratamiento fitosanitario NIMF-15 (bromuro de metilo o tratamiento térmico)"
+      }
+    ]
+  },
+  "capitulo_45": {
+    "nombre": "Corcho y sus manufacturas",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55",
+        "aplica_a": "Corcho natural sin procesar",
+        "tramite": "Certificado fitosanitario de origen"
+      }
+    ]
+  },
+  "capitulo_46": {
+    "nombre": "Manufacturas de espartería o cestería",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00; CITES",
+        "aplica_a": "Productos de fibras naturales de especies protegidas",
+        "tramite": "Permiso CITES cuando aplique"
+      },
+      {
+        "entidad": "Ministerio de Agricultura - Departamento de Sanidad Vegetal",
+        "base_legal": "Ley 4030-55",
+        "aplica_a": "Materiales vegetales trenzados en estado natural",
+        "tramite": "Certificado fitosanitario de origen"
+      }
+    ]
+  },
+  "capitulo_47": {
+    "nombre": "Pasta de madera o de las demás materias fibrosas celulósicas; papel o cartón para reciclar",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00; Convenio de Basilea",
+        "aplica_a": "Desperdicios de papel para reciclar (importación de residuos)",
+        "tramite": "Permiso ambiental para importación de residuos reciclables"
+      }
+    ]
+  },
+  "capitulo_48": {
+    "nombre": "Papel y cartón; manufacturas de pasta de celulosa, de papel o cartón",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL",
+        "aplica_a": "Envases de cartón para alimentos",
+        "tramite": "Certificado de conformidad con normas NORDOM de seguridad alimentaria"
+      }
+    ]
+  },
+  "capitulo_49": {
+    "nombre": "Productos editoriales, de la prensa y de las demás industrias gráficas",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Aduanas (DGA)",
+        "base_legal": "Ley 168-21; Acuerdo de Florencia de la UNESCO",
+        "aplica_a": "Libros, periódicos, revistas",
+        "tramite": "Exención arancelaria bajo Acuerdo de Florencia (libros impresos con ISBN)"
+      }
+    ]
+  },
+  "capitulo_50_67": {
+    "nombre": "Materias textiles y sus manufacturas (Capítulos 50-63) y Calzado (Cap. 64-67)",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL; NORDOM de etiquetado textil",
+        "aplica_a": "Prendas de vestir, textiles, calzado",
+        "tramite": "Etiquetado obligatorio (composición, talla, país de origen, instrucciones de lavado)"
+      },
+      {
+        "entidad": "Dirección General de Aduanas (DGA)",
+        "base_legal": "Ley 168-21; Ley 424-06 (DR-CAFTA); Resolución DGA 357-05",
+        "aplica_a": "Textiles y confecciones con preferencia arancelaria DR-CAFTA",
+        "tramite": "Certificado de origen DR-CAFTA (regla de hilaza en adelante para textiles)"
+      }
+    ]
+  },
+  "capitulo_68_70": {
+    "nombre": "Manufacturas de piedra, cerámica y vidrio (Capítulos 68-70)",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL",
+        "aplica_a": "Vidrio de seguridad, cerámicas para construcción",
+        "tramite": "Certificado de conformidad con normas NORDOM aplicables"
+      }
+    ]
+  },
+  "capitulo_71": {
+    "nombre": "Perlas naturales o cultivadas, piedras preciosas, metales preciosos y manufacturas",
+    "permisos": [
+      {
+        "entidad": "Banco Central de la República Dominicana",
+        "base_legal": "Ley Monetaria y Financiera 183-02; regulaciones del Banco Central",
+        "aplica_a": "Oro, plata y platino en lingotes o polvo; metales preciosos para reservas",
+        "tramite": "Declaración obligatoria al Banco Central + autorización para importaciones significativas"
+      },
+      {
+        "entidad": "Dirección General de Aduanas (DGA)",
+        "base_legal": "Ley 168-21, Art. 10; Decreto 755-22",
+        "aplica_a": "Piedras preciosas y joyería de alto valor",
+        "tramite": "Declaración de valor + verificación de autenticidad + aforo especializado"
+      },
+      {
+        "entidad": "Proceso de Kimberley",
+        "base_legal": "Resolución ONU; adhesión de RD al Proceso de Kimberley",
+        "aplica_a": "Diamantes en bruto",
+        "tramite": "Certificado del Proceso de Kimberley (KPC) para diamantes en bruto"
+      }
+    ]
+  },
+  "capitulo_72_83": {
+    "nombre": "Metales comunes y sus manufacturas (Capítulos 72-83)",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL",
+        "aplica_a": "Acero de construcción, varillas, perfiles estructurales",
+        "tramite": "Certificado de conformidad con normas NORDOM de construcción (resistencia, calidad)"
+      },
+      {
+        "entidad": "Ministerio de Defensa",
+        "base_legal": "Ley 631 sobre Armas de Fuego",
+        "aplica_a": "Cuchillos, machetes y armas blancas controladas (Cap. 82)",
+        "tramite": "Verificación de que no constituyan armas prohibidas"
+      }
+    ]
+  },
+  "capitulo_84": {
+    "nombre": "Reactores nucleares, calderas, máquinas, aparatos y artefactos mecánicos",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL",
+        "aplica_a": "Maquinaria industrial, equipos mecánicos",
+        "tramite": "Certificado de conformidad con normas NORDOM de seguridad eléctrica y mecánica"
+      },
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00; Protocolo de Montreal",
+        "aplica_a": "Equipos de refrigeración y aire acondicionado con gases refrigerantes",
+        "tramite": "Verificación de que no contengan sustancias agotadoras de la capa de ozono (SAO) prohibidas"
+      },
+      {
+        "entidad": "Comisión Nacional de Energía (CNE)",
+        "base_legal": "Ley 57-07 sobre Energías Renovables",
+        "aplica_a": "Equipos de generación de energía renovable (paneles solares, turbinas)",
+        "tramite": "Certificación para acceder a exención arancelaria bajo Ley 57-07"
+      }
+    ]
+  },
+  "capitulo_85": {
+    "nombre": "Máquinas, aparatos y material eléctrico; aparatos de grabación o reproducción de sonido/imagen; partes",
+    "permisos": [
+      {
+        "entidad": "Instituto Dominicano de las Telecomunicaciones (INDOTEL)",
+        "base_legal": "Ley 153-98 General de Telecomunicaciones",
+        "aplica_a": "Equipos de telecomunicaciones, radiofrecuencia, celulares, módems, routers, antenas",
+        "tramite": "Homologación de equipos de telecomunicaciones ante INDOTEL + certificado de no interferencia"
+      },
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL; NORDOM de seguridad eléctrica",
+        "aplica_a": "Electrodomésticos, equipos eléctricos de consumo",
+        "tramite": "Certificado de conformidad con normas NORDOM de seguridad eléctrica y etiquetado energético"
+      },
+      {
+        "entidad": "Comisión Nacional de Energía (CNE)",
+        "base_legal": "Ley 57-07 sobre Energías Renovables",
+        "aplica_a": "Paneles solares, inversores, baterías para sistemas fotovoltaicos",
+        "tramite": "Certificación para exención arancelaria bajo Ley 57-07"
+      }
+    ]
+  },
+  "capitulo_86": {
+    "nombre": "Vehículos y material para vías férreas o similares",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL",
+        "aplica_a": "Material rodante ferroviario",
+        "tramite": "Certificado de conformidad técnica"
+      }
+    ]
+  },
+  "capitulo_87": {
+    "nombre": "Vehículos automóviles, tractores, velocípedos y demás vehículos terrestres",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Tránsito Terrestre (DGTT)",
+        "base_legal": "Ley 63-17 de Movilidad, Transporte Terrestre, Tránsito y Seguridad Vial",
+        "aplica_a": "Todos los vehículos de motor (nuevos y usados)",
+        "tramite": "Certificado de homologación vehicular + verificación de año de fabricación (restricción de antigüedad para vehículos usados)"
+      },
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL; normas NORDOM vehiculares",
+        "aplica_a": "Vehículos de motor y motocicletas",
+        "tramite": "Certificado de conformidad con normas de seguridad y emisiones"
+      },
+      {
+        "entidad": "Dirección General de Impuestos Internos (DGII)",
+        "base_legal": "Ley 11-92 Código Tributario, Arts. 361-382 (ISC); Ley 557-05",
+        "aplica_a": "Vehículos de motor",
+        "tramite": "Pago de ISC (primera matrícula) + ITBIS 18% + placa provisional"
+      },
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00; normas de emisiones",
+        "aplica_a": "Vehículos de motor (verificación de emisiones)",
+        "tramite": "Verificación de cumplimiento con normas de emisiones contaminantes"
+      }
+    ]
+  },
+  "capitulo_88": {
+    "nombre": "Aeronaves, vehículos espaciales, y sus partes",
+    "permisos": [
+      {
+        "entidad": "Instituto Dominicano de Aviación Civil (IDAC)",
+        "base_legal": "Ley 491-06 de Aviación Civil; Regulaciones Aeronáuticas Dominicanas (RAD)",
+        "aplica_a": "Aeronaves, helicópteros, drones (aeronaves no tripuladas), partes y accesorios",
+        "tramite": "Certificado de aeronavegabilidad + autorización de importación del IDAC + registro en el Registro Aeronáutico Nacional"
+      },
+      {
+        "entidad": "Junta de Aviación Civil (JAC)",
+        "base_legal": "Ley 491-06",
+        "aplica_a": "Aeronaves para uso comercial",
+        "tramite": "Autorización de operación comercial"
+      }
+    ]
+  },
+  "capitulo_89": {
+    "nombre": "Barcos y demás artefactos flotantes",
+    "permisos": [
+      {
+        "entidad": "Autoridad Marítima Nacional (Armada de República Dominicana)",
+        "base_legal": "Ley 5-23 de Comercio Marítimo de la RD",
+        "aplica_a": "Embarcaciones de todo tipo, yates, buques",
+        "tramite": "Registro en el Registro Marítimo Nacional + certificado de navegabilidad + inspección de seguridad"
+      },
+      {
+        "entidad": "Dirección General de Impuestos Internos (DGII)",
+        "base_legal": "Ley 11-92 Código Tributario",
+        "aplica_a": "Embarcaciones de recreo (yates, veleros)",
+        "tramite": "Pago de ISC para embarcaciones de recreo + ITBIS"
+      },
+      {
+        "entidad": "Autoridad Portuaria Dominicana (APORDOM)",
+        "base_legal": "Ley 70-70 de creación de APORDOM",
+        "aplica_a": "Embarcaciones que ingresarán a puertos dominicanos",
+        "tramite": "Autorización de atraque y despacho portuario"
+      }
+    ]
+  },
+  "capitulo_90": {
+    "nombre": "Instrumentos y aparatos de óptica, fotografía, cinematografía, medida, control, precisión; instrumentos y aparatos medicoquirúrgicos",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Salud Pública (MSP) - DIGEMAPS",
+        "base_legal": "Ley 42-01 General de Salud; Resolución MSP sobre dispositivos médicos",
+        "aplica_a": "Dispositivos médicos, equipos quirúrgicos, prótesis, instrumentos de diagnóstico",
+        "tramite": "Registro sanitario de dispositivos médicos ante DIGEMAPS + certificado de libre venta del fabricante"
+      },
+      {
+        "entidad": "Comisión Nacional de Energía Atómica (CNEA)",
+        "base_legal": "Ley 1-95 sobre Energía Nuclear; Decreto 552-05",
+        "aplica_a": "Equipos de radiología, tomografía, radioterapia (fuentes radiactivas)",
+        "tramite": "Licencia de importación de fuentes radiactivas + autorización de la CNEA"
+      }
+    ]
+  },
+  "capitulo_91": {
+    "nombre": "Aparatos de relojería y sus partes",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Aduanas (DGA)",
+        "base_legal": "Ley 168-21; Decreto 755-22",
+        "aplica_a": "Relojes de alto valor",
+        "tramite": "Verificación de valor en aduana (valoración según Acuerdo OMC Art. VII)"
+      }
+    ]
+  },
+  "capitulo_92": {
+    "nombre": "Instrumentos musicales; sus partes y accesorios",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00; CITES",
+        "aplica_a": "Instrumentos fabricados con materiales CITES (marfil, palo de rosa, ébano)",
+        "tramite": "Permiso CITES de importación + certificado de origen del material"
+      }
+    ]
+  },
+  "capitulo_93": {
+    "nombre": "Armas, municiones, y sus partes y accesorios",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Defensa - Dirección General de Control de Armas",
+        "base_legal": "Ley 631 sobre Armas de Fuego; Decreto 309-06 Reglamento de Armas",
+        "aplica_a": "Armas de fuego, municiones, partes y accesorios",
+        "tramite": "Permiso especial de importación del Ministerio de Defensa + licencia de portación/tenencia + autorización del Presidente de la República para armas de guerra"
+      },
+      {
+        "entidad": "Ministerio de Interior y Policía",
+        "base_legal": "Ley 631; Reglamento de aplicación",
+        "aplica_a": "Armas para uso civil y seguridad privada",
+        "tramite": "Verificación de antecedentes del importador + autorización de uso"
+      },
+      {
+        "entidad": "Policía Nacional",
+        "base_legal": "Ley 631",
+        "aplica_a": "Todas las armas importadas",
+        "tramite": "Registro de armas en el sistema de la Policía Nacional"
+      }
+    ]
+  },
+  "capitulo_94": {
+    "nombre": "Muebles; mobiliario medicoquirúrgico; artículos de cama y similares; aparatos de alumbrado",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL",
+        "aplica_a": "Muebles de madera (verificación fitosanitaria del embalaje)",
+        "tramite": "Certificado NIMF-15 para embalajes de madera"
+      },
+      {
+        "entidad": "Ministerio de Salud Pública (MSP) - DIGEMAPS",
+        "base_legal": "Ley 42-01",
+        "aplica_a": "Mobiliario medicoquirúrgico (camas de hospital, mesas de cirugía)",
+        "tramite": "Registro sanitario de dispositivos médicos"
+      }
+    ]
+  },
+  "capitulo_95": {
+    "nombre": "Juguetes, juegos y artículos para recreo o deporte; sus partes y accesorios",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Normas y Sistemas de Calidad (DGNM)",
+        "base_legal": "Ley 166-12 SIDOCAL; NORDOM de seguridad de juguetes",
+        "aplica_a": "Juguetes para niños menores de 14 años",
+        "tramite": "Certificado de conformidad con normas NORDOM de seguridad de juguetes (contenido de plomo, partes pequeñas)"
+      }
+    ]
+  },
+  "capitulo_96": {
+    "nombre": "Manufacturas diversas",
+    "permisos": [
+      {
+        "entidad": "Ministerio de Medio Ambiente y Recursos Naturales",
+        "base_legal": "Ley 64-00; CITES",
+        "aplica_a": "Artículos de marfil, hueso, concha de tortuga u otros materiales CITES",
+        "tramite": "Permiso CITES de importación"
+      }
+    ]
+  },
+  "capitulo_97": {
+    "nombre": "Objetos de arte o colección y antigüedades",
+    "permisos": [
+      {
+        "entidad": "Dirección General de Aduanas (DGA)",
+        "base_legal": "Ley 168-21; Decreto 755-22",
+        "aplica_a": "Obras de arte, objetos de colección, antigüedades con más de 100 años",
+        "tramite": "Verificación de autenticidad + aforo especializado por perito de la DGA"
+      },
+      {
+        "entidad": "Ministerio de Cultura",
+        "base_legal": "Ley 41-00 General de Cultura; Convención UNESCO 1970",
+        "aplica_a": "Bienes culturales, antigüedades, patrimonio cultural",
+        "tramite": "Certificado de que los bienes no constituyen patrimonio cultural robado o exportado ilegalmente del país de origen"
+      }
+    ]
+  }
+}
