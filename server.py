@@ -3569,6 +3569,42 @@ def merceologia_buscar():
     return jsonify({"hits": hits, "total": len(hits), "query": q})
 
 
+# ── Orquestador v2 — Endpoint CEO 04-05-2026 (ANEXADO, no modifica nada) ─────
+@app.route("/api/v2/clasificar", methods=["POST"])
+@login_required
+def clasificar_v2():
+    """
+    Endpoint v2 que conecta R1-R7 al flujo de respuesta.
+    Orden CEO 04-05-2026: modulos existen pero nadie los conecto.
+    Este endpoint los conecta usando orquestador_consulta_v2.py
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    consulta = (data.get("consulta") or data.get("question") or "").strip()
+    if not consulta:
+        return jsonify({"error": "Campo 'consulta' requerido"}), 400
+    try:
+        import sys as _sys_v2
+        _root_v2 = os.path.dirname(os.path.abspath(__file__))
+        if _root_v2 not in _sys_v2.path:
+            _sys_v2.path.insert(0, _root_v2)
+        from orquestador_consulta_v2 import procesar_consulta, formatear_informe
+        resultado = procesar_consulta(consulta)
+        return jsonify({
+            "ok": bool(resultado.get("codigo_son")),
+            "resultado": resultado,
+            "informe": formatear_informe(resultado),
+            "version": "v2",
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "ok": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()[-500:],
+            "version": "v2",
+        }), 500
+
+
 # ── Arranque ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import socket
