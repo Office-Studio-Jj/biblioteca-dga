@@ -241,6 +241,17 @@ def procesar_consulta(texto_usuario: str) -> dict:
         resultado["advertencias"].append("Consulta vacia")
         return resultado
 
+    # === PRE-FILTRO GEMINI (Orden 10 CEO 04-05-2026) ===
+    # Traduce lenguaje comercial → lenguaje arancelario SA.
+    # Si Gemini falla → texto_usuario queda sin cambio, flujo no se rompe.
+    try:
+        from gemini_prefiltro import enriquecer_consulta as _ge
+        texto_usuario = _ge(texto_usuario)
+        resultado["consulta_enriquecida"] = texto_usuario
+    except Exception:
+        pass
+    # === FIN PRE-FILTRO GEMINI ===
+
     son_candidato = None
     rgi_usada = None
     confianza = None
