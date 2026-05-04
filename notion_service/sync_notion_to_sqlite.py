@@ -1,7 +1,9 @@
 """
 Capa 2 — Notion CMS Sync (Two-Brain System RD)
-Lee jurisprudencia, SOPs y fichas merceológicas desde Notion y los escribe
-en SQLite para disponibilidad offline y búsqueda FTS5.
+Lee las 7 BDs Notion y las escribe en SQLite para disponibilidad offline y FTS5.
+
+BDs originales: Jurisprudencia DGA, SOPs Aduanas, Fichas Merceologicas
+BDs nuevas (CEO 04-05-2026): BD-Valoracion, BD-Regimenes, BD-VUCERD, BD-Origen
 
 Uso:
   python notion_service/sync_notion_to_sqlite.py          # sync completo
@@ -20,13 +22,18 @@ _ROOT = os.path.dirname(_HERE)
 
 DB_PATH = os.path.join(_ROOT, "capa1_sqlite", "arancel_rd.db")
 
-# IDs de bases de datos Notion — rellenar cuando estén disponibles
+# IDs de bases de datos Notion — originales + 4 nuevas (CEO 04-05-2026)
 NOTION_DB_IDS: dict[str, str] = {
     "jurisprudencia":       os.environ.get("NOTION_DB_JURISPRUDENCIA", ""),
     "sops":                 os.environ.get("NOTION_DB_SOPS", ""),
     "fichas_merceologicas": os.environ.get("NOTION_DB_MERCEOLOGIA", ""),
     "notas_legales":        os.environ.get("NOTION_DB_NOTAS_LEGALES", ""),
     "mapa_exclusiones":     os.environ.get("NOTION_DB_MAPA_EXCLUSIONES", ""),
+    # Nuevas 4 BDs (Informe CEO Diagnóstico 04-05-2026)
+    "valoracion":           os.environ.get("NOTION_DB_VALORACION", ""),
+    "regimenes":            os.environ.get("NOTION_DB_REGIMENES", ""),
+    "vucerd":               os.environ.get("NOTION_DB_VUCERD", ""),
+    "origen":               os.environ.get("NOTION_DB_ORIGEN", ""),
 }
 
 
@@ -55,15 +62,77 @@ CREATE TABLE IF NOT EXISTS notion_sops (
 );
 
 CREATE TABLE IF NOT EXISTS notion_fichas_merceologicas (
-    notion_id   TEXT PRIMARY KEY,
-    producto    TEXT,
+    notion_id    TEXT PRIMARY KEY,
+    producto     TEXT,
     son_sugerido TEXT,
-    materia     TEXT,
-    funcion     TEXT,
-    uso         TEXT,
+    materia      TEXT,
+    funcion      TEXT,
+    uso          TEXT,
     clasificacion TEXT,
+    dai_pct      REAL,
+    itbis_pct    REAL,
+    rgi          TEXT,
+    capitulo_sa  TEXT,
+    seccion_sa   TEXT,
+    notas_legales TEXT,
+    base_legal   TEXT,
+    estado       TEXT,
+    fecha        TEXT,
+    url_notion   TEXT,
+    synced_at    TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS notion_valoracion (
+    notion_id   TEXT PRIMARY KEY,
+    titulo      TEXT,
+    metodo_omc  TEXT,
+    base_legal  TEXT,
+    descripcion TEXT,
+    ejemplo     TEXT,
+    fecha       TEXT,
     url_notion  TEXT,
     synced_at   TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS notion_regimenes (
+    notion_id      TEXT PRIMARY KEY,
+    titulo         TEXT,
+    regimen        TEXT,
+    arts_ley168    TEXT,
+    trato_dai      TEXT,
+    trato_itbis    TEXT,
+    trato_isc      TEXT,
+    descripcion    TEXT,
+    fecha          TEXT,
+    url_notion     TEXT,
+    synced_at      TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS notion_vucerd (
+    notion_id   TEXT PRIMARY KEY,
+    titulo      TEXT,
+    tipo_tramite TEXT,
+    base_legal  TEXT,
+    requisitos  TEXT,
+    plazo_dias  INTEGER,
+    estado      TEXT,
+    fecha       TEXT,
+    url_notion  TEXT,
+    synced_at   TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS notion_origen (
+    notion_id     TEXT PRIMARY KEY,
+    titulo        TEXT,
+    tratado       TEXT,
+    son           TEXT,
+    regla_origen  TEXT,
+    preferencia_dai TEXT,
+    base_legal    TEXT,
+    certificado   TEXT,
+    fecha         TEXT,
+    url_notion    TEXT,
+    synced_at     TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS notion_notas_legales (
@@ -231,24 +300,172 @@ def _sync_fichas(notion, con: sqlite3.Connection, db_id: str, dry_run=False) -> 
     ds_id = _resolver_data_source(notion, db_id)
     for page in _query_paginado(notion, ds_id):
         props = page.get("properties", {})
-        notion_id    = page["id"]
-        producto     = _extract_text(props.get("Producto", {}).get("title", []))
-        son_sugerido = _extract_text(props.get("SON Sugerido", {}).get("rich_text", []))
-        materia      = _extract_text(props.get("Materia", {}).get("rich_text", []))
-        funcion      = _extract_text(props.get("Función", {}).get("rich_text", []))
-        uso          = _extract_text(props.get("Uso", {}).get("rich_text", []))
+        notion_id     = page["id"]
+        producto      = _extract_text(props.get("Producto", {}).get("title", []))
+        son_sugerido  = _extract_text(props.get("SON Sugerido", {}).get("rich_text", []))
+        materia       = _extract_text(props.get("Materia", {}).get("rich_text", []))
+        funcion       = _extract_text(props.get("Función", {}).get("rich_text", []))
+        uso           = _extract_text(props.get("Uso", {}).get("rich_text", []))
         clasificacion = _extract_text(props.get("Clasificación", {}).get("rich_text", []))
-        url_notion   = f"https://notion.so/{notion_id.replace('-', '')}"
+        dai_pct       = props.get("DAI%", {}).get("number")
+        itbis_pct     = props.get("ITBIS%", {}).get("number")
+        rgi           = _extract_select(props.get("RGI Aplicable", {}).get("select", {}))
+        capitulo_sa   = _extract_text(props.get("Capítulo SA", {}).get("rich_text", []))
+        seccion_sa    = _extract_text(props.get("Sección SA", {}).get("rich_text", []))
+        notas_legales = _extract_text(props.get("Notas Legales", {}).get("rich_text", []))
+        base_legal    = _extract_text(props.get("Base Legal", {}).get("rich_text", []))
+        estado        = _extract_select(props.get("Estado", {}).get("select", {}))
+        fecha         = _extract_date(props.get("Fecha", {}).get("date", {}))
+        url_notion    = f"https://notion.so/{notion_id.replace('-', '')}"
         if not dry_run:
             con.execute(
                 """INSERT OR REPLACE INTO notion_fichas_merceologicas
-                   (notion_id, producto, son_sugerido, materia, funcion, uso, clasificacion, url_notion, synced_at)
-                   VALUES (?,?,?,?,?,?,?,?,datetime('now'))""",
-                (notion_id, producto, son_sugerido, materia, funcion, uso, clasificacion, url_notion)
+                   (notion_id, producto, son_sugerido, materia, funcion, uso, clasificacion,
+                    dai_pct, itbis_pct, rgi, capitulo_sa, seccion_sa, notas_legales,
+                    base_legal, estado, fecha, url_notion, synced_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))""",
+                (notion_id, producto, son_sugerido, materia, funcion, uso, clasificacion,
+                 dai_pct, itbis_pct, rgi, capitulo_sa, seccion_sa, notas_legales,
+                 base_legal, estado, fecha, url_notion)
             )
             con.execute(
                 "INSERT INTO notion_fts(tipo, titulo, contenido) VALUES (?,?,?)",
-                ("merceologia", producto, f"{materia} {funcion} {uso}")
+                ("merceologia", producto, f"{materia} {funcion} {uso} {notas_legales}")
+            )
+        count += 1
+    return count
+
+
+def _sync_valoracion(notion, con: sqlite3.Connection, db_id: str, dry_run=False) -> int:
+    if not db_id:
+        print("[NOTION-SYNC] NOTION_DB_VALORACION no configurada — skip")
+        return 0
+    count = 0
+    ds_id = _resolver_data_source(notion, db_id)
+    for page in _query_paginado(notion, ds_id):
+        props = page.get("properties", {})
+        notion_id   = page["id"]
+        titulo      = _extract_text(props.get("Título", {}).get("title", []))
+        metodo_omc  = _extract_select(props.get("Método OMC", {}).get("select", {}))
+        base_legal  = _extract_text(props.get("Base Legal", {}).get("rich_text", []))
+        descripcion = _extract_text(props.get("Descripción", {}).get("rich_text", []))
+        ejemplo     = _extract_text(props.get("Ejemplo", {}).get("rich_text", []))
+        fecha       = _extract_date(props.get("Fecha", {}).get("date", {}))
+        url_notion  = f"https://notion.so/{notion_id.replace('-', '')}"
+        if not dry_run:
+            con.execute(
+                """INSERT OR REPLACE INTO notion_valoracion
+                   (notion_id, titulo, metodo_omc, base_legal, descripcion, ejemplo, fecha, url_notion, synced_at)
+                   VALUES (?,?,?,?,?,?,?,?,datetime('now'))""",
+                (notion_id, titulo, metodo_omc, base_legal, descripcion, ejemplo, fecha, url_notion)
+            )
+            con.execute(
+                "INSERT INTO notion_fts(tipo, titulo, contenido) VALUES (?,?,?)",
+                ("valoracion", titulo, f"{metodo_omc} {descripcion}")
+            )
+        count += 1
+    return count
+
+
+def _sync_regimenes(notion, con: sqlite3.Connection, db_id: str, dry_run=False) -> int:
+    if not db_id:
+        print("[NOTION-SYNC] NOTION_DB_REGIMENES no configurada — skip")
+        return 0
+    count = 0
+    ds_id = _resolver_data_source(notion, db_id)
+    for page in _query_paginado(notion, ds_id):
+        props = page.get("properties", {})
+        notion_id   = page["id"]
+        titulo      = _extract_text(props.get("Título", {}).get("title", []))
+        regimen     = _extract_select(props.get("Régimen", {}).get("select", {}))
+        arts_ley168 = _extract_text(props.get("Arts. Ley 168-21", {}).get("rich_text", []))
+        trato_dai   = _extract_text(props.get("Tratamiento DAI", {}).get("rich_text", []))
+        trato_itbis = _extract_text(props.get("Tratamiento ITBIS", {}).get("rich_text", []))
+        trato_isc   = _extract_text(props.get("Tratamiento ISC", {}).get("rich_text", []))
+        descripcion = _extract_text(props.get("Descripción", {}).get("rich_text", []))
+        fecha       = _extract_date(props.get("Fecha", {}).get("date", {}))
+        url_notion  = f"https://notion.so/{notion_id.replace('-', '')}"
+        if not dry_run:
+            con.execute(
+                """INSERT OR REPLACE INTO notion_regimenes
+                   (notion_id, titulo, regimen, arts_ley168, trato_dai, trato_itbis, trato_isc,
+                    descripcion, fecha, url_notion, synced_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,datetime('now'))""",
+                (notion_id, titulo, regimen, arts_ley168, trato_dai, trato_itbis, trato_isc,
+                 descripcion, fecha, url_notion)
+            )
+            con.execute(
+                "INSERT INTO notion_fts(tipo, titulo, contenido) VALUES (?,?,?)",
+                ("regimen", titulo, f"{regimen} {descripcion} Ley 168-21 Arts. {arts_ley168}")
+            )
+        count += 1
+    return count
+
+
+def _sync_vucerd(notion, con: sqlite3.Connection, db_id: str, dry_run=False) -> int:
+    if not db_id:
+        print("[NOTION-SYNC] NOTION_DB_VUCERD no configurada — skip")
+        return 0
+    count = 0
+    ds_id = _resolver_data_source(notion, db_id)
+    for page in _query_paginado(notion, ds_id):
+        props = page.get("properties", {})
+        notion_id    = page["id"]
+        titulo       = _extract_text(props.get("Título", {}).get("title", []))
+        tipo_tramite = _extract_select(props.get("Tipo Trámite", {}).get("select", {}))
+        base_legal   = _extract_text(props.get("Base Legal", {}).get("rich_text", []))
+        requisitos   = _extract_text(props.get("Requisitos", {}).get("rich_text", []))
+        plazo        = props.get("Plazo (días)", {}).get("number")
+        estado       = _extract_select(props.get("Estado", {}).get("select", {}))
+        fecha        = _extract_date(props.get("Fecha", {}).get("date", {}))
+        url_notion   = f"https://notion.so/{notion_id.replace('-', '')}"
+        if not dry_run:
+            con.execute(
+                """INSERT OR REPLACE INTO notion_vucerd
+                   (notion_id, titulo, tipo_tramite, base_legal, requisitos, plazo_dias,
+                    estado, fecha, url_notion, synced_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,datetime('now'))""",
+                (notion_id, titulo, tipo_tramite, base_legal, requisitos, plazo,
+                 estado, fecha, url_notion)
+            )
+            con.execute(
+                "INSERT INTO notion_fts(tipo, titulo, contenido) VALUES (?,?,?)",
+                ("vucerd", titulo, f"{tipo_tramite} {requisitos}")
+            )
+        count += 1
+    return count
+
+
+def _sync_origen(notion, con: sqlite3.Connection, db_id: str, dry_run=False) -> int:
+    if not db_id:
+        print("[NOTION-SYNC] NOTION_DB_ORIGEN no configurada — skip")
+        return 0
+    count = 0
+    ds_id = _resolver_data_source(notion, db_id)
+    for page in _query_paginado(notion, ds_id):
+        props = page.get("properties", {})
+        notion_id      = page["id"]
+        titulo         = _extract_text(props.get("Título", {}).get("title", []))
+        tratado        = _extract_select(props.get("Tratado", {}).get("select", {}))
+        son            = _extract_text(props.get("SON", {}).get("rich_text", []))
+        regla_origen   = _extract_text(props.get("Regla de Origen", {}).get("rich_text", []))
+        preferencia    = _extract_text(props.get("Preferencia DAI", {}).get("rich_text", []))
+        base_legal     = _extract_text(props.get("Base Legal", {}).get("rich_text", []))
+        certificado    = _extract_text(props.get("Certificado", {}).get("rich_text", []))
+        fecha          = _extract_date(props.get("Fecha", {}).get("date", {}))
+        url_notion     = f"https://notion.so/{notion_id.replace('-', '')}"
+        if not dry_run:
+            con.execute(
+                """INSERT OR REPLACE INTO notion_origen
+                   (notion_id, titulo, tratado, son, regla_origen, preferencia_dai,
+                    base_legal, certificado, fecha, url_notion, synced_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,datetime('now'))""",
+                (notion_id, titulo, tratado, son, regla_origen, preferencia,
+                 base_legal, certificado, fecha, url_notion)
+            )
+            con.execute(
+                "INSERT INTO notion_fts(tipo, titulo, contenido) VALUES (?,?,?)",
+                ("origen", titulo, f"{tratado} SON {son} {regla_origen}")
             )
         count += 1
     return count
@@ -381,11 +598,16 @@ def sync(dry_run=False) -> dict:
     if not dry_run:
         con.execute("DELETE FROM notion_fts")
 
-    n_juri   = _sync_jurisprudencia(notion, con, NOTION_DB_IDS["jurisprudencia"],  dry_run)
-    n_sops   = _sync_sops(notion,           con, NOTION_DB_IDS["sops"],            dry_run)
+    n_juri   = _sync_jurisprudencia(notion, con, NOTION_DB_IDS["jurisprudencia"],       dry_run)
+    n_sops   = _sync_sops(notion,           con, NOTION_DB_IDS["sops"],                 dry_run)
     n_fichas = _sync_fichas(notion,         con, NOTION_DB_IDS["fichas_merceologicas"], dry_run)
-    n_notas  = _sync_notas_legales(notion,  con, NOTION_DB_IDS["notas_legales"],   dry_run)
-    n_excl   = _sync_mapa_exclusiones(notion, con, NOTION_DB_IDS["mapa_exclusiones"], dry_run)
+    n_notas  = _sync_notas_legales(notion,  con, NOTION_DB_IDS["notas_legales"],        dry_run)
+    n_excl   = _sync_mapa_exclusiones(notion, con, NOTION_DB_IDS["mapa_exclusiones"],   dry_run)
+    # BDs nuevas (CEO 04-05-2026)
+    n_val    = _sync_valoracion(notion, con, NOTION_DB_IDS["valoracion"], dry_run)
+    n_reg    = _sync_regimenes(notion,  con, NOTION_DB_IDS["regimenes"],  dry_run)
+    n_vuc    = _sync_vucerd(notion,     con, NOTION_DB_IDS["vucerd"],     dry_run)
+    n_orig   = _sync_origen(notion,     con, NOTION_DB_IDS["origen"],     dry_run)
 
     if not dry_run:
         con.execute(
@@ -396,6 +618,7 @@ def sync(dry_run=False) -> dict:
     con.close()
 
     elapsed = __import__("time").time() - t0
+    total = n_juri + n_sops + n_fichas + n_notas + n_excl + n_val + n_reg + n_vuc + n_orig
     return {
         "dry_run":           dry_run,
         "jurisprudencia":    n_juri,
@@ -403,7 +626,11 @@ def sync(dry_run=False) -> dict:
         "fichas":            n_fichas,
         "notas_legales":     n_notas,
         "mapa_exclusiones":  n_excl,
-        "total":             n_juri + n_sops + n_fichas + n_notas + n_excl,
+        "valoracion":        n_val,
+        "regimenes":         n_reg,
+        "vucerd":            n_vuc,
+        "origen":            n_orig,
+        "total":             total,
         "elapsed_s":         round(elapsed, 2),
         "synced_at":         datetime.now().isoformat(),
     }

@@ -1,6 +1,12 @@
 """
-Bootstrap Capa 2 — Crea las 3 bases de datos en Notion bajo la pagina padre.
-Se ejecuta UNA SOLA VEZ. Retorna los IDs para configurar en Railway.
+Bootstrap Capa 2 — Crea las 7 bases de datos en Notion bajo la pagina padre.
+Se ejecuta UNA SOLA VEZ por BD nueva. Retorna los IDs para configurar en Railway.
+
+BDs originales (2026-04-23): Jurisprudencia DGA, SOPs Aduanas, Fichas Merceologicas
+BDs agregadas (2026-05-04, Informe CEO Diagnostico): BD-Valoracion, BD-Regimenes,
+    BD-VUCERD, BD-Origen
+Schema Fichas Merceologicas ampliado con 8 campos (DAI%, ITBIS%, RGI, Cap SA, Sec SA,
+    Notas Legales, Base Legal, Estado, Fecha).
 """
 import json
 import os
@@ -35,16 +41,17 @@ DATABASES = [
         "title": "SOPs Aduanas",
         "icon": "📋",
         "properties": {
-            "Título":    {"title": {}},
-            "Versión":   {"rich_text": {}},
-            "Área":      {"select": {"options": [
+            "Título":      {"title": {}},
+            "Versión":     {"rich_text": {}},
+            "Área":        {"select": {"options": [
                 {"name": "Clasificación",     "color": "blue"},
                 {"name": "Valoración",        "color": "green"},
                 {"name": "Régimen suspensivo","color": "yellow"},
                 {"name": "Origen",            "color": "purple"},
                 {"name": "Despacho",          "color": "red"},
             ]}},
-            "Contenido": {"rich_text": {}},
+            "Base Legal":  {"rich_text": {}},
+            "Contenido":   {"rich_text": {}},
         },
     },
     {
@@ -58,6 +65,116 @@ DATABASES = [
             "Función":        {"rich_text": {}},
             "Uso":            {"rich_text": {}},
             "Clasificación":  {"rich_text": {}},
+            # Campos adicionales requeridos (Informe CEO Diagnóstico 04-05-2026)
+            "DAI%":           {"number": {"format": "percent"}},
+            "ITBIS%":         {"number": {"format": "percent"}},
+            "RGI Aplicable":  {"select": {"options": [
+                {"name": "RGI 1", "color": "blue"},
+                {"name": "RGI 2", "color": "green"},
+                {"name": "RGI 3", "color": "yellow"},
+                {"name": "RGI 4", "color": "orange"},
+                {"name": "RGI 5", "color": "pink"},
+                {"name": "RGI 6", "color": "purple"},
+            ]}},
+            "Capítulo SA":    {"rich_text": {}},
+            "Sección SA":     {"rich_text": {}},
+            "Notas Legales":  {"rich_text": {}},
+            "Base Legal":     {"rich_text": {}},
+            "Estado":         {"select": {"options": [
+                {"name": "Borrador",  "color": "gray"},
+                {"name": "Revisado",  "color": "yellow"},
+                {"name": "Publicado", "color": "green"},
+            ]}},
+            "Fecha":          {"date": {}},
+        },
+    },
+    # ── 4 BDs faltantes (Informe CEO Diagnóstico 04-05-2026) ────────────
+    {
+        "env": "NOTION_DB_VALORACION",
+        "title": "BD-Valoración Aduanera",
+        "icon": "💰",
+        "properties": {
+            "Título":          {"title": {}},
+            "Método OMC":      {"select": {"options": [
+                {"name": "Método 1 — Valor de transacción",       "color": "blue"},
+                {"name": "Método 2 — Mercancías idénticas",        "color": "green"},
+                {"name": "Método 3 — Mercancías similares",        "color": "yellow"},
+                {"name": "Método 4 — Precio unitario de venta",    "color": "orange"},
+                {"name": "Método 5 — Valor reconstruido",          "color": "pink"},
+                {"name": "Método 6 — Último recurso",              "color": "red"},
+            ]}},
+            "Base Legal":      {"rich_text": {}},
+            "Descripción":     {"rich_text": {}},
+            "Ejemplo":         {"rich_text": {}},
+            "Fecha":           {"date": {}},
+        },
+    },
+    {
+        "env": "NOTION_DB_REGIMENES",
+        "title": "BD-Regímenes Aduaneros",
+        "icon": "🔄",
+        "properties": {
+            "Título":          {"title": {}},
+            "Régimen":         {"select": {"options": [
+                {"name": "Importación definitiva",  "color": "blue"},
+                {"name": "Admisión temporal",        "color": "green"},
+                {"name": "Reimportación",            "color": "yellow"},
+                {"name": "Tránsito aduanero",        "color": "orange"},
+                {"name": "Zona franca",              "color": "purple"},
+                {"name": "Drawback",                 "color": "pink"},
+                {"name": "Exportación definitiva",   "color": "red"},
+                {"name": "DR-CAFTA preferencial",    "color": "gray"},
+            ]}},
+            "Arts. Ley 168-21": {"rich_text": {}},
+            "Tratamiento DAI":  {"rich_text": {}},
+            "Tratamiento ITBIS":{"rich_text": {}},
+            "Tratamiento ISC":  {"rich_text": {}},
+            "Descripción":      {"rich_text": {}},
+            "Fecha":            {"date": {}},
+        },
+    },
+    {
+        "env": "NOTION_DB_VUCERD",
+        "title": "BD-VUCERD Trámites Electrónicos",
+        "icon": "💻",
+        "properties": {
+            "Título":          {"title": {}},
+            "Tipo Trámite":    {"select": {"options": [
+                {"name": "Importación",   "color": "blue"},
+                {"name": "Exportación",   "color": "green"},
+                {"name": "Tránsito",      "color": "yellow"},
+                {"name": "Zona Franca",   "color": "purple"},
+                {"name": "Consulta",      "color": "gray"},
+            ]}},
+            "Base Legal":      {"rich_text": {}},
+            "Requisitos":      {"rich_text": {}},
+            "Plazo (días)":    {"number": {"format": "number"}},
+            "Estado":          {"select": {"options": [
+                {"name": "Activo",     "color": "green"},
+                {"name": "Suspendido", "color": "red"},
+                {"name": "En revisión","color": "yellow"},
+            ]}},
+            "Fecha":           {"date": {}},
+        },
+    },
+    {
+        "env": "NOTION_DB_ORIGEN",
+        "title": "BD-Normas y Origen DR-CAFTA",
+        "icon": "🌎",
+        "properties": {
+            "Título":          {"title": {}},
+            "Tratado":         {"select": {"options": [
+                {"name": "DR-CAFTA",    "color": "blue"},
+                {"name": "CARICOM",     "color": "green"},
+                {"name": "SGP",         "color": "yellow"},
+                {"name": "General",     "color": "gray"},
+            ]}},
+            "SON":             {"rich_text": {}},
+            "Regla de Origen": {"rich_text": {}},
+            "Preferencia DAI": {"rich_text": {}},
+            "Base Legal":      {"rich_text": {}},
+            "Certificado":     {"rich_text": {}},
+            "Fecha":           {"date": {}},
         },
     },
 ]

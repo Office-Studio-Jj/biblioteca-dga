@@ -152,6 +152,26 @@
       "lineas_clave": "sys.stdout.reconfigure(), _safe_print(), _ejecutar_gemini except UnicodeEncodeError, ask_notebooklm() wrapper",
       "prevencion": "Railway/Linux usa stdout ASCII por defecto. SIEMPRE reconfigurar UTF-8 con errors=replace al iniciar. Wrapping defensivo en cada print() de respuesta IA",
       "commit": "292d52a"
+    },
+    {
+      "id": "BUG-006",
+      "titulo": "Orquestador no valida regimen aduanero al proponer clasificacion SON",
+      "componente": "capa1_sqlite/orquestador_capa3.py",
+      "tipo": "clasificacion/regimenes",
+      "reportado": 1,
+      "fechas": ["2026-05-03"],
+      "estado": "pendiente",
+      "solucion": "Agregar parametro regimen_aduanero a clasificar_producto(). Antes de emitir SON final, validar si el regimen destino (importacion definitiva, admision temporal, zona franca, drawback, DR-CAFTA) modifica el tratamiento tributario del codigo SON asignado. Sin regimen validado, la liquidacion DAI/ITBIS/ISC puede ser incorrecta.",
+      "archivos_afectados": [
+        "capa1_sqlite/orquestador_capa3.py",
+        "notebooklm_skill/scripts/pipeline_3_capas.py",
+        "server.py"
+      ],
+      "lineas_clave": "clasificar_producto(), capa_1_sqlite_arbitro(), regimen_aduanero param",
+      "marco_legal": "Ley 168-21 Titulo V Arts. 118-180 (Regimenes); Ley 168-21 Art. 142 (Declarante); Ley 11-92 Arts. 335-382 (ITBIS/ISC segun regimen); DR-CAFTA Cap. 3 (preferencias condicionadas a regimen)",
+      "prevencion": "Toda clasificacion SON debe incluir validacion de regimen aduanero antes de emitir liquidacion tributaria",
+      "prioridad": "ALTO",
+      "decision_ceo": "AGREGAR al BugReports. Fix requerido: validacion regimen antes de emitir clasificacion final. Dictamen CEO 03-05-2026."
     }
   ],
   "reglas_prevencion": [
