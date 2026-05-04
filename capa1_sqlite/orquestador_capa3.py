@@ -2,6 +2,7 @@
 Capa 1 — Orquestador SQLite (Two-Brain System RD)
 Fuente de verdad única para DAI/ITBIS/ISC/SON. Sin IA, sin inventar valores.
 """
+import json
 import os
 import sqlite3
 import threading
@@ -166,6 +167,50 @@ def registrar_clasificacion(son: str, pregunta: str, resultado: str, usuario: st
         con_w.close()
     except Exception as e:
         print(f"[CAPA1] Error registrar_clasificacion: {e}")
+
+
+def buscar_sinonimos(termino: str) -> list[dict]:
+    """Busca sinónimos arancelarios para un término de búsqueda."""
+    if not termino:
+        return []
+    try:
+        rows = _con().execute(
+            "SELECT * FROM sinonimos_arancelarios WHERE termino_busqueda LIKE ?",
+            (f"%{termino.strip().lower()}%",)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+
+def buscar_partes_producto(parte: str) -> list[dict]:
+    """Busca en la tabla partes_de_productos para identificar si algo es parte de otro producto."""
+    if not parte:
+        return []
+    try:
+        rows = _con().execute(
+            "SELECT * FROM partes_de_productos WHERE parte LIKE ?",
+            (f"%{parte.strip().lower()}%",)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+
+def registrar_conflicto(consulta: str, candidatas: list[str], ganadora: str,
+                        rgi: str, justificacion: str, resuelto_por: str = "sistema"):
+    """Registra un conflicto de clasificación resuelto en la tabla conflictos_registrados."""
+    try:
+        con_w = sqlite3.connect(DB_PATH)
+        con_w.execute(
+            "INSERT INTO conflictos_registrados(consulta_original,candidatas_evaluadas,"
+            "candidata_seleccionada,rgi_aplicada,justificacion,resuelto_por) VALUES(?,?,?,?,?,?)",
+            (consulta[:500], json.dumps(candidatas), ganadora, rgi, justificacion[:2000], resuelto_por)
+        )
+        con_w.commit()
+        con_w.close()
+    except Exception as e:
+        print(f"[CAPA1] Error registrar_conflicto: {e}")
 
 
 def estadisticas() -> dict:

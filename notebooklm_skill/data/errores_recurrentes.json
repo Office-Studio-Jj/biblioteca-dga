@@ -172,6 +172,49 @@
       "prevencion": "Toda clasificacion SON debe incluir validacion de regimen aduanero antes de emitir liquidacion tributaria",
       "prioridad": "ALTO",
       "decision_ceo": "AGREGAR al BugReports. Fix requerido: validacion regimen antes de emitir clasificacion final. Dictamen CEO 03-05-2026."
+    },
+    {
+      "id": "BUG-007",
+      "titulo": "E-Scooter clasificado como Motocicleta — primera coincidencia sin comparar candidatas",
+      "componente": "sub_agentes/clasificador_merceologico_auto.py",
+      "tipo": "clasificacion/RGI",
+      "reportado": 1,
+      "fechas": ["2026-05-04"],
+      "estado": "en_correccion",
+      "severidad": "CRITICA",
+      "descripcion": "Usuario consulto 'e-scooter electrico'. App retorno 8711.60.11 (motocicletas motor electrico) sin evaluar 8711.60.14 (e-scooters electricos) ni 8711.20.11 (e-scooters otra clasificacion). Selecciono primera coincidencia parcial sin comparar candidatas.",
+      "rgi_violada": "RGI 3a — partida mas especifica. 'Scooter electrico' es MAS ESPECIFICO que 'motocicleta con motor electrico'",
+      "solucion": "Implementar protocolo 7 pasos CEO con 5 agentes: Guardian (validacion pre-busqueda), Cazador (busqueda exhaustiva candidatas), Fiscal (matriz comparativa + score coherencia), Juez RGI (secuencia obligatoria 1->6), Dictaminador (validacion final + gravamen). NUNCA retornar primera coincidencia sin comparar todas las candidatas.",
+      "archivos_afectados": [
+        "sub_agentes/clasificador_merceologico_auto.py",
+        "capa1_sqlite/orquestador_capa3.py",
+        "capa1_sqlite/build_arancel_db.py"
+      ],
+      "marco_legal": "Ley 168-21 Arts. 2, 14, 15, 17; Decreto 755-22 Arts. 232-273; Ley 14-93; Convenio SA Arts. 3 y 16",
+      "prevencion": "Siempre listar TODAS las candidatas antes de seleccionar. Flag CONFLICTO_DETECTADO obligatorio si >1 candidata. RGI 3a obligatorio para resolver conflictos de especificidad.",
+      "decision_ceo": "Implementar protocolo 7 pasos con 5 agentes. Informe CEO 04-MAY-2026."
+    },
+    {
+      "id": "BUG-008",
+      "titulo": "Pantalla de celular clasificada como Motor de juguete — ausencia total de validacion semantica",
+      "componente": "sub_agentes/clasificador_merceologico_auto.py",
+      "tipo": "clasificacion/coherencia",
+      "reportado": 1,
+      "fechas": ["2026-05-04"],
+      "estado": "en_correccion",
+      "severidad": "CRITICA",
+      "descripcion": "Usuario consulto 'Pantalla para celular'. App retorno 8501.10.10 cuya descripcion oficial en aduanas.gob.do es 'Motores para juguetes'. NINGUNA relacion funcional entre pantalla y motor. Orquestador fragmento busqueda en palabras sueltas, encontro coincidencia con 'electrico' en Cap.85, retorno PRIMER resultado sin validar coherencia semantica.",
+      "rgi_violada": "RGI 1 — texto de partida 85.01 dice 'Motores y generadores'. Una pantalla NO es motor ni generador.",
+      "partida_correcta": "8517.70.00 (partes de telefonos celulares) o 8529.90.99 (partes telecomunicacion)",
+      "solucion": "Agente Guardian identifica que es PARTE de telefono celular (Nota Legal Seccion XVI Nota 2). Agente Fiscal calcula score coherencia semantica y descarta candidatas con score < 40. Agente Dictaminador valida 'tiene sentido este resultado?' antes de emitir.",
+      "archivos_afectados": [
+        "sub_agentes/clasificador_merceologico_auto.py",
+        "capa1_sqlite/orquestador_capa3.py",
+        "capa1_sqlite/build_arancel_db.py"
+      ],
+      "marco_legal": "Ley 168-21 Arts. 2, 14, 15, 17; SA Nota Legal Seccion XVI Nota 2",
+      "prevencion": "Score coherencia semantica obligatorio para cada candidata. Candidatas con score < 40 se descartan. Validacion final: 'la descripcion de esta SON DESCRIBE al producto consultado?'",
+      "decision_ceo": "Implementar protocolo 7 pasos con 5 agentes. Tablas sinonimos_arancelarios y partes_de_productos en SQLite. Informe CEO 04-MAY-2026."
     }
   ],
   "reglas_prevencion": [
@@ -191,6 +234,14 @@
     "Claude API es arbitro legal: RGI 1-6 secuencial + Notas Legales + recorrido SON completo",
     "Toda clasificacion debe considerar regimen aduanero (Ley 168-21 Arts. 118-180) antes de emitir liquidacion",
     "Tool #9 validar_exclusion_capitulos obligatorio antes de asignar SON",
-    "Referencias legales completas: Ley + Articulo + Titulo + Seccion + Capitulo + Partida del Decreto 755-22"
+    "Referencias legales completas: Ley + Articulo + Titulo + Seccion + Capitulo + Partida del Decreto 755-22",
+    "NUNCA retornar resultado sin que 5 agentes hayan ejecutado (CEO 04-MAY-2026)",
+    "Si producto es PARTE de otro, buscar primero en subpartidas de PARTES del producto principal (Nota Legal Seccion XVI Nota 2)",
+    "Flag CONFLICTO_DETECTADO obligatorio cuando >1 candidata SON encontrada",
+    "Score coherencia semantica < 40 = descartar candidata automaticamente",
+    "RGI se aplican en ORDEN ESTRICTO: 1 -> 2a -> 2b -> 3a -> 3b -> 3c -> 6. Solo avanzar si anterior no resuelve",
+    "Agente Dictaminador debe preguntar 'tiene sentido este resultado?' antes de emitir — si NO, rechazar y devolver a Agente 2",
+    "Buscar sinonimos en tabla sinonimos_arancelarios antes de FTS directo",
+    "Registrar cada conflicto resuelto en tabla conflictos_registrados para precedentes"
   ]
 }

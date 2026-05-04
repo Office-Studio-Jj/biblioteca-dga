@@ -2127,6 +2127,36 @@
                  font-size:0.78rem;cursor:pointer;letter-spacing:0.02em;">
           🔍 Segunda Opinión — ¿Código incorrecto?
         </button>
+        <!-- Panel comparativo de candidatas (CEO 04-MAY-2026) -->
+        <div id="panel-candidatas-${_esc(code)}" style="display:none;margin:8px 0 4px;padding:10px 12px;
+             background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.25);border-radius:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="color:#a78bfa;font-weight:700;font-size:0.78rem;">Candidatas Evaluadas</span>
+            <span id="badge-conflicto-${_esc(code)}" style="font-size:0.62rem;padding:2px 7px;border-radius:10px;
+                  background:rgba(251,191,36,0.2);color:#fbbf24;display:none;"></span>
+          </div>
+          <div id="lista-candidatas-${_esc(code)}" style="font-size:0.72rem;"></div>
+          <div id="descartadas-toggle-${_esc(code)}" style="display:none;margin-top:6px;">
+            <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'"
+              style="background:none;border:none;color:#64748b;font-size:0.68rem;cursor:pointer;padding:2px 0;">
+              Ver descartadas
+            </button>
+            <div style="display:none;" id="lista-descartadas-${_esc(code)}"></div>
+          </div>
+          <div style="color:#475569;font-size:0.62rem;margin-top:6px;" id="rgi-cadena-${_esc(code)}"></div>
+        </div>
+        <button onclick="cargarCandidatas('${_esc(code)}','${_esc(prodName)}')"
+          style="width:100%;margin:4px 0 2px;padding:8px;background:rgba(139,92,246,0.1);
+                 border:1px solid rgba(139,92,246,0.3);border-radius:8px;color:#a78bfa;
+                 font-size:0.76rem;cursor:pointer;letter-spacing:0.02em;"
+          id="btn-candidatas-${_esc(code)}">
+          Protocolo 7 Pasos — Ver candidatas evaluadas
+        </button>
+        <!-- Alerta score bajo -->
+        <div id="alerta-score-${_esc(code)}" style="display:none;margin:6px 0;padding:8px 12px;
+             background:rgba(248,113,113,0.12);border:1px solid rgba(248,113,113,0.4);
+             border-radius:8px;color:#f87171;font-size:0.72rem;font-weight:600;">
+        </div>
         ${detailsBlock}
       </div>`;
   }
@@ -3540,6 +3570,93 @@
 
   function cerrarModalCuaderno() {
     document.getElementById('modalCuaderno').classList.remove('show');
+  }
+
+  // ── Protocolo 7 Pasos — Panel Candidatas (CEO 04-MAY-2026) ──────────────
+  async function cargarCandidatas(codigo, prodName) {
+    const btn = document.getElementById(`btn-candidatas-${codigo}`);
+    const panel = document.getElementById(`panel-candidatas-${codigo}`);
+    if (!btn || !panel) return;
+    if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+    btn.textContent = 'Evaluando candidatas...';
+    btn.disabled = true;
+    try {
+      const r = await fetch('/merceologia/clasificar-auto', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ descripcion: prodName || _lastQuery })
+      });
+      const d = await r.json();
+      if (!d.ok) { btn.textContent = 'Error: ' + (d.error||''); btn.disabled = false; return; }
+      panel.style.display = 'block';
+      // Badge conflicto
+      const badge = document.getElementById(`badge-conflicto-${codigo}`);
+      if (d.conflicto_detectado && badge) {
+        badge.style.display = 'inline';
+        badge.textContent = `${(d.candidatas_evaluadas||[]).length} candidatas evaluadas`;
+      }
+      // Lista de candidatas supervivientes
+      const listaEl = document.getElementById(`lista-candidatas-${codigo}`);
+      const evals = (d.etapas && d.etapas['3_fiscal'] && d.etapas['3_fiscal'].evaluaciones) || [];
+      if (evals.length) {
+        listaEl.innerHTML = evals.map((ev,i) => {
+          const esGanadora = ev.son === d.son_final;
+          const bg = esGanadora ? 'rgba(110,231,183,0.12)' : 'rgba(100,116,139,0.08)';
+          const brd = esGanadora ? 'rgba(110,231,183,0.4)' : 'rgba(100,116,139,0.2)';
+          const scoreColor = ev.score_coherencia >= 70 ? '#6ee7b7' : ev.score_coherencia >= 40 ? '#fde68a' : '#f87171';
+          return `<div style="padding:6px 8px;margin:3px 0;border-radius:6px;background:${bg};border:1px solid ${brd};">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="color:${esGanadora?'#6ee7b7':'#e2e8f0'};font-weight:${esGanadora?'700':'400'};">${ev.son||'?'}</span>
+              <span style="font-size:0.62rem;color:${scoreColor};font-weight:600;">Score: ${ev.score_coherencia||0}</span>
+            </div>
+            <div style="color:#94a3b8;font-size:0.65rem;margin-top:2px;">${(ev.descripcion||'').slice(0,80)}</div>
+            <div style="display:flex;gap:8px;margin-top:2px;font-size:0.6rem;">
+              <span style="color:#64748b;">Espec: ${ev.especificidad||'?'}</span>
+              <span style="color:#64748b;">RGI: ${ev.rgi_probable||d.rgi_aplicada||'?'}</span>
+              ${esGanadora?'<span style="color:#6ee7b7;font-weight:700;">SELECCIONADA</span>':''}
+            </div>
+          </div>`;
+        }).join('');
+      } else {
+        listaEl.innerHTML = '<div style="color:#64748b;">Sin datos de evaluacion disponibles</div>';
+      }
+      // Descartadas
+      const descartadas = (d.candidatas_descartadas || (d.etapas && d.etapas['3_fiscal'] && d.etapas['3_fiscal'].candidatas_descartadas) || []);
+      if (descartadas.length) {
+        const toggleDiv = document.getElementById(`descartadas-toggle-${codigo}`);
+        const listaDesc = document.getElementById(`lista-descartadas-${codigo}`);
+        if (toggleDiv) toggleDiv.style.display = 'block';
+        if (listaDesc) {
+          listaDesc.innerHTML = descartadas.map(dc =>
+            `<div style="padding:4px 6px;margin:2px 0;border-radius:4px;background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.15);">
+              <span style="color:#f87171;font-size:0.65rem;">${dc.son||'?'}</span>
+              <span style="color:#64748b;font-size:0.6rem;margin-left:6px;">${dc.razon||dc.score||''}</span>
+            </div>`
+          ).join('');
+        }
+      }
+      // Cadena RGI
+      const rgiEl = document.getElementById(`rgi-cadena-${codigo}`);
+      const rgiSeq = (d.etapas && d.etapas['4_juez_rgi'] && d.etapas['4_juez_rgi'].rgi_secuencia) || [];
+      if (rgiEl && rgiSeq.length) {
+        rgiEl.innerHTML = '<span style="color:#a78bfa;font-weight:600;">Cadena RGI:</span> ' +
+          rgiSeq.map(s => `<span style="color:#94a3b8;">${s}</span>`).join(' → ');
+      }
+      // Alerta score bajo
+      const alertaEl = document.getElementById(`alerta-score-${codigo}`);
+      if (alertaEl && d.confianza === 'baja') {
+        alertaEl.style.display = 'block';
+        alertaEl.textContent = 'ADVERTENCIA: Resultado con confianza baja. Verificar con aforador DGA.';
+      }
+      if (alertaEl && d.escalamiento_humano) {
+        alertaEl.style.display = 'block';
+        alertaEl.textContent = 'ESCALAMIENTO: Este caso requiere revision humana especializada.';
+      }
+      btn.textContent = 'Protocolo 7 Pasos — Ocultar candidatas';
+      btn.disabled = false;
+    } catch(e) {
+      btn.textContent = 'Error de conexion';
+      btn.disabled = false;
+    }
   }
 
   // ── Sub-agente ISC ───────────────────────────────────────────────────────

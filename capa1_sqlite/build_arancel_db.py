@@ -131,6 +131,40 @@ def _crear_schema(con: sqlite3.Connection):
             key   TEXT PRIMARY KEY,
             value TEXT
         );
+
+        -- CEO 04-MAY-2026: Protocolo resolución de conflictos entre partidas
+        CREATE TABLE IF NOT EXISTS sinonimos_arancelarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            termino_busqueda TEXT NOT NULL,
+            termino_oficial TEXT NOT NULL,
+            capitulo_sugerido TEXT,
+            partida_sugerida TEXT,
+            tipo TEXT CHECK(tipo IN ('sinonimo','parte_de','componente','alias'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_sinonimos_termino
+            ON sinonimos_arancelarios(termino_busqueda);
+
+        CREATE TABLE IF NOT EXISTS partes_de_productos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            parte TEXT NOT NULL,
+            producto_principal TEXT NOT NULL,
+            partida_principal TEXT,
+            partida_partes TEXT,
+            nota_legal TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_partes_parte
+            ON partes_de_productos(parte);
+
+        CREATE TABLE IF NOT EXISTS conflictos_registrados (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            consulta_original TEXT NOT NULL,
+            candidatas_evaluadas TEXT NOT NULL,
+            candidata_seleccionada TEXT,
+            rgi_aplicada TEXT,
+            justificacion TEXT,
+            fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+            resuelto_por TEXT CHECK(resuelto_por IN ('sistema','humano'))
+        );
     """)
 
 
@@ -251,6 +285,52 @@ def main(con_pdf=False):
     # Base legal
     for fila in _BASE_LEGAL:
         con.execute("INSERT OR REPLACE INTO base_legal(id,titulo,texto) VALUES(?,?,?)", fila)
+
+    # CEO 04-MAY-2026: Sinónimos arancelarios (datos semilla)
+    _SINONIMOS = [
+        ('pantalla celular', 'partes de telefonos', '85', '8517', 'parte_de'),
+        ('display celular', 'partes de telefonos', '85', '8517', 'parte_de'),
+        ('screen celular', 'partes de telefonos', '85', '8517', 'parte_de'),
+        ('LCD celular', 'dispositivos cristal liquido', '90', '9013', 'componente'),
+        ('patineta electrica', 'scooter electrico', '87', '8711', 'sinonimo'),
+        ('e-scooter', 'scooter electrico', '87', '8711', 'sinonimo'),
+        ('monopatin electrico', 'scooter electrico', '87', '8711', 'sinonimo'),
+        ('cargador celular', 'transformadores electricos', '85', '8504', 'parte_de'),
+        ('funda celular', 'estuches y fundas', '42', '4202', 'componente'),
+        ('audifonos', 'auriculares', '85', '8518', 'sinonimo'),
+        ('headphones', 'auriculares', '85', '8518', 'sinonimo'),
+        ('parlante', 'altavoces', '85', '8518', 'sinonimo'),
+        ('bocina', 'altavoces', '85', '8518', 'sinonimo'),
+        ('laptop', 'maquinas automaticas procesamiento datos portatiles', '84', '8471', 'sinonimo'),
+        ('computadora portatil', 'maquinas automaticas procesamiento datos portatiles', '84', '8471', 'sinonimo'),
+        ('tablet', 'maquinas automaticas procesamiento datos', '84', '8471', 'sinonimo'),
+        ('router', 'aparatos de telecomunicacion', '85', '8517', 'sinonimo'),
+        ('switch red', 'aparatos de telecomunicacion', '85', '8517', 'sinonimo'),
+        ('drone', 'aeronaves no tripuladas', '88', '8806', 'sinonimo'),
+        ('inversor solar', 'convertidores estaticos', '85', '8504', 'sinonimo'),
+    ]
+    con.executemany(
+        "INSERT OR IGNORE INTO sinonimos_arancelarios(termino_busqueda,termino_oficial,capitulo_sugerido,partida_sugerida,tipo) VALUES(?,?,?,?,?)",
+        _SINONIMOS,
+    )
+
+    # CEO 04-MAY-2026: Partes de productos (datos semilla)
+    _PARTES = [
+        ('pantalla', 'telefono celular', '8517', '8517.70.00', 'Seccion XVI Nota 2'),
+        ('bateria', 'telefono celular', '8517', '8506/8507', 'Seccion XVI Nota 2'),
+        ('cargador', 'telefono celular', '8517', '8504.40', 'Seccion XVI Nota 2'),
+        ('motor electrico', 'scooter electrico', '8711', '8501', 'Seccion XVI Nota 2'),
+        ('teclado', 'computadora', '8471', '8471.60', 'Seccion XVI Nota 2'),
+        ('disco duro', 'computadora', '8471', '8471.70', 'Seccion XVI Nota 2'),
+        ('fuente de poder', 'computadora', '8471', '8504.40', 'Seccion XVI Nota 2'),
+        ('lente', 'camara fotografica', '9006', '9002.11', 'Seccion XVIII Nota'),
+        ('control remoto', 'televisor', '8528', '8543.70', 'Seccion XVI Nota 2'),
+        ('compresor', 'aire acondicionado', '8415', '8414.30', 'Seccion XVI Nota 2'),
+    ]
+    con.executemany(
+        "INSERT OR IGNORE INTO partes_de_productos(parte,producto_principal,partida_principal,partida_partes,nota_legal) VALUES(?,?,?,?,?)",
+        _PARTES,
+    )
 
     # Metadata
     con.execute("INSERT OR REPLACE INTO build_meta VALUES('build_ts',?)", (datetime.now().isoformat(),))

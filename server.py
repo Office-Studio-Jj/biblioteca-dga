@@ -2279,16 +2279,17 @@ def admin_sync_notion():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-# ── Clasificador merceológico automático (7 etapas) ──────────────────────
+# ── Clasificador merceológico automático — Protocolo 5 Agentes CEO 04-MAY-2026 ──
 @app.route("/merceologia/clasificar-auto", methods=["POST"])
 def merceologia_clasificar_auto():
     """
-    Pipeline 7 etapas: ficha → capítulo → notas → biblioteca RAG → SON → validar → Notion.
+    Pipeline 5 agentes (CEO 04-MAY-2026):
+      Guardian → Cazador → Fiscal → Juez RGI → Dictaminador
 
     Body JSON:
       {
-        "descripcion": "Cámara videoconferencia 4K...",
-        "publicar_notion": false       // opcional (default false)
+        "descripcion": "Pantalla para celular Samsung...",
+        "publicar_notion": false
       }
     """
     if not session.get("usuario"):
