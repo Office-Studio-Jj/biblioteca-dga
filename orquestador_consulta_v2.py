@@ -383,6 +383,29 @@ def procesar_consulta(texto_usuario: str) -> dict:
     except Exception:
         pass
 
+    # ── APRENDIZAJE: si Gemini enriqueció Y se obtuvo SON válido → guardar sinonimo ──
+    # Cada traduccion exitosa se persiste para que consultas repetidas no dependan de Gemini.
+    consulta_original_raw = resultado.get("consulta", "")
+    consulta_enriquecida  = resultado.get("consulta_enriquecida", "")
+    son_final = resultado.get("codigo_son")
+    if (consulta_enriquecida
+            and consulta_enriquecida.lower() != consulta_original_raw.lower()
+            and son_final):
+        try:
+            with sqlite3.connect(_DB) as _conn:
+                _conn.execute(
+                    "INSERT OR IGNORE INTO sinonimos_arancelarios "
+                    "(termino_busqueda, son, son_destino, descripcion) VALUES (?, ?, ?, ?)",
+                    (
+                        consulta_original_raw.lower().strip(),
+                        son_final,
+                        son_final,
+                        f"[auto-Gemini] {consulta_enriquecida[:120]}",
+                    ),
+                )
+        except Exception:
+            pass  # El aprendizaje es opcional, nunca romper el flujo
+
     return resultado
 
 
