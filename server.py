@@ -799,6 +799,43 @@ def consultar():
             print(f"[CACHE_HIT] '{question[:60]}' — devuelto sin llamar a Gemini")
             return jsonify({"answer": cached, "from_cache": True})
 
+    # ── ORQUESTADOR V2 + GEMINI PRE-FILTRO (Orden Emergencia + Orden 10 CEO 04-05-2026) ──
+    # Primera opcion para consultas arancelarias: R3→R4→R1→SQLite→R7→R6
+    # Gemini traduce lenguaje comercial → SA antes de clasificar.
+    # Si falla → cae al pipeline_3_capas existente (sin romper nada).
+    if not archivo and notebook_id == "biblioteca-de-nomenclaturas":
+        try:
+            from orquestador_consulta_v2 import procesar_consulta as _pc_v2, formatear_informe as _fi_v2
+            _res_v2 = _pc_v2(question)
+            if _res_v2.get("codigo_son"):
+                _informe_v2 = _fi_v2(_res_v2)
+                _set_cached(question, notebook_id, _informe_v2)
+                # Fuentes Notion en paralelo (no bloquea)
+                try:
+                    from notion_service.buscar_notion import buscar as _bn_v2
+                    _fuentes_v2 = _bn_v2(question, notebook_id, timeout=3.0)
+                except Exception:
+                    _fuentes_v2 = []
+                print(f"[ORQUESTADOR_V2] OK son={_res_v2['codigo_son']} enriquecida={_res_v2.get('consulta_enriquecida', question[:40])}")
+                return jsonify({
+                    "answer": _informe_v2,
+                    "from_cache": False,
+                    "cache_via": "orquestador_v2",
+                    "fuentes_notion": _fuentes_v2 if _fuentes_v2 else [],
+                    "meta": {
+                        "codigo": _res_v2.get("codigo_son"),
+                        "gravamen": _res_v2.get("dai_pct"),
+                        "isc": _res_v2.get("isc_pct"),
+                        "permisos": _res_v2.get("permisos"),
+                        "consulta_enriquecida": _res_v2.get("consulta_enriquecida"),
+                        "version": "v2",
+                    },
+                })
+            else:
+                print(f"[ORQUESTADOR_V2] sin codigo_son — advertencias: {_res_v2.get('advertencias')}. Fallback a pipeline_3_capas.")
+        except Exception as _ev2:
+            print(f"[ORQUESTADOR_V2] Error: {_ev2}. Fallback a pipeline_3_capas.")
+
     # ── PIPELINE 3 CAPAS — path unico para todas las consultas ─────────────
     # Reemplaza al sub-agente merceologico individual. Garantiza que la app
     # movil reciba la misma salida que /health/arquitectura: Capa 3 identifica,
