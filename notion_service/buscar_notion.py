@@ -98,10 +98,18 @@ def _query_db(db_id: str, db_key: str, query: str, max_results: int = 3) -> list
                 if resumen:
                     break
 
+        # Extraer URL real si la página tiene propiedad URL (ej: VUCERD)
+        url_real = ""
+        for pv in props.values():
+            if pv.get("type") == "url" and pv.get("url"):
+                url_real = pv["url"]
+                break
+
         results.append({
             "titulo":  titulo,
             "resumen": resumen,
-            "url":     f"https://notion.so/{page['id'].replace('-', '')}",
+            "url":     url_real or f"https://notion.so/{page['id'].replace('-', '')}",
+            "url_externa": url_real,
             "bd":      _DB_LABELS.get(db_key, db_key),
         })
     return results
