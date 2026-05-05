@@ -256,33 +256,50 @@ def procesar_consulta(texto_usuario: str) -> dict:
     rgi_usada = None
     confianza = None
 
-    # ── PASO 1: clasificador_rgi.py (R3) — RGI 1→6 secuencial ───────────
-    try:
-        from sub_agentes.clasificador_rgi import clasificar_por_rgi
-        res_rgi = clasificar_por_rgi(texto_usuario)
-        if res_rgi and res_rgi.get("son_final"):
-            son_candidato = res_rgi["son_final"]
-            rgi_usada     = res_rgi.get("rgi_aplicada", "RGI 1")
-            confianza     = res_rgi.get("confianza", "MEDIA")
-    except Exception as e:
-        resultado["advertencias"].append(f"R3 clasificador_rgi: {e}")
+    # ── PASO 1: sinonimos arancelarios (prioridad maxima — mapeo explicito) ──
+    # Los sinonimos son verdad explicita: "patineta electrica" = 8711.60.14.
+    # Deben correr ANTES que el clasificador para evitar que el clasificador
+    # pise un mapeo directo con un resultado fuzzy incorrecto.
+    sinonimos = _buscar_sinonimos_v2(texto_usuario)
+    for sin in sinonimos:
+        son_t = sin.get("son_destino")
+        if not son_t:
+            partida = sin.get("partida_sugerida", "")
+            if partida:
+                son_t = _primer_son_de_partida(partida)
+        if son_t and _son_exacto_db(son_t):
+            son_candidato = son_t
+            rgi_usada     = "RGI 1 (via sinonimo arancelario)"
+            confianza     = "ALTA"
+            break
 
-    # ── PASO 2: sinonimos arancelarios con son_destino ────────────────────
+    # ── PASO 2: navegador_jerarquico_sa (RGI 1→3a — navega el arbol SA) ───
+    # Si no hubo sinonimo directo, navegar jerarquia: capitulo→partida→subpartida→SON.
+    # Nunca devuelve el primer codigo del capitulo — evalua TODAS las partidas.
     if not son_candidato:
-        sinonimos = _buscar_sinonimos_v2(texto_usuario)
-        for sin in sinonimos:
-            son_t = sin.get("son_destino")
-            if not son_t:
-                partida = sin.get("partida_sugerida", "")
-                if partida:
-                    son_t = _primer_son_de_partida(partida)
-            if son_t and _son_exacto_db(son_t):
-                son_candidato = son_t
-                rgi_usada     = "RGI 1 (via sinonimo arancelario)"
+        try:
+            from navegador_jerarquico_sa import navegar_jerarquia
+            son_nav = navegar_jerarquia(texto_usuario)
+            if son_nav and _son_exacto_db(son_nav):
+                son_candidato = son_nav
+                rgi_usada     = "RGI 1 (navegador_jerarquico_sa)"
                 confianza     = "MEDIA"
-                break
+        except Exception as e:
+            resultado["advertencias"].append(f"navegador_jerarquico: {e}")
 
-    # ── PASO 3: busqueda FTS5 directa si sinonimos fallaron ──────────────
+    # ── PASO 3: clasificador_rgi.py (R3) — RGI 1→6 secuencial ─────────────
+    if not son_candidato:
+        try:
+            from sub_agentes.clasificador_rgi import clasificar_por_rgi
+            res_rgi = clasificar_por_rgi(texto_usuario)
+            if res_rgi and res_rgi.get("son_final"):
+                son_candidato = res_rgi["son_final"]
+                rgi_usada     = res_rgi.get("rgi_aplicada", "RGI 1")
+                confianza     = res_rgi.get("confianza", "MEDIA")
+        except Exception as e:
+            resultado["advertencias"].append(f"R3 clasificador_rgi: {e}")
+
+    # ── PASO 4: busqueda FTS5 directa ────────────────────────────────────
     if not son_candidato:
         hits = _buscar_fts(texto_usuario, limit=5)
         if hits:
@@ -290,7 +307,7 @@ def procesar_consulta(texto_usuario: str) -> dict:
             rgi_usada     = "RGI 1 (FTS5 — verificar descripcion)"
             confianza     = "BAJA"
 
-    # ── PASO 4: fallback_clasificacion (R4) — analogia RGI 4 ─────────────
+    # ── PASO 5: fallback_clasificacion (R4) — analogia RGI 4 ─────────────
     if not son_candidato:
         try:
             from sub_agentes.fallback_clasificacion import clasificar_fallback
