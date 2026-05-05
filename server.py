@@ -832,9 +832,29 @@ def consultar():
                     },
                 })
             else:
-                print(f"[ORQUESTADOR_V2] sin codigo_son — advertencias: {_res_v2.get('advertencias')}. Fallback a pipeline_3_capas.")
+                # v2 no resolvio el SON — intentar R4 (fallback_clasificacion) antes del pipeline viejo
+                print(f"[ORQUESTADOR_V2] sin codigo_son — advertencias: {_res_v2.get('advertencias')}. Intentando R4.")
+                try:
+                    from sub_agentes.fallback_clasificacion import clasificar_fallback as _cf_r4
+                    _res_r4 = _cf_r4(question)
+                    if _res_r4 and _res_r4.get("codigo_son"):
+                        from orquestador_consulta_v2 import formatear_informe as _fi_r4
+                        _res_v2["codigo_son"] = _res_r4["codigo_son"]
+                        _res_v2["descripcion_oficial"] = _res_r4.get("descripcion_oficial", "")
+                        _res_v2["rgi_aplicada"] = _res_r4.get("rgi_aplicada", "RGI 4")
+                        _informe_r4 = _fi_r4(_res_v2)
+                        _set_cached(question, notebook_id, _informe_r4)
+                        print(f"[R4_FALLBACK] OK son={_res_r4['codigo_son']}")
+                        return jsonify({
+                            "answer": _informe_r4,
+                            "from_cache": False,
+                            "cache_via": "fallback_r4",
+                            "meta": {"codigo": _res_r4["codigo_son"], "version": "v2-r4"},
+                        })
+                except Exception as _er4:
+                    print(f"[R4_FALLBACK] Error: {_er4}. Continuando a pipeline_3_capas.")
         except Exception as _ev2:
-            print(f"[ORQUESTADOR_V2] Error: {_ev2}. Fallback a pipeline_3_capas.")
+            print(f"[ORQUESTADOR_V2] Error: {_ev2}. Continuando a pipeline_3_capas.")
 
     # ── PIPELINE 3 CAPAS — path unico para todas las consultas ─────────────
     # Reemplaza al sub-agente merceologico individual. Garantiza que la app

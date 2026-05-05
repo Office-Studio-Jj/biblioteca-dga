@@ -94,13 +94,27 @@ def subir_fichas_merceologicas():
     ok = err = 0
     with open(path, encoding="utf-8") as f:
         for row in csv.DictReader(f):
+            def _num(v):
+                try: return {"number": float(str(v).replace("%","").strip())} if v else {"number": None}
+                except: return {"number": None}
             props = _inject_url({
-                "Producto":      _title(row.get("Producto", "")),
-                "Clasificación": _rt(row.get("Clasificacion", "")),
-                "SON Sugerido":  _rt(row.get("SON_Sugerido", "")),
-                "Materia":       _rt(row.get("Materia", "")),
-                "Función":       _rt(row.get("Funcion", "")),
-                "Uso":           _rt(row.get("Uso", "")),
+                "Producto":            _title(row.get("Producto", "")),
+                "Clasificación":       _rt(row.get("Clasificacion", "")),
+                "SON Sugerido":        _rt(row.get("SON_Sugerido", "")),
+                "Materia":             _rt(row.get("Materia", "")),
+                "Función":             _rt(row.get("Funcion", "")),
+                "Uso":                 _rt(row.get("Uso", "")),
+                "DAI %":               _num(row.get("DAI_pct", "")),
+                "ITBIS %":             _num(row.get("ITBIS_pct", "")),
+                "ISC %":               _num(row.get("ISC_pct", "")),
+                "RGI Aplicada":        _rt(row.get("RGI_Aplicada", "")),
+                "Capitulo SA":         _rt(row.get("Capitulo_SA", "")),
+                "Seccion SA":          _rt(row.get("Seccion_SA", "")),
+                "Notas Legales":       _rt(row.get("Notas_Legales", "")),
+                "Permisos":            _rt(row.get("Permisos", "")),
+                "Base Legal":          _rt(row.get("Fuente_Legal", "")),
+                "Estado":              _select(row.get("Estado", "Pendiente")),
+                "Fecha Clasificacion": _date(row.get("Fecha_Clasificacion", "")),
             }, row)
             if _crear_pagina(DB_IDS["fichas_merceologicas"], props):
                 ok += 1
