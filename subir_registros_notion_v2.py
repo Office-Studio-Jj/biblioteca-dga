@@ -49,6 +49,20 @@ def _date(valor: str) -> dict:
         return {"date": None}
 
 
+def _url(valor: str) -> dict:
+    """Propiedad URL de Notion. Si esta vacio devuelve None (omitir la prop)."""
+    v = str(valor).strip() if valor else ""
+    return {"url": v} if v and v.startswith("http") else {"url": None}
+
+
+def _inject_url(props: dict, row: dict) -> dict:
+    """Inyecta campo URL en props si el CSV tiene columna 'url' con valor valido."""
+    url_val = row.get("url", row.get("URL", row.get("enlace", ""))).strip()
+    if url_val and url_val.startswith("http"):
+        props["URL"] = _url(url_val)
+    return props
+
+
 def _crear_pagina(db_id: str, props: dict) -> bool:
     """POST a /v1/pages. Devuelve True si tuvo exito."""
     body = json.dumps({"parent": {"database_id": db_id}, "properties": props}).encode("utf-8")
@@ -80,14 +94,14 @@ def subir_fichas_merceologicas():
     ok = err = 0
     with open(path, encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            props = {
+            props = _inject_url({
                 "Producto":      _title(row.get("Producto", "")),
                 "Clasificación": _rt(row.get("Clasificacion", "")),
                 "SON Sugerido":  _rt(row.get("SON_Sugerido", "")),
                 "Materia":       _rt(row.get("Materia", "")),
                 "Función":       _rt(row.get("Funcion", "")),
                 "Uso":           _rt(row.get("Uso", "")),
-            }
+            }, row)
             if _crear_pagina(DB_IDS["fichas_merceologicas"], props):
                 ok += 1
             else:
@@ -103,11 +117,11 @@ def subir_sops_aduanas():
     ok = err = 0
     with open(path, encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            props = {
+            props = _inject_url({
                 "Título":    _title(row.get("titulo", row.get("Título", ""))),
                 "Contenido": _rt(row.get("contenido_resumen", "")),
                 "Versión":   _rt(row.get("fecha_procesamiento", "")[:10]),
-            }
+            }, row)
             if _crear_pagina(DB_IDS["sops_aduanas"], props):
                 ok += 1
             else:
@@ -123,11 +137,11 @@ def subir_jurisprudencia():
     ok = err = 0
     with open(path, encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            props = {
+            props = _inject_url({
                 "Título":  _title(row.get("titulo", "")),
                 "Resumen": _rt(row.get("contenido_resumen", "")),
                 "Fecha":   _date(row.get("fecha_procesamiento", "")),
-            }
+            }, row)
             if _crear_pagina(DB_IDS["jurisprudencia_dga"], props):
                 ok += 1
             else:
@@ -143,12 +157,12 @@ def subir_regimenes():
     ok = err = 0
     with open(path, encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            props = {
+            props = _inject_url({
                 "Título":        _title(row.get("titulo", "")),
                 "Descripción":   _rt(row.get("contenido_resumen", "")),
                 "Arts. Ley 168-21": _rt(row.get("base_legal", "")),
                 "Fecha":         _date(row.get("fecha_procesamiento", "")),
-            }
+            }, row)
             if _crear_pagina(DB_IDS["bd_regimenes"], props):
                 ok += 1
             else:
@@ -164,13 +178,13 @@ def subir_nomenclaturas():
     ok = err = 0
     with open(path, encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            props = {
+            props = _inject_url({
                 "Producto":      _title(row.get("titulo", "")),
                 "Clasificación": _rt(row.get("tipo_documento", "")),
                 "SON Sugerido":  _rt("Ver documento"),
                 "Uso":           _rt(row.get("base_legal", "")),
                 "Función":       _rt(row.get("contenido_resumen", "")),
-            }
+            }, row)
             if _crear_pagina(DB_IDS["fichas_merceologicas"], props):
                 ok += 1
             else:
@@ -186,12 +200,12 @@ def subir_origen():
     ok = err = 0
     with open(path, encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            props = {
+            props = _inject_url({
                 "Título":         _title(row.get("titulo", "")),
                 "Regla de Origen":_rt(row.get("contenido_resumen", "")),
                 "Base Legal":     _rt(row.get("base_legal", "")),
                 "Fecha":          _date(row.get("fecha_procesamiento", "")),
-            }
+            }, row)
             if _crear_pagina(DB_IDS["bd_origen_drcafta"], props):
                 ok += 1
             else:
@@ -207,12 +221,12 @@ def subir_vucerd():
     ok = err = 0
     with open(path, encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            props = {
+            props = _inject_url({
                 "Título":      _title(row.get("titulo", "")),
                 "Requisitos":  _rt(row.get("contenido_resumen", "")),
                 "Base Legal":  _rt(row.get("base_legal", "")),
                 "Fecha":       _date(row.get("fecha_procesamiento", "")),
-            }
+            }, row)
             if _crear_pagina(DB_IDS["bd_vucerd"], props):
                 ok += 1
             else:
@@ -228,12 +242,12 @@ def subir_valoracion():
     ok = err = 0
     with open(path, encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            props = {
+            props = _inject_url({
                 "Título":      _title(row.get("titulo", "")),
                 "Descripción": _rt(row.get("contenido_resumen", "")),
                 "Base Legal":  _rt(row.get("base_legal", "")),
                 "Fecha":       _date(row.get("fecha_procesamiento", "")),
-            }
+            }, row)
             if _crear_pagina(DB_IDS["bd_valoracion"], props):
                 ok += 1
             else:
