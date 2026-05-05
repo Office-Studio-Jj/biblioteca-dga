@@ -123,18 +123,47 @@ def _extraer_notas_pdf(capitulo: str) -> Optional[dict]:
         return None
 
 
+def _leer_notas_seccion(seccion: str, cache: dict) -> dict:
+    """
+    Retorna las notas de la Seccion SA desde el cache.
+    Conforme RGI 1: las notas de Seccion tienen igual jerarquia legal que las de Capitulo.
+    """
+    secs_cached = cache.get("secciones", {})
+    if seccion not in secs_cached:
+        return {}
+    info = secs_cached[seccion]
+    return {
+        "seccion":        seccion,
+        "titulo":         info.get("titulo", ""),
+        "capitulos":      info.get("capitulos", ""),
+        "notas_legales":  info.get("notas_legales", []),
+        "exclusiones":    info.get("exclusiones", []),
+    }
+
+
 def leer_notas_capitulo(capitulo: str) -> dict:
     """
-    Retorna notas del capitulo en formato uniforme:
+    Retorna notas del Capitulo Y de su Seccion padre en formato uniforme.
+
+    Conforme RGI 1 (Decreto 755-22 Art. 63): la clasificacion esta determinada
+    por el texto de las partidas Y las Notas de Seccion o de Capitulo — ambas.
+
+    Estructura retornada:
     {
-        "capitulo":      "85",
-        "seccion":       "XVI",
-        "seccion_titulo":"Maquinas, aparatos, material electrico",
-        "titulo_cap":    "Maquinas, aparatos y material electrico...",
-        "notas_legales": [...],      # lista de notas
-        "alcance":       "...",       # que NO comprende
-        "isc_aplicable": "...",       # ISC notes si aplica
-        "fuente":        "cache" | "pdf" | "fallback"
+        "capitulo":           "87",
+        "seccion":            "XVII",
+        "seccion_titulo":     "Material de transporte",
+        "titulo_cap":         "Vehiculos automoviles, tractores...",
+        "notas_legales":      [...],    # Notas del Capitulo
+        "alcance":            "...",    # Que NO comprende el capitulo
+        "isc_aplicable":      "...",    # ISC si aplica
+        "notas_seccion":      {         # NUEVO: Notas de la Seccion padre
+            "seccion":        "XVII",
+            "titulo":         "...",
+            "notas_legales":  [...],
+            "exclusiones":    [...],
+        },
+        "fuente":             "cache" | "pdf" | "fallback"
     }
     """
     cap = str(capitulo).zfill(2)
@@ -148,11 +177,16 @@ def leer_notas_capitulo(capitulo: str) -> dict:
         "notas_legales":  [],
         "alcance":        "",
         "isc_aplicable":  "",
+        "notas_seccion":  {},
         "fuente":         "fallback",
     }
 
-    # 1. Cache JSON (si existe para el capitulo)
     cache = _leer_cache_notas()
+
+    # 1. Notas de Seccion (RGI 1 — misma jerarquia que notas de capitulo)
+    result["notas_seccion"] = _leer_notas_seccion(sec, cache)
+
+    # 2. Cache JSON (si existe para el capitulo)
     caps_cached = cache.get("capitulos", {})
     if cap in caps_cached:
         info = caps_cached[cap]
@@ -164,7 +198,7 @@ def leer_notas_capitulo(capitulo: str) -> dict:
         result["fuente"]        = "cache"
         return result
 
-    # 2. PDF on-demand
+    # 3. PDF on-demand
     pdf_notas = _extraer_notas_pdf(cap)
     if pdf_notas:
         texto = pdf_notas["texto_completo"]
@@ -173,29 +207,48 @@ def leer_notas_capitulo(capitulo: str) -> dict:
         result["fuente"]        = "pdf"
         return result
 
-    # 3. Fallback — solo seccion + capitulo
+    # 4. Fallback — seccion disponible, capitulo sin notas
     result["titulo_cap"] = f"Capitulo {cap} - sin notas cacheadas"
     return result
 
 
 def formatear_notas_gemini(notas: dict) -> str:
-    """Formatea para inyectar en prompt Gemini."""
-    partes = [
-        f"CAPITULO {notas['capitulo']} - Seccion {notas['seccion']}: {notas['seccion_titulo']}",
-    ]
+    """
+    Formatea Notas de Seccion + Notas de Capitulo para inyectar en prompt Gemini.
+    Conforme RGI 1: primero Seccion, luego Capitulo.
+    """
+    partes = []
+
+    # Notas de Seccion (RGI 1 — primer nivel jerarquico)
+    ns = notas.get("notas_seccion", {})
+    if ns and ns.get("notas_legales"):
+        partes.append(
+            f"SECCION {ns['seccion']}: {ns.get('titulo', '')} (Cap. {ns.get('capitulos', '')})"
+        )
+        partes.append("NOTAS DE SECCION:")
+        for i, n in enumerate(ns["notas_legales"], 1):
+            partes.append(f"  {i}. {str(n)[:400]}")
+        for excl in (ns.get("exclusiones") or []):
+            partes.append(f"  EXCLUYE: {str(excl)[:300]}")
+
+    # Notas de Capitulo
+    partes.append(
+        f"\nCAPITULO {notas['capitulo']} - Seccion {notas['seccion']}: {notas['seccion_titulo']}"
+    )
     if notas.get("titulo_cap"):
         partes.append(f"Titulo: {notas['titulo_cap']}")
     if notas.get("notas_legales"):
-        partes.append("\nNOTAS LEGALES:")
+        partes.append("NOTAS DE CAPITULO:")
         for i, n in enumerate(notas["notas_legales"], 1):
             if isinstance(n, dict):
                 n = n.get("texto", str(n))
             partes.append(f"  {i}. {str(n)[:600]}")
     if notas.get("alcance"):
-        partes.append(f"\nALCANCE/EXCLUSIONES:\n  {str(notas['alcance'])[:500]}")
+        partes.append(f"ALCANCE/EXCLUSIONES:\n  {str(notas['alcance'])[:500]}")
     if notas.get("isc_aplicable"):
-        partes.append(f"\nISC APLICABLE EN RD:\n  {str(notas['isc_aplicable'])[:400]}")
-    partes.append(f"\n[Fuente: {notas['fuente']}]")
+        partes.append(f"ISC APLICABLE EN RD:\n  {str(notas['isc_aplicable'])[:400]}")
+
+    partes.append(f"[Fuente: {notas.get('fuente', 'fallback')}]")
     return "\n".join(partes)
 
 

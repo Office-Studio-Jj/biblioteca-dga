@@ -270,13 +270,15 @@ def procesar_consulta(texto_usuario: str) -> dict:
             from sub_agentes.lector_notas_arancel import leer_notas_capitulo
             _notas_capitulo = leer_notas_capitulo(str(_cap_num).zfill(2))
             resultado["notas_capitulo"] = {
-                "capitulo":   _notas_capitulo.get("capitulo"),
-                "seccion":    _notas_capitulo.get("seccion"),
+                "capitulo":      _notas_capitulo.get("capitulo"),
+                "seccion":       _notas_capitulo.get("seccion"),
                 "seccion_titulo": _notas_capitulo.get("seccion_titulo"),
-                "titulo_cap": _notas_capitulo.get("titulo_cap"),
+                "titulo_cap":    _notas_capitulo.get("titulo_cap"),
                 "notas_legales": _notas_capitulo.get("notas_legales", [])[:5],
                 "isc_aplicable": _notas_capitulo.get("isc_aplicable"),
-                "fuente":     _notas_capitulo.get("fuente"),
+                "fuente":        _notas_capitulo.get("fuente"),
+                # RGI 1: Notas de Seccion al mismo nivel jerarquico que notas de Capitulo
+                "notas_seccion": _notas_capitulo.get("notas_seccion", {}),
             }
     except Exception as _en:
         resultado["advertencias"].append(f"lector_notas_capitulo: {_en}")
@@ -483,21 +485,35 @@ def formatear_informe(resultado: dict) -> str:
         "",
     ]
 
-    # Notas Legales de la Seccion y Capitulo (RGI 1)
+    # Notas Legales (RGI 1 — Decreto 755-22 Art. 63): Seccion primero, luego Capitulo
     notas = resultado.get("notas_capitulo", {})
-    if notas and notas.get("titulo_cap"):
-        lineas += [
-            f"### Notas Legales — Cap. {notas.get('capitulo')} "
-            f"(Sec. {notas.get('seccion')}: {notas.get('seccion_titulo', '')})",
-            f"*{notas.get('titulo_cap', '')}*",
-        ]
-        for nota in (notas.get("notas_legales") or []):
-            if isinstance(nota, dict):
-                nota = nota.get("texto", str(nota))
-            lineas.append(f"  - {str(nota)[:300]}")
-        if notas.get("isc_aplicable"):
-            lineas.append(f"  - ISC RD: {notas['isc_aplicable']}")
-        lineas.append("")
+    if notas:
+        # Notas de Seccion (primer nivel jerarquico)
+        ns = notas.get("notas_seccion", {})
+        if ns and ns.get("notas_legales"):
+            lineas += [
+                f"### Notas de Seccion {ns.get('seccion')}: {ns.get('titulo', '')}",
+            ]
+            for nota in ns.get("notas_legales", []):
+                lineas.append(f"  - {str(nota)[:300]}")
+            for excl in (ns.get("exclusiones") or []):
+                lineas.append(f"  - *Excluye:* {str(excl)[:250]}")
+            lineas.append("")
+
+        # Notas de Capitulo (segundo nivel jerarquico)
+        if notas.get("titulo_cap"):
+            lineas += [
+                f"### Notas de Capitulo {notas.get('capitulo')} "
+                f"(Sec. {notas.get('seccion')}: {notas.get('seccion_titulo', '')})",
+                f"*{notas.get('titulo_cap', '')}*",
+            ]
+            for nota in (notas.get("notas_legales") or []):
+                if isinstance(nota, dict):
+                    nota = nota.get("texto", str(nota))
+                lineas.append(f"  - {str(nota)[:300]}")
+            if notas.get("isc_aplicable"):
+                lineas.append(f"  - ISC RD: {notas['isc_aplicable']}")
+            lineas.append("")
 
     if perms:
         lineas += ["### Permisos y Restricciones", str(perms), ""]
