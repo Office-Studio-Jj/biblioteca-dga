@@ -1,0 +1,141 @@
+{
+  "_meta": {
+    "descripcion": "Schema formal de la Ficha Merceológica en Notion (Capa 2). Orden CEO 05-05-2026 Sección 2.6.",
+    "base_legal": "Decreto 755-22, Ley 168-21 Cap. III, Convenio SA (OMA)",
+    "version": "1.0",
+    "fecha": "2026-05-05"
+  },
+  "nombre_bd": "Fichas Merceológicas",
+  "campos": [
+    {
+      "nombre": "Mercancía (nombre técnico)",
+      "tipo": "title",
+      "obligatorio": true,
+      "descripcion": "Nombre técnico de la mercancía según terminología SA/DGA"
+    },
+    {
+      "nombre": "Descripción merceológica",
+      "tipo": "rich_text",
+      "obligatorio": true,
+      "descripcion": "Descripción completa: materia constitutiva, función, uso, usuario final"
+    },
+    {
+      "nombre": "Código SON (8 dígitos)",
+      "tipo": "rich_text",
+      "obligatorio": true,
+      "validacion": "regex: ^\\d{4}\\.\\d{2}\\.\\d{2}$",
+      "descripcion": "Subpartida nacional 8 dígitos formato XXXX.XX.XX"
+    },
+    {
+      "nombre": "Partida (4 dígitos)",
+      "tipo": "number",
+      "obligatorio": true,
+      "descripcion": "Partida SA de 4 dígitos (XX.XX)"
+    },
+    {
+      "nombre": "Capítulo",
+      "tipo": "number",
+      "obligatorio": true,
+      "descripcion": "Capítulo SA (1-97)"
+    },
+    {
+      "nombre": "Sección SA",
+      "tipo": "select",
+      "obligatorio": true,
+      "opciones": ["I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII","XIII","XIV","XV","XVI","XVII","XVIII","XIX","XX","XXI"],
+      "descripcion": "Sección del Sistema Armonizado (I-XXI)"
+    },
+    {
+      "nombre": "RGI aplicada",
+      "tipo": "select",
+      "obligatorio": true,
+      "opciones": ["RGI 1","RGI 2a","RGI 2b","RGI 3a","RGI 3b","RGI 3c","RGI 4","RGI 5","RGI 6"],
+      "descripcion": "Regla General de Interpretación que determina la clasificación"
+    },
+    {
+      "nombre": "Notas consultadas",
+      "tipo": "multi_select",
+      "obligatorio": true,
+      "descripcion": "Notas Legales de Sección y/o Capítulo consultadas para la clasificación"
+    },
+    {
+      "nombre": "DAI (%)",
+      "tipo": "number",
+      "obligatorio": true,
+      "formato": "percent",
+      "descripcion": "Derecho Arancelario de Importación vigente"
+    },
+    {
+      "nombre": "ITBIS",
+      "tipo": "select",
+      "obligatorio": true,
+      "opciones": ["Exento", "16%", "18%"],
+      "descripcion": "ITBIS aplicable: Exento o tasa vigente"
+    },
+    {
+      "nombre": "ISC",
+      "tipo": "rich_text",
+      "obligatorio": false,
+      "descripcion": "Impuesto Selectivo al Consumo si aplica (Ley 11-92 Arts. 361-382)"
+    },
+    {
+      "nombre": "Decreto aplicable",
+      "tipo": "relation",
+      "obligatorio": false,
+      "relacion_con": "tabla_decretos",
+      "descripcion": "Decreto que modifica DAI/ITBIS/ISC para esta mercancía"
+    },
+    {
+      "nombre": "Régimen aduanero",
+      "tipo": "select",
+      "obligatorio": false,
+      "opciones": ["Importación definitiva", "Admisión temporal", "Zona franca", "Reimportación", "Tránsito", "DR-CAFTA", "Drawback"],
+      "descripcion": "Régimen bajo el cual se clasifica (Ley 168-21 Arts. 118-180)"
+    },
+    {
+      "nombre": "Ficha técnica adjunta",
+      "tipo": "files",
+      "obligatorio": false,
+      "descripcion": "PDF/imagen de ficha técnica del producto cuando fue necesaria para clasificar"
+    },
+    {
+      "nombre": "Fecha de clasificación",
+      "tipo": "date",
+      "obligatorio": true,
+      "descripcion": "Fecha en que se realizó la clasificación"
+    },
+    {
+      "nombre": "Clasificador",
+      "tipo": "people",
+      "obligatorio": true,
+      "descripcion": "Persona que realizó/validó la clasificación"
+    },
+    {
+      "nombre": "Estado",
+      "tipo": "select",
+      "obligatorio": true,
+      "opciones": ["Vigente", "Obsoleto", "Impugnado"],
+      "descripcion": "Estado actual de esta clasificación"
+    },
+    {
+      "nombre": "Base legal citada",
+      "tipo": "rich_text",
+      "obligatorio": true,
+      "descripcion": "Ley + artículo que fundamenta la clasificación"
+    }
+  ],
+  "busquedas_soportadas": [
+    "Por código SON (exacto)",
+    "Por mercancía (texto libre)",
+    "Por Capítulo SA",
+    "Por Sección SA",
+    "Por estado (Vigente/Obsoleto/Impugnado)",
+    "Por clasificador",
+    "Por fecha"
+  ],
+  "permisos": {
+    "lectura": ["Master", "Operativo", "Invitado"],
+    "escritura": ["Master", "Operativo"],
+    "eliminacion": ["Master"]
+  }
+}
