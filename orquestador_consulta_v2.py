@@ -256,6 +256,32 @@ def procesar_consulta(texto_usuario: str) -> dict:
     rgi_usada = None
     confianza = None
 
+    # === PASO LEGAL: LECTURA DE NOTAS DE SECCION Y CAPITULO (RGI 1) ===
+    # Decreto 755-22 Arts. 62-77: "la clasificacion esta determinada por el
+    # texto de las partidas Y las Notas de Seccion o de Capitulo."
+    # Se ejecuta ANTES de cualquier clasificacion para saber que esta incluido
+    # y excluido en el capitulo candidato — evita errores como clasificar en
+    # Cap. 85 algo que la Nota 1 de ese capitulo excluye explicitamente.
+    _notas_capitulo = {}
+    try:
+        from navegador_jerarquico_sa import _detectar_capitulo as _det_cap
+        _cap_num = _det_cap(texto_usuario)
+        if _cap_num:
+            from sub_agentes.lector_notas_arancel import leer_notas_capitulo
+            _notas_capitulo = leer_notas_capitulo(str(_cap_num).zfill(2))
+            resultado["notas_capitulo"] = {
+                "capitulo":   _notas_capitulo.get("capitulo"),
+                "seccion":    _notas_capitulo.get("seccion"),
+                "seccion_titulo": _notas_capitulo.get("seccion_titulo"),
+                "titulo_cap": _notas_capitulo.get("titulo_cap"),
+                "notas_legales": _notas_capitulo.get("notas_legales", [])[:5],
+                "isc_aplicable": _notas_capitulo.get("isc_aplicable"),
+                "fuente":     _notas_capitulo.get("fuente"),
+            }
+    except Exception as _en:
+        resultado["advertencias"].append(f"lector_notas_capitulo: {_en}")
+    # === FIN PASO LEGAL NOTAS ===
+
     # ── PASO 1: sinonimos arancelarios (prioridad maxima — mapeo explicito) ──
     # Los sinonimos son verdad explicita: "patineta electrica" = 8711.60.14.
     # Deben correr ANTES que el clasificador para evitar que el clasificador
@@ -456,6 +482,22 @@ def formatear_informe(resultado: dict) -> str:
         f"- ISC: {isc}%" if isc is not None else "- ISC: NO APLICA",
         "",
     ]
+
+    # Notas Legales de la Seccion y Capitulo (RGI 1)
+    notas = resultado.get("notas_capitulo", {})
+    if notas and notas.get("titulo_cap"):
+        lineas += [
+            f"### Notas Legales — Cap. {notas.get('capitulo')} "
+            f"(Sec. {notas.get('seccion')}: {notas.get('seccion_titulo', '')})",
+            f"*{notas.get('titulo_cap', '')}*",
+        ]
+        for nota in (notas.get("notas_legales") or []):
+            if isinstance(nota, dict):
+                nota = nota.get("texto", str(nota))
+            lineas.append(f"  - {str(nota)[:300]}")
+        if notas.get("isc_aplicable"):
+            lineas.append(f"  - ISC RD: {notas['isc_aplicable']}")
+        lineas.append("")
 
     if perms:
         lineas += ["### Permisos y Restricciones", str(perms), ""]
