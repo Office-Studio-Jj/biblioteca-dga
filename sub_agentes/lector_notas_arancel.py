@@ -21,6 +21,10 @@ _CACHE_NOTAS = os.path.join(
     _ROOT, "notebooklm_skill", "data", "fuentes_nomenclatura",
     "notas_capitulos_cache.json"
 )
+_NOTAS_COMPLETAS = os.path.join(
+    _ROOT, "notebooklm_skill", "data", "fuentes_nomenclatura",
+    "notas_legales_completas.json"
+)
 _ARANCEL_PDF = os.path.join(
     _ROOT, "notebooklm_skill", "data", "fuentes_nomenclatura",
     "Arancel 7ma enmienda de la republica dominicana.pdf"
@@ -68,6 +72,15 @@ def _seccion_de_capitulo(cap: str) -> tuple[str, str]:
 def _leer_cache_notas() -> dict:
     try:
         with open(_CACHE_NOTAS, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _leer_notas_completas() -> dict:
+    """Lee el archivo de notas legales completas (todos los capitulos/secciones)."""
+    try:
+        with open(_NOTAS_COMPLETAS, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {}
@@ -186,7 +199,7 @@ def leer_notas_capitulo(capitulo: str) -> dict:
     # 1. Notas de Seccion (RGI 1 — misma jerarquia que notas de capitulo)
     result["notas_seccion"] = _leer_notas_seccion(sec, cache)
 
-    # 2. Cache JSON (si existe para el capitulo)
+    # 2. Cache JSON principal (si existe para el capitulo)
     caps_cached = cache.get("capitulos", {})
     if cap in caps_cached:
         info = caps_cached[cap]
@@ -197,6 +210,29 @@ def leer_notas_capitulo(capitulo: str) -> dict:
         result["isc_aplicable"] = info.get("isc_rd", info.get("isc", ""))
         result["fuente"]        = "cache"
         return result
+
+    # 2b. Notas legales completas (archivo con TODOS los capitulos)
+    completas = _leer_notas_completas()
+    caps_completas = completas.get("capitulos", {})
+    if cap in caps_completas:
+        info = caps_completas[cap]
+        result["titulo_cap"]    = info.get("titulo", "")
+        result["notas_legales"] = info.get("notas_legales", [])
+        result["alcance"]       = info.get("no_comprende",
+                                           info.get("alcance", ""))
+        result["fuente"]        = "notas_legales_completas"
+        return result
+
+    # 2c. Notas de seccion del archivo completo (si no estaban en cache principal)
+    secs_completas = completas.get("secciones", {})
+    if sec in secs_completas and not result["notas_seccion"]:
+        result["notas_seccion"] = {
+            "seccion":       sec,
+            "titulo":        secs_completas[sec].get("titulo", ""),
+            "capitulos":     secs_completas[sec].get("capitulos", ""),
+            "notas_legales": secs_completas[sec].get("notas_legales", []),
+            "exclusiones":   secs_completas[sec].get("exclusiones", []),
+        }
 
     # 3. PDF on-demand
     pdf_notas = _extraer_notas_pdf(cap)
