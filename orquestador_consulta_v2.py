@@ -446,16 +446,19 @@ def procesar_consulta(texto_usuario: str) -> dict:
             with sqlite3.connect(_DB) as _conn:
                 _conn.execute(
                     "INSERT OR IGNORE INTO sinonimos_arancelarios "
-                    "(termino_busqueda, son, son_destino, descripcion) VALUES (?, ?, ?, ?)",
+                    "(termino_busqueda, termino_oficial, capitulo_sugerido, "
+                    "partida_sugerida, tipo, son_destino) VALUES (?, ?, ?, ?, ?, ?)",
                     (
                         consulta_original_raw.lower().strip(),
-                        son_final,
-                        son_final,
                         f"[auto-Gemini] {consulta_enriquecida[:120]}",
+                        son_final[:2],
+                        son_final[:4],
+                        "sinonimo",
+                        son_final,
                     ),
                 )
         except Exception:
-            pass  # El aprendizaje es opcional, nunca romper el flujo
+            pass
 
     return resultado
 

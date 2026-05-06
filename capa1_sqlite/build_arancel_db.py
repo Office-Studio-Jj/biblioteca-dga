@@ -139,7 +139,8 @@ def _crear_schema(con: sqlite3.Connection):
             termino_oficial TEXT NOT NULL,
             capitulo_sugerido TEXT,
             partida_sugerida TEXT,
-            tipo TEXT CHECK(tipo IN ('sinonimo','parte_de','componente','alias'))
+            tipo TEXT CHECK(tipo IN ('sinonimo','parte_de','componente','alias')),
+            son_destino TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_sinonimos_termino
             ON sinonimos_arancelarios(termino_busqueda);
@@ -287,30 +288,35 @@ def main(con_pdf=False):
         con.execute("INSERT OR REPLACE INTO base_legal(id,titulo,texto) VALUES(?,?,?)", fila)
 
     # CEO 04-MAY-2026: Sinónimos arancelarios (datos semilla)
+    # Formato: (termino_busqueda, termino_oficial, capitulo, partida, tipo, son_destino)
     _SINONIMOS = [
-        ('pantalla celular', 'partes de telefonos', '85', '8517', 'parte_de'),
-        ('display celular', 'partes de telefonos', '85', '8517', 'parte_de'),
-        ('screen celular', 'partes de telefonos', '85', '8517', 'parte_de'),
-        ('LCD celular', 'dispositivos cristal liquido', '90', '9013', 'componente'),
-        ('patineta electrica', 'scooter electrico', '87', '8711', 'sinonimo'),
-        ('e-scooter', 'scooter electrico', '87', '8711', 'sinonimo'),
-        ('monopatin electrico', 'scooter electrico', '87', '8711', 'sinonimo'),
-        ('cargador celular', 'transformadores electricos', '85', '8504', 'parte_de'),
-        ('funda celular', 'estuches y fundas', '42', '4202', 'componente'),
-        ('audifonos', 'auriculares', '85', '8518', 'sinonimo'),
-        ('headphones', 'auriculares', '85', '8518', 'sinonimo'),
-        ('parlante', 'altavoces', '85', '8518', 'sinonimo'),
-        ('bocina', 'altavoces', '85', '8518', 'sinonimo'),
-        ('laptop', 'maquinas automaticas procesamiento datos portatiles', '84', '8471', 'sinonimo'),
-        ('computadora portatil', 'maquinas automaticas procesamiento datos portatiles', '84', '8471', 'sinonimo'),
-        ('tablet', 'maquinas automaticas procesamiento datos', '84', '8471', 'sinonimo'),
-        ('router', 'aparatos de telecomunicacion', '85', '8517', 'sinonimo'),
-        ('switch red', 'aparatos de telecomunicacion', '85', '8517', 'sinonimo'),
-        ('drone', 'aeronaves no tripuladas', '88', '8806', 'sinonimo'),
-        ('inversor solar', 'convertidores estaticos', '85', '8504', 'sinonimo'),
+        ('pantalla celular', 'partes de telefonos', '85', '8517', 'parte_de', '8517.70.00'),
+        ('display celular', 'partes de telefonos', '85', '8517', 'parte_de', '8517.70.00'),
+        ('screen celular', 'partes de telefonos', '85', '8517', 'parte_de', '8517.70.00'),
+        ('LCD celular', 'dispositivos cristal liquido', '90', '9013', 'componente', None),
+        ('patineta electrica', 'scooter electrico', '87', '8711', 'sinonimo', '8711.60.14'),
+        ('e-scooter', 'scooter electrico', '87', '8711', 'sinonimo', '8711.60.14'),
+        ('escooter', 'scooter electrico', '87', '8711', 'sinonimo', '8711.60.14'),
+        ('scooter electrico', 'scooter electrico', '87', '8711', 'sinonimo', '8711.60.14'),
+        ('monopatin electrico', 'scooter electrico', '87', '8711', 'sinonimo', '8711.60.14'),
+        ('hoverboard', 'scooter electrico', '87', '8711', 'sinonimo', '8711.60.14'),
+        ('segway', 'scooter electrico', '87', '8711', 'sinonimo', '8711.60.14'),
+        ('cargador celular', 'transformadores electricos', '85', '8504', 'parte_de', '8504.40.00'),
+        ('funda celular', 'estuches y fundas', '42', '4202', 'componente', None),
+        ('audifonos', 'auriculares', '85', '8518', 'sinonimo', None),
+        ('headphones', 'auriculares', '85', '8518', 'sinonimo', None),
+        ('parlante', 'altavoces', '85', '8518', 'sinonimo', None),
+        ('bocina', 'altavoces', '85', '8518', 'sinonimo', None),
+        ('laptop', 'maquinas automaticas procesamiento datos portatiles', '84', '8471', 'sinonimo', None),
+        ('computadora portatil', 'maquinas automaticas procesamiento datos portatiles', '84', '8471', 'sinonimo', None),
+        ('tablet', 'maquinas automaticas procesamiento datos', '84', '8471', 'sinonimo', None),
+        ('router', 'aparatos de telecomunicacion', '85', '8517', 'sinonimo', None),
+        ('switch red', 'aparatos de telecomunicacion', '85', '8517', 'sinonimo', None),
+        ('drone', 'aeronaves no tripuladas', '88', '8806', 'sinonimo', None),
+        ('inversor solar', 'convertidores estaticos', '85', '8504', 'sinonimo', None),
     ]
     con.executemany(
-        "INSERT OR IGNORE INTO sinonimos_arancelarios(termino_busqueda,termino_oficial,capitulo_sugerido,partida_sugerida,tipo) VALUES(?,?,?,?,?)",
+        "INSERT OR IGNORE INTO sinonimos_arancelarios(termino_busqueda,termino_oficial,capitulo_sugerido,partida_sugerida,tipo,son_destino) VALUES(?,?,?,?,?,?)",
         _SINONIMOS,
     )
 

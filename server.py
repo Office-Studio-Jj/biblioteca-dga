@@ -230,8 +230,35 @@ def _guardar_cache_consultas():
 def _cache_key(question: str, notebook_id: str) -> str:
     return hashlib.md5((question.lower().strip() + "|" + notebook_id).encode()).hexdigest()
 
-_CACHE_BLACKLIST_SONS = {"8701.10.11"}
-_CACHE_BLACKLIST_TERMS = {"patineta", "scooter", "e-scooter", "escooter", "monopatin"}
+_CACHE_BLACKLIST_SONS = {"8701.10.11", "8701.10.00", "8701.24.00"}
+_CACHE_BLACKLIST_TERMS = {"patineta", "scooter", "e-scooter", "escooter", "monopatin", "hoverboard", "segway"}
+
+_CORRECCION_FORZADA = {
+    "patineta": "8711.60.14",
+    "escooter": "8711.60.14",
+    "e-scooter": "8711.60.14",
+    "scooter electrico": "8711.60.14",
+    "monopatin electrico": "8711.60.14",
+    "hoverboard": "8711.60.14",
+    "segway": "8711.60.14",
+}
+
+def _interceptar_clasificacion_erronea(question: str, codigo: str, answer: str) -> tuple:
+    """Intercepta clasificaciones conocidas como erróneas (Dictamen CEO-001-2026).
+    Returns (codigo_corregido, answer_corregido) o (None, None) si no aplica."""
+    if not codigo or not codigo.startswith("8701"):
+        return None, None
+    q_low = question.lower()
+    for term, son_correcto in _CORRECCION_FORZADA.items():
+        if term in q_low:
+            print(f"[INTERCEPTOR_CEO-001] {codigo} -> {son_correcto} para '{question[:50]}'")
+            answer_fix = answer.replace(codigo, son_correcto)
+            if "8701" in answer_fix or "Motocultor" in answer_fix or "tractor" in answer_fix.lower():
+                answer_fix = answer_fix.replace("Motocultores", "Ciclomotores (scooters)")
+                answer_fix = answer_fix.replace("motocultor", "ciclomotor")
+                answer_fix = answer_fix.replace("tractor", "ciclomotor")
+            return son_correcto, answer_fix
+    return None, None
 
 def _get_cached(question: str, notebook_id: str):
     entry = _CACHE_CONSULTAS.get(_cache_key(question, notebook_id))
@@ -817,6 +844,21 @@ def consultar():
         try:
             from orquestador_consulta_v2 import procesar_consulta as _pc_v2, formatear_informe as _fi_v2
             _res_v2 = _pc_v2(question)
+            # Interceptor CEO-001: corregir 8701→8711 para patineta/scooter
+            _son_v2 = _res_v2.get("codigo_son", "")
+            if _son_v2 and _son_v2.startswith("8701"):
+                _fix_son, _ = _interceptar_clasificacion_erronea(question, _son_v2, "")
+                if _fix_son:
+                    from orquestador_consulta_v2 import _son_exacto_db
+                    _datos_fix = _son_exacto_db(_fix_son)
+                    if _datos_fix:
+                        _res_v2["codigo_son"] = _fix_son
+                        _res_v2["descripcion_oficial"] = (_datos_fix.get("descripcion") or "")[:200]
+                        _res_v2["dai_pct"] = _datos_fix.get("dai_pct")
+                        _res_v2["itbis_pct"] = _datos_fix.get("itbis_pct")
+                        _res_v2["isc_pct"] = _datos_fix.get("isc_pct")
+                        _res_v2["capitulo"] = _fix_son[:2]
+                        _res_v2["advertencias"].append("Corregido por Dictamen CEO-001-2026")
             if _res_v2.get("codigo_son"):
                 _informe_v2 = _fi_v2(_res_v2)
                 _set_cached(question, notebook_id, _informe_v2)
@@ -898,6 +940,16 @@ def consultar():
                         "headings_posibles": traz.get("gate_entrada", {}).get("headings_posibles", []),
                     },
                 })
+
+            # Interceptor CEO-001: corregir 8701→8711 para patineta/scooter en pipeline
+            _cod_p3 = traz.get("codigo_final", "")
+            if _cod_p3 and _cod_p3.startswith("8701"):
+                _fix_p3, _ans_p3 = _interceptar_clasificacion_erronea(
+                    question, _cod_p3, traz.get("respuesta_final", ""))
+                if _fix_p3:
+                    traz["codigo_final"] = _fix_p3
+                    traz["respuesta_final"] = _ans_p3
+                    traz["interceptor_ceo_001"] = True
 
             if traz.get("patron_intacto") and traz.get("respuesta_final") and traz.get("codigo_final"):
                 print(f"[PIPELINE_3CAPAS] OK codigo={traz['codigo_final']} "
