@@ -216,6 +216,18 @@ def _cargar_cache_consultas():
     try:
         if _CACHE_CONSULTAS_PATH.exists():
             _CACHE_CONSULTAS = json.loads(_CACHE_CONSULTAS_PATH.read_text(encoding="utf-8"))
+            # BUG-FIX 06-05-2026: invalidar entradas que contengan SON erroneos
+            # conocidos (clasificaciones incorrectas cacheadas por 7 dias)
+            _SONS_INVALIDOS = {"8501.10.10", "8528.59.90", "8517.11.00"}
+            _antes = len(_CACHE_CONSULTAS)
+            _CACHE_CONSULTAS = {
+                k: v for k, v in _CACHE_CONSULTAS.items()
+                if not any(son in (v.get("answer") or "") for son in _SONS_INVALIDOS)
+            }
+            _purgados = _antes - len(_CACHE_CONSULTAS)
+            if _purgados:
+                print(f"[CACHE] Purgados {_purgados} entradas con SON erroneos al arrancar")
+                _guardar_cache_consultas()
     except Exception:
         _CACHE_CONSULTAS = {}
 
@@ -230,7 +242,7 @@ def _guardar_cache_consultas():
 def _cache_key(question: str, notebook_id: str) -> str:
     return hashlib.md5((question.lower().strip() + "|" + notebook_id).encode()).hexdigest()
 
-_CACHE_BLACKLIST_SONS = {"8701.10.11", "8701.10.00", "8701.24.00"}
+_CACHE_BLACKLIST_SONS = {"8701.10.11", "8701.10.00", "8701.24.00", "8501.10.10", "8528.59.90", "8517.11.00"}
 _CACHE_BLACKLIST_TERMS = {"patineta", "scooter", "e-scooter", "escooter", "monopatin", "hoverboard", "segway"}
 
 _CORRECCION_FORZADA = {

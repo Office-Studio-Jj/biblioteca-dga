@@ -634,7 +634,66 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
     # 3. ITBIS estandar 18%
     resultado["itbis"] = "18% sobre (CIF + Gravamen)"
 
-    # 3.5 VALIDACION SEMANTICA + FALLBACK "LOS DEMAS" (RGI 1 — Decreto 755-22)
+    # 3.5a DETECCION DE PARTES/REPUESTOS → subgrupo PARTES de la partida
+    # Cuando la consulta indica "parte", "repuesto", "reemplazo", "pieza",
+    # "componente", "accesorio de reemplazo", el producto es una PARTE del
+    # aparato principal. En el SA, las partes van en el ULTIMO subgrupo de
+    # la partida (ej: 8517.7x = partes de telefonos). Si no tiene codigo
+    # especifico, cae en "Los/Las demas" de ese subgrupo.
+    _KW_PARTES = {"reemplazo", "repuesto", "parte", "pieza", "componente",
+                  "refaccion", "spare", "replacement"}
+    _consulta_lower = consulta.lower()
+    _es_parte = any(kw in _consulta_lower for kw in _KW_PARTES)
+    if _es_parte and codigo_propuesto:
+        _partida4_parte = codigo_propuesto[:4]
+        try:
+            import sqlite3 as _sq_parts
+            _db_parts = os.path.join(_PROJECT_ROOT, "capa1_sqlite", "arancel_rd.db")
+            if os.path.exists(_db_parts):
+                _con_parts = _sq_parts.connect(_db_parts)
+                # Buscar el ultimo subgrupo (ej: 8517.7x) que contiene "partes" o "las demas"
+                _all_sons = _con_parts.execute(
+                    "SELECT son, descripcion FROM codigos WHERE son LIKE ? ORDER BY son DESC",
+                    (_partida4_parte + "%",)
+                ).fetchall()
+                _con_parts.close()
+                # El ultimo codigo de la partida suele ser "Las demas" partes
+                _demas_parte = None
+                for _s, _d in _all_sons:
+                    _dl = _d.lower()
+                    if "las dem" in _dl or "los dem" in _dl:
+                        _demas_parte = (_s, _d)
+                        break  # DESC order = el mas alto primero = el mas residual
+                if _demas_parte and _demas_parte[0] != codigo_propuesto:
+                    print(f"[CAPA1] Producto es PARTE/REPUESTO: '{consulta[:40]}' "
+                          f"→ redirigir {codigo_propuesto} a {_demas_parte[0]} ({_demas_parte[1][:40]})")
+                    resultado["redireccion_partes"] = {
+                        "codigo_original": codigo_propuesto,
+                        "codigo_partes": _demas_parte[0],
+                        "desc_partes": _demas_parte[1][:100],
+                        "keyword_detectada": [kw for kw in _KW_PARTES if kw in _consulta_lower],
+                        "fundamento": "RGI 1 — producto identificado como parte/repuesto. "
+                                      "SA clasifica partes en ultimo subgrupo de la partida.",
+                    }
+                    codigo_propuesto = _demas_parte[0]
+                    resultado["codigo_propuesto"] = _demas_parte[0]
+                    resultado["descripcion_oficial"] = _demas_parte[1][:200]
+                    # Recalcular gravamen
+                    try:
+                        _cp3 = os.path.join(_DATA, "fuentes_nomenclatura", "arancel_cache.json")
+                        with open(_cp3, "r", encoding="utf-8") as _f3:
+                            _c3d = json.load(_f3)
+                        _d3 = _c3d.get("codigos", _c3d).get(_demas_parte[0])
+                        if _d3:
+                            _mg3 = re.search(r'\b(\d+)\s*$', str(_d3).strip())
+                            if _mg3:
+                                resultado["gravamen"] = f"{_mg3.group(1)}%"
+                    except Exception:
+                        pass
+        except Exception as _e_parts:
+            print(f"[CAPA1] Error deteccion partes: {_e_parts}")
+
+    # 3.5b VALIDACION SEMANTICA + FALLBACK "LOS DEMAS" (RGI 1 — Decreto 755-22)
     # Si la descripcion del codigo propuesto NO describe el producto consultado,
     # buscar el codigo "Los/Las demas" del ultimo subgrupo de la misma partida.
     # Principio SA: todo producto tiene codigo — si ninguno especifico aplica,
