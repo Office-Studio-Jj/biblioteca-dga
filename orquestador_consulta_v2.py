@@ -56,6 +56,11 @@ def _seccion(cap_str: str) -> str:
     return "DESCONOCIDA"
 
 
+# Tasas DAI oficiales (Ley 146-00). Cualquier valor fuera de este set requiere
+# verificacion manual — puede indicar error en la fuente de datos.
+_TASAS_DAI_OFICIALES = {0, 3, 8, 14, 20, 25, 40}
+
+
 # ── Helpers SQLite directos ─────────────────────────────────────────────────
 
 def _son_exacto_db(son: str) -> dict | None:
@@ -421,6 +426,20 @@ def procesar_consulta(texto_usuario: str) -> dict:
         # Permisos desde columna de la DB
         if datos.get("permisos"):
             resultado["permisos"] = datos["permisos"]
+
+        # Validar DAI contra tasas oficiales Ley 146-00
+        dai_val = datos.get("dai_pct")
+        if dai_val is not None:
+            try:
+                dai_num = int(round(float(dai_val)))
+                if dai_num not in _TASAS_DAI_OFICIALES:
+                    resultado["advertencias"].append(
+                        f"DAI {dai_num}% no esta en tasas oficiales Ley 146-00 "
+                        f"({', '.join(str(t) + '%' for t in sorted(_TASAS_DAI_OFICIALES))}). "
+                        "Verificar en aduanas.gob.do."
+                    )
+            except (ValueError, TypeError):
+                pass
 
     # ── PASO 6.5: VALIDACION DE SUFICIENCIA DE DATOS (Dictamen CEO) ─────
     # El sistema clasifica o pide ficha tecnica. Nunca adivina.

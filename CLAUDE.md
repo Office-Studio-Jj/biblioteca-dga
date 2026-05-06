@@ -36,8 +36,13 @@
 - **Ley 392-07** = Competitividad e Innovación Industrial (CEO 05-05-2026 — omisión grave corregida)
 - **Decreto 36-22** = Arancel Nacional 7ma Enmienda (CEO 05-05-2026 — faltaba en tabla formal)
 - **Decreto 151-22** = Reglamento Zona Franca
+- **Ley 557-05** Art. 24 = lista bienes exentos de gravámenes (Reforma Tributaria)
+- **Ley 253-12** = Fortalecimiento capacidad recaudatoria del Estado
 - Resoluciones DGA clasificación anticipada (Art. 75 Ley 168-21)
 - Eliminar: Ley 200-04 y Ley 10-07 del marco normativo de la app
+- NESA (Notas Explicativas SA OMA): auxiliares SIN fuerza legal vinculante en RD (Art. 4 Ley 146-00)
+- Tasas DAI oficiales Ley 146-00: 0%, 3%, 8%, 14%, 20%, 25%, 40% — cualquier otro valor requiere verificación
+- DAI es ad valorem sobre valor CIF (Art. 7 Ley 146-00)
 
 ## Correcciones CEO 05-05-2026 (Informe Two-Brain)
 - "100% precisión" → "100% cumplimiento del protocolo legal"

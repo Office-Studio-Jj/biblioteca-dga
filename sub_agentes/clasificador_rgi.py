@@ -56,53 +56,53 @@ def clasificar_por_rgi(
     termino = descripcion_producto.strip()
     capitulo = (capitulo_candidato or "").strip().zfill(2) if capitulo_candidato else None
 
+    # === RGI ESTRICTAMENTE SECUENCIAL: 1→2→3→4→5→6 (Guia DGA, Art. 4 Ley 146-00) ===
+    # NUNCA saltar ni aplicar fuera de orden.
+
     # RGI 1: Texto de partidas y notas de seccion/capitulo
     candidatas = _aplicar_rgi1(termino, capitulo)
 
     if len(candidatas) == 1:
-        c = candidatas[0]
         return _construir_resultado(
-            c, "RGI 1",
-            f"Clasificacion directa por texto de partida. Base: Decreto 755-22 Art. 62.",
+            candidatas[0], "RGI 1",
+            "Clasificacion directa por texto de partida. Decreto 755-22 Art. 62.",
             candidatas, "ALTA",
         )
 
-    if len(candidatas) == 0:
-        # RGI 2: Producto incompleto o sin terminar
+    # RGI 2: Articulos incompletos, desmontados o mezclas
+    if len(candidatas) == 0 or _es_incompleto(termino):
         candidatas_rgi2 = _intentar_rgi2(termino, capitulo)
         if candidatas_rgi2:
             candidatas = candidatas_rgi2
+            if len(candidatas) == 1:
+                return _construir_resultado(
+                    candidatas[0], "RGI 2",
+                    "Articulo incompleto/desmontado con caracteristicas esenciales "
+                    "del terminado. Decreto 755-22 Art. 65.",
+                    candidatas, "ALTA",
+                )
 
+    # RGI 3: Multiples candidatas — resolver conflicto (3a→3b→3c en orden)
+    if len(candidatas) >= 2:
+        resultado_rgi3 = _aplicar_rgi3(candidatas)
+        if resultado_rgi3:
+            return _construir_resultado(
+                resultado_rgi3["ganadora"],
+                resultado_rgi3["sub_regla"],
+                resultado_rgi3["justificacion"],
+                candidatas,
+                resultado_rgi3.get("confianza", "MEDIA"),
+            )
+
+    # RGI 4: Analogia — solo si RGI 1-3 no resolvieron
     if len(candidatas) == 0:
-        # RGI 4: Analogia
         resultado_rgi4 = _aplicar_rgi4(termino)
         if resultado_rgi4:
             return resultado_rgi4
         return _resultado_vacio(f"Sin candidatas para '{termino}'")
 
-    if len(candidatas) == 1:
-        c = candidatas[0]
-        rgi = "RGI 2" if _es_incompleto(termino) else "RGI 1"
-        return _construir_resultado(
-            c, rgi,
-            f"Candidata unica tras busqueda ampliada.",
-            candidatas, "ALTA",
-        )
-
-    # RGI 3: Multiples candidatas — resolver conflicto
-    resultado_rgi3 = _aplicar_rgi3(candidatas)
-    if resultado_rgi3:
-        return _construir_resultado(
-            resultado_rgi3["ganadora"],
-            resultado_rgi3["sub_regla"],
-            resultado_rgi3["justificacion"],
-            candidatas,
-            "MEDIA",
-        )
-
     # RGI 5: Envases y contenedores
     if _es_envase(termino):
-        # Los envases se clasifican con el producto que contienen
         return _construir_resultado(
             candidatas[0], "RGI 5",
             "Envase/contenedor: se clasifica con la mercancia que contiene. "
@@ -120,7 +120,7 @@ def clasificar_por_rgi(
             candidatas, "MEDIA",
         )
 
-    # Fallback: resolver conflicto registrado
+    # Sin resolucion por RGI 1-6 → registrar para revision humana
     return _resolver_conflicto(candidatas, termino)
 
 
@@ -195,8 +195,7 @@ def _aplicar_rgi3(candidatas: list[dict]) -> dict | None:
     if len(candidatas) < 2:
         return None
 
-    # RGI 3a: La descripcion mas especifica
-    # Heuristica: descripcion mas larga = mas especifica
+    # RGI 3a: La partida mas especifica prevalece sobre la generica
     candidatas_ord = sorted(candidatas, key=lambda c: len(c.get("descripcion", "")), reverse=True)
     top = candidatas_ord[0]
     segunda = candidatas_ord[1]
@@ -206,25 +205,25 @@ def _aplicar_rgi3(candidatas: list[dict]) -> dict | None:
         return {
             "ganadora": top,
             "sub_regla": "RGI 3a",
+            "confianza": "MEDIA",
             "justificacion": (
                 f"Partida {top['son']} es mas especifica que {segunda['son']}. "
                 "Decreto 755-22 Art. 67."
             ),
         }
 
-    # RGI 3b: No se puede determinar caracter esencial sin contexto adicional.
-    # Se omite — requiere analisis del producto real.
-
-    # RGI 3c: Ultima en orden numerico
-    candidatas_num = sorted(candidatas, key=lambda c: c["son"])
-    ultima = candidatas_num[-1]
+    # RGI 3b: Caracter esencial (mezclas, surtidos, juegos para venta al detalle)
+    # Se determina por naturaleza, volumen, peso, valor o papel funcional.
+    # SIN datos del fabricante → no se puede calcular → marcar como PROVISIONAL.
     return {
-        "ganadora": ultima,
-        "sub_regla": "RGI 3c",
+        "ganadora": top,
+        "sub_regla": "RGI 3b",
+        "confianza": "BAJA",
         "justificacion": (
-            f"Sin especificidad clara ni caracter esencial determinable. "
-            f"Se aplica {ultima['son']} (ultima en orden numerico). "
-            "Decreto 755-22 Art. 69."
+            f"Multiples partidas posibles ({', '.join(c['son'] for c in candidatas[:3])}). "
+            "RGI 3b requiere determinar caracter esencial por composicion/peso/valor. "
+            "Ficha tecnica del fabricante necesaria para certeza. "
+            "Decreto 755-22 Art. 68."
         ),
     }
 
