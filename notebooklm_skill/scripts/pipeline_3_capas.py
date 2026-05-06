@@ -634,6 +634,70 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
     # 3. ITBIS estandar 18%
     resultado["itbis"] = "18% sobre (CIF + Gravamen)"
 
+    # 3.5 VALIDACION SEMANTICA + FALLBACK "LOS DEMAS" (RGI 1 — Decreto 755-22)
+    # Si la descripcion del codigo propuesto NO describe el producto consultado,
+    # buscar el codigo "Los/Las demas" del ultimo subgrupo de la misma partida.
+    # Principio SA: todo producto tiene codigo — si ninguno especifico aplica,
+    # cae en "Los demas" que siempre es el ULTIMO codigo de la jerarquia.
+    _desc_propuesta = (resultado.get("descripcion_oficial") or "").lower()
+    if _desc_propuesta and codigo_propuesto:
+        _palabras_prod = [w.lower() for w in consulta.split() if len(w) >= 4 and w.isalpha()]
+        _match_count = sum(1 for p in _palabras_prod if p in _desc_propuesta)
+        _match_ratio = _match_count / max(len(_palabras_prod), 1)
+        # Si menos del 30% de las palabras del producto aparecen en la descripcion
+        # del codigo propuesto → la descripcion NO describe este producto
+        if _match_ratio < 0.3 and _palabras_prod:
+            _partida4_sem = codigo_propuesto[:4]
+            try:
+                import sqlite3 as _sq_sem
+                _db_sem = os.path.join(_PROJECT_ROOT, "capa1_sqlite", "arancel_rd.db")
+                if os.path.exists(_db_sem):
+                    _con_sem = _sq_sem.connect(_db_sem)
+                    # Buscar TODOS los "Los/Las demas" dentro de esta partida
+                    _demas_rows = _con_sem.execute(
+                        "SELECT son, descripcion FROM codigos "
+                        "WHERE son LIKE ? AND (LOWER(descripcion) LIKE '%los dem%' "
+                        "OR LOWER(descripcion) LIKE '%las dem%') ORDER BY son DESC",
+                        (_partida4_sem + "%",)
+                    ).fetchall()
+                    _con_sem.close()
+                    # Tomar el ULTIMO "Los demas" (mayor numero = mas general/residual)
+                    if _demas_rows:
+                        _son_demas = _demas_rows[0][0]
+                        _desc_demas = _demas_rows[0][1]
+                        print(f"[CAPA1] Semantica: '{consulta[:40]}' no matchea "
+                              f"'{_desc_propuesta[:40]}' ({_match_ratio:.0%}). "
+                              f"Redirigir {codigo_propuesto} → {_son_demas} ({_desc_demas[:40]})")
+                        resultado["redireccion_los_demas"] = {
+                            "codigo_original": codigo_propuesto,
+                            "desc_original": _desc_propuesta[:100],
+                            "match_ratio": round(_match_ratio, 2),
+                            "codigo_final": _son_demas,
+                            "desc_final": _desc_demas[:100],
+                            "fundamento": "RGI 1 — descripcion especifica no aplica, "
+                                          "producto cae en residual 'Los/Las demas' "
+                                          "(Decreto 755-22 Art. 63)",
+                        }
+                        codigo_propuesto = _son_demas
+                        resultado["codigo_propuesto"] = _son_demas
+                        resultado["descripcion_oficial"] = _desc_demas[:200]
+                        resultado["rgi"] = "RGI 1 (Los demas — sin descripcion especifica)"
+                        # Recalcular gravamen del nuevo codigo
+                        try:
+                            _cache_p2 = os.path.join(_DATA, "fuentes_nomenclatura", "arancel_cache.json")
+                            with open(_cache_p2, "r", encoding="utf-8") as _f2:
+                                _c2 = json.load(_f2)
+                            _cod2 = _c2.get("codigos", _c2)
+                            _d2 = _cod2.get(_son_demas)
+                            if _d2:
+                                _mg2 = re.search(r'\b(\d+)\s*$', str(_d2).strip())
+                                if _mg2:
+                                    resultado["gravamen"] = f"{_mg2.group(1)}%"
+                        except Exception:
+                            pass
+            except Exception as _e_sem:
+                print(f"[CAPA1] Error validacion semantica: {_e_sem}")
+
     # 4. Determinar PARTIDA + RGI + Notas Legales (responsabilidad de Capa 1)
     partida4 = codigo_propuesto[:4] if len(codigo_propuesto) >= 4 else ""
     info_partida = _MAPA_PARTIDAS_RGI.get(partida4)
