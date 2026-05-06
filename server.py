@@ -2293,6 +2293,45 @@ def admin_errores_recurrentes():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/invalidar-cache", methods=["POST"])
+@login_required
+def invalidar_cache_consulta():
+    """Borra cache de una consulta cuando el usuario marca 'No, necesito mas precision'.
+    Elimina de: cache server (consultas_cache.json) + cache pipeline (cache_consultas.json)."""
+    data = request.get_json(force=True, silent=True) or {}
+    question = (data.get("question") or "").strip()
+    notebook_id = (data.get("notebook_id") or "").strip()
+    if not question:
+        return jsonify({"error": "question requerido"}), 400
+
+    eliminados = 0
+
+    # 1. Cache del server (in-memory + archivo)
+    key = _cache_key(question, notebook_id)
+    if key in _CACHE_CONSULTAS:
+        del _CACHE_CONSULTAS[key]
+        _guardar_cache_consultas()
+        eliminados += 1
+
+    # 2. Cache del pipeline (archivo JSON)
+    try:
+        _pipeline_cache = Path(__file__).parent / "notebooklm_skill" / "data" / "cache_consultas.json"
+        if _pipeline_cache.exists():
+            import hashlib as _hl
+            _norm = re.sub(r'\s+', ' ', question.lower().strip())
+            _pkey = _hl.sha256(f"{notebook_id}|{_norm}".encode("utf-8")).hexdigest()[:24]
+            _pdata = json.loads(_pipeline_cache.read_text(encoding="utf-8"))
+            if _pkey in _pdata:
+                del _pdata[_pkey]
+                _pipeline_cache.write_text(json.dumps(_pdata, ensure_ascii=False), encoding="utf-8")
+                eliminados += 1
+    except Exception:
+        pass
+
+    print(f"[CACHE_INVALIDADO] '{question[:60]}' — {eliminados} entradas eliminadas (no conforme)")
+    return jsonify({"ok": True, "eliminados": eliminados})
+
+
 @app.route("/admin/buscar-cache", methods=["GET"])
 @admin_or_master_required
 def admin_buscar_cache():

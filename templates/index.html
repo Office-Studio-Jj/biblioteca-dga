@@ -2388,16 +2388,20 @@
     document.getElementById('conformitySection').style.display = 'none';
     if (isYes) {
       markLastHistoryConforme();
-      /* Mostrar sección de guardar con nombre del producto */
       document.getElementById('confSaveSection').style.display = 'block';
       document.getElementById('productNameInput').value = _suggestedProductName || _lastQuery;
       document.getElementById('saveOkMsg').style.display = 'none';
       document.getElementById('confSaveSection').scrollIntoView({behavior: 'smooth', block: 'start'});
     } else {
-      /* Mostrar continuar búsqueda con lista guardada + ficha */
+      /* NO conforme: borrar cache del servidor para que la proxima consulta
+         se recalcule desde cero (no devuelva el mismo resultado incorrecto) */
+      fetch('/api/invalidar-cache', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ question: _lastQuery, notebook_id: _lastNbId })
+      }).catch(() => {});
       document.getElementById('fichaSection').style.display = 'block';
       renderSavedProducts();
-      /* Mostrar opciones de cuaderno directamente */
       document.getElementById('nbChoiceSection').style.display = 'block';
       document.getElementById('sameNbLabel').textContent = _lastNbName;
       document.getElementById('fichaSection').scrollIntoView({behavior: 'smooth', block: 'start'});
