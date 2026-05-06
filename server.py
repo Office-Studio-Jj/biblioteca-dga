@@ -230,6 +230,9 @@ def _guardar_cache_consultas():
 def _cache_key(question: str, notebook_id: str) -> str:
     return hashlib.md5((question.lower().strip() + "|" + notebook_id).encode()).hexdigest()
 
+_CACHE_BLACKLIST_SONS = {"8701.10.11"}
+_CACHE_BLACKLIST_TERMS = {"patineta", "scooter", "e-scooter", "escooter", "monopatin"}
+
 def _get_cached(question: str, notebook_id: str):
     entry = _CACHE_CONSULTAS.get(_cache_key(question, notebook_id))
     if not entry:
@@ -237,6 +240,13 @@ def _get_cached(question: str, notebook_id: str):
     if time.time() - entry.get("ts", 0) > _CACHE_CONSULTAS_TTL:
         del _CACHE_CONSULTAS[_cache_key(question, notebook_id)]
         return None
+    answer = entry.get("answer", "")
+    q_low = question.lower()
+    if any(t in q_low for t in _CACHE_BLACKLIST_TERMS):
+        if any(son in answer for son in _CACHE_BLACKLIST_SONS):
+            del _CACHE_CONSULTAS[_cache_key(question, notebook_id)]
+            print(f"[CACHE_BLACKLIST] Invalidado cache erroneo para '{question[:60]}'")
+            return None
     entry["hits"] = entry.get("hits", 0) + 1
     return entry["answer"]
 

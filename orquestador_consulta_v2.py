@@ -241,6 +241,8 @@ def procesar_consulta(texto_usuario: str) -> dict:
         resultado["advertencias"].append("Consulta vacia")
         return resultado
 
+    texto_original = texto_usuario.strip()
+
     # === PRE-FILTRO GEMINI (Orden 10 CEO 04-05-2026) ===
     # Traduce lenguaje comercial → lenguaje arancelario SA.
     # Si Gemini falla → texto_usuario queda sin cambio, flujo no se rompe.
@@ -288,7 +290,11 @@ def procesar_consulta(texto_usuario: str) -> dict:
     # Los sinonimos son verdad explicita: "patineta electrica" = 8711.60.14.
     # Deben correr ANTES que el clasificador para evitar que el clasificador
     # pise un mapeo directo con un resultado fuzzy incorrecto.
-    sinonimos = _buscar_sinonimos_v2(texto_usuario)
+    # BUG-CEO-001 FIX: buscar con texto ORIGINAL primero (Gemini puede borrar
+    # las palabras que matchean con sinonimos al traducir).
+    sinonimos = _buscar_sinonimos_v2(texto_original)
+    if not sinonimos:
+        sinonimos = _buscar_sinonimos_v2(texto_usuario)
     for sin in sinonimos:
         son_t = sin.get("son_destino")
         if not son_t:
@@ -307,7 +313,7 @@ def procesar_consulta(texto_usuario: str) -> dict:
     if not son_candidato:
         try:
             from navegador_jerarquico_sa import navegar_jerarquia
-            son_nav = navegar_jerarquia(texto_usuario)
+            son_nav = navegar_jerarquia(texto_original)
             if son_nav and _son_exacto_db(son_nav):
                 son_candidato = son_nav
                 rgi_usada     = "RGI 1 (navegador_jerarquico_sa)"

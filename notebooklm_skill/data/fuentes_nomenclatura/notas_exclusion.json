@@ -225,6 +225,17 @@
       "excepcion": "equipo de sonido sin funcion de instrumento",
       "criterio_0": "C",
       "fuente": "Cap. 92 vs Cap. 85, RGI 1"
+    },
+    {
+      "id": "EX-021",
+      "producto_patron": ["patineta electrica", "e-scooter", "escooter", "scooter electrico", "monopatin electrico", "hoverboard", "segway"],
+      "capitulo_excluye": "87",
+      "capitulo_incluye": "87",
+      "partida_incluye": "8711",
+      "texto_nota": "Nota 2 Cap. 87: 'tractores' son vehiculos para tirar/empujar. Patinetas/scooters electricos son ciclomotores (87.11.60), NO motocultores/tractores (87.01). Dictamen CEO-001-2026.",
+      "excepcion": "tractor agricola real con funcion de arrastre",
+      "criterio_0": "C",
+      "fuente": "Nota 2 Cap. 87, RGI 1, Dictamen CEO-001-2026"
     }
   ]
 }
