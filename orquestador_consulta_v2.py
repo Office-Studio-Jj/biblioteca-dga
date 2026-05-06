@@ -495,30 +495,39 @@ def procesar_consulta(texto_usuario: str) -> dict:
         pass
 
     # ── APRENDIZAJE: si Gemini enriqueció Y se obtuvo SON válido → guardar sinonimo ──
-    # Cada traduccion exitosa se persiste para que consultas repetidas no dependan de Gemini.
+    # BUG-FIX 06-05-2026: validar que la descripcion del SON tiene relacion con la
+    # consulta ANTES de guardar. Sin esto, clasificaciones erroneas se guardan como
+    # sinonimos y contaminan TODAS las busquedas futuras.
     consulta_original_raw = resultado.get("consulta", "")
     consulta_enriquecida  = resultado.get("consulta_enriquecida", "")
     son_final = resultado.get("codigo_son")
+    desc_final = (resultado.get("descripcion_oficial") or "").lower()
     if (consulta_enriquecida
             and consulta_enriquecida.lower() != consulta_original_raw.lower()
-            and son_final):
-        try:
-            with sqlite3.connect(_DB) as _conn:
-                _conn.execute(
-                    "INSERT OR IGNORE INTO sinonimos_arancelarios "
-                    "(termino_busqueda, termino_oficial, capitulo_sugerido, "
-                    "partida_sugerida, tipo, son_destino) VALUES (?, ?, ?, ?, ?, ?)",
-                    (
-                        consulta_original_raw.lower().strip(),
-                        f"[auto-Gemini] {consulta_enriquecida[:120]}",
-                        son_final[:2],
-                        son_final[:4],
-                        "sinonimo",
-                        son_final,
-                    ),
-                )
-        except Exception:
-            pass
+            and son_final
+            and confianza in ("ALTA", "MEDIA")):
+        # Validar relevancia: al menos 1 palabra de 4+ chars de la consulta
+        # debe aparecer en la descripcion oficial del SON
+        _palabras_consulta = [w.lower() for w in consulta_original_raw.split() if len(w) >= 4]
+        _relevante = any(p in desc_final for p in _palabras_consulta) if _palabras_consulta else False
+        if _relevante:
+            try:
+                with sqlite3.connect(_DB) as _conn:
+                    _conn.execute(
+                        "INSERT OR IGNORE INTO sinonimos_arancelarios "
+                        "(termino_busqueda, termino_oficial, capitulo_sugerido, "
+                        "partida_sugerida, tipo, son_destino) VALUES (?, ?, ?, ?, ?, ?)",
+                        (
+                            consulta_original_raw.lower().strip(),
+                            f"[auto-Gemini] {consulta_enriquecida[:120]}",
+                            son_final[:2],
+                            son_final[:4],
+                            "sinonimo",
+                            son_final,
+                        ),
+                    )
+            except Exception:
+                pass
 
     return resultado
 

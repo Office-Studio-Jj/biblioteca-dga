@@ -1093,19 +1093,70 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     # recibe el capitulo como pista para su busqueda SON — no hay codigo todavia.
     capitulo_gemini = c2.get("capitulo_candidato") if c2.get("_opcion_b") else None
     if capitulo_gemini and not codigo_propuesto:
-        # Intentar encontrar SON mas especifico dentro del capitulo candidato via cache
+        # BUG-FIX 06-05-2026: NUNCA tomar candidatos[0] a ciegas.
+        # Buscar via FTS en SQLite filtrando por capitulo para matchear descripcion.
+        _fts_encontrado = False
         try:
-            cache_path = os.path.join(_DATA, "fuentes_nomenclatura", "arancel_cache.json")
-            with open(cache_path, "r", encoding="utf-8") as f:
-                _cache_opb = json.load(f)
-            _codigos_opb = _cache_opb.get("codigos", _cache_opb)
-            candidatos = [c for c in _codigos_opb.keys() if c.startswith(capitulo_gemini)]
-            if candidatos:
-                codigo_propuesto = candidatos[0]
-                c2["codigo"] = codigo_propuesto
-                c2["fuente_opcion_b"] = f"capitulo_{capitulo_gemini}_primer_candidato"
-        except Exception:
-            pass
+            import sqlite3 as _sq3
+            _db_fts = os.path.join(_PROJECT_ROOT, "capa1_sqlite", "arancel_rd.db")
+            if os.path.exists(_db_fts):
+                _palabras = [w + "*" for w in consulta.split() if len(w) >= 3 and w.isalpha()]
+                if not _palabras:
+                    raise ValueError("sin palabras para FTS")
+                # Usar OR para ampliar busqueda: "pantalla* OR reemplazo* OR celulares*"
+                _term_fts = " OR ".join(_palabras)
+                _con_fts = _sq3.connect(_db_fts)
+                _rows_fts = _con_fts.execute(
+                    "SELECT c.son, c.descripcion, bm25(codigos_fts) AS rank "
+                    "FROM codigos_fts JOIN codigos c ON c.rowid=codigos_fts.rowid "
+                    "WHERE codigos_fts MATCH ? ORDER BY rank LIMIT 10",
+                    (_term_fts,)
+                ).fetchall()
+                _con_fts.close()
+                    # Filtrar por capitulo candidato de Gemini
+                    _filtrados = [r for r in _rows_fts if r[0][:2] == capitulo_gemini[:2]]
+                    if _filtrados:
+                        codigo_propuesto = _filtrados[0][0]
+                        c2["codigo"] = codigo_propuesto
+                        c2["fuente_opcion_b"] = f"capitulo_{capitulo_gemini}_fts_match"
+                        _fts_encontrado = True
+                        print(f"[PIPELINE] Opcion B FTS match: {codigo_propuesto} ({_filtrados[0][1][:60]})")
+                    elif _rows_fts:
+                        # FTS encontro algo pero no en el capitulo de Gemini — usar mejor match global
+                        codigo_propuesto = _rows_fts[0][0]
+                        c2["codigo"] = codigo_propuesto
+                        c2["fuente_opcion_b"] = f"fts_global_override_cap_{capitulo_gemini}"
+                        _fts_encontrado = True
+                        print(f"[PIPELINE] Opcion B FTS global (Gemini cap {capitulo_gemini} sin match): {codigo_propuesto}")
+        except Exception as _e_fts:
+            print(f"[PIPELINE] FTS fallback error: {_e_fts}")
+
+        # Solo si FTS fallo completamente, intentar cache como ultimo recurso
+        # pero NUNCA tomar candidatos[0] — buscar descripcion con palabras clave
+        if not _fts_encontrado:
+            try:
+                cache_path = os.path.join(_DATA, "fuentes_nomenclatura", "arancel_cache.json")
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    _cache_opb = json.load(f)
+                _codigos_opb = _cache_opb.get("codigos", _cache_opb)
+                _palabras_q = [w.lower() for w in consulta.split() if len(w) >= 4]
+                _mejor_score = 0
+                _mejor_codigo = None
+                for _cod, _desc in _codigos_opb.items():
+                    if not _cod.startswith(capitulo_gemini[:2]):
+                        continue
+                    _desc_lower = str(_desc).lower()
+                    _hits = sum(1 for p in _palabras_q if p in _desc_lower)
+                    if _hits > _mejor_score:
+                        _mejor_score = _hits
+                        _mejor_codigo = _cod
+                if _mejor_codigo and _mejor_score > 0:
+                    codigo_propuesto = _mejor_codigo
+                    c2["codigo"] = codigo_propuesto
+                    c2["fuente_opcion_b"] = f"capitulo_{capitulo_gemini}_cache_keyword_match"
+                    print(f"[PIPELINE] Opcion B cache keyword: {codigo_propuesto} (score={_mejor_score})")
+            except Exception:
+                pass
 
     # CAPA 1: Claude/SQLite verificador (recibe caracteristicas detectadas en Capa 3)
     caracs = c3.get("caracteristicas_detectadas", {})
