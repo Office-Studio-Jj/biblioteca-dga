@@ -49,6 +49,7 @@
 - Auditoría trimestral: `docs/AUDITORIA_TRIMESTRAL_DECRETOS.md`
 - Alcance geográfico: solo RD, rechazo otras nomenclaturas (`docs/ALCANCE_GEOGRAFICO.md`)
 - Regla prelación: especialidad > temporalidad > escalar humano (`capa1_sqlite/consultar_decretos.py`)
+- Paso 6.5: Validación Suficiencia de Datos (`sub_agentes/validador_suficiencia.py`) — el sistema clasifica o pide ficha técnica, nunca adivina
 
 ## BDs Notion Pendientes
 - BD-Valoración (Ley 168-21 Cap. VI, Acuerdo OMC Art. VII)

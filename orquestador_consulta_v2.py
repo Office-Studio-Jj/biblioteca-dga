@@ -360,6 +360,19 @@ def procesar_consulta(texto_usuario: str) -> dict:
         resultado["advertencias"].append(
             "Sin clasificacion automatica. Consultar aforador DGA (Ley 168-21 Art. 76)."
         )
+        resultado["solicita_ficha_tecnica"] = True
+        resultado["nivel_confianza"] = "ROJO"
+        resultado["confianza"] = "INSUFICIENTE"
+        resultado["mensaje_ficha"] = (
+            "Para clasificar esta mercancia necesito la ficha tecnica del fabricante. "
+            "Sin estos datos, el sistema no puede determinar la partida arancelaria "
+            "(Ley 168-21 Art. 76, Decreto 755-22).\n\n"
+            "Datos especificos que necesito:\n"
+            "  - Material constitutivo principal y secundarios\n"
+            "  - Funcion principal declarada por el fabricante\n"
+            "  - Uso previsto y uso final del producto\n"
+            "  - Marca y modelo del fabricante (para buscar ficha tecnica)"
+        )
         return resultado
 
     # ── PASO 5: validar_son.py (R1) — existencia en arancel_rd.db ─────────
@@ -408,6 +421,34 @@ def procesar_consulta(texto_usuario: str) -> dict:
         # Permisos desde columna de la DB
         if datos.get("permisos"):
             resultado["permisos"] = datos["permisos"]
+
+    # ── PASO 6.5: VALIDACION DE SUFICIENCIA DE DATOS (Dictamen CEO) ─────
+    # El sistema clasifica o pide ficha tecnica. Nunca adivina.
+    # Si la RGI aplicada es 2/3b/3c/4 y los datos del usuario no alcanzan
+    # para determinar con certeza, se detiene y pide ficha del fabricante.
+    try:
+        from sub_agentes.validador_suficiencia import evaluar_suficiencia
+        _suf = evaluar_suficiencia(
+            texto_original,
+            rgi_usada or "",
+            confianza or "",
+            capitulo=son_candidato[:2] if son_candidato else "",
+        )
+        resultado["suficiencia"] = _suf
+        if not _suf["suficiente"]:
+            resultado["solicita_ficha_tecnica"] = True
+            resultado["nivel_confianza"] = _suf["nivel"]
+            resultado["datos_faltantes"] = _suf.get("datos_faltantes", [])
+            resultado["mensaje_ficha"] = _suf.get("mensaje_usuario", "")
+            if _suf["nivel"] == "ROJO":
+                resultado["advertencias"].append(
+                    f"DATOS INSUFICIENTES para {_suf.get('rgi_bloqueante', 'clasificacion')}. "
+                    "Adjunte ficha tecnica del fabricante para clasificacion definitiva."
+                )
+                resultado["confianza"] = "PROVISIONAL"
+    except Exception as _esuf:
+        resultado["advertencias"].append(f"validador_suficiencia: {_esuf}")
+    # === FIN PASO 6.5 ===
 
     # ── PASO 7: permisos_por_capitulo.json (R7) ───────────────────────────
     if resultado.get("capitulo") and not resultado.get("permisos"):
@@ -522,6 +563,31 @@ def formatear_informe(resultado: dict) -> str:
                 lineas.append(f"  - {str(nota)[:300]}")
             if notas.get("isc_aplicable"):
                 lineas.append(f"  - ISC RD: {notas['isc_aplicable']}")
+            lineas.append("")
+
+    # Paso 6.5: solicitud de ficha tecnica si datos insuficientes
+    if resultado.get("solicita_ficha_tecnica"):
+        suf = resultado.get("suficiencia", {})
+        nivel = suf.get("nivel", "AMARILLO")
+        if nivel == "ROJO":
+            lineas += [
+                "### ATENCION: Clasificacion PROVISIONAL",
+                "",
+                f"**Codigo SON {son} es provisional.** El sistema necesita la ficha "
+                "tecnica del fabricante para confirmar con 100% de certeza.",
+                "",
+            ]
+        else:
+            lineas += [
+                "### Ficha tecnica recomendada",
+                "",
+                "Para confirmar esta clasificacion al 100%, adjunte ficha tecnica.",
+                "",
+            ]
+        msg = resultado.get("mensaje_ficha", "")
+        if msg:
+            for line in msg.split("\n"):
+                lineas.append(line)
             lineas.append("")
 
     if perms:

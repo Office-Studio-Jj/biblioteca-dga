@@ -869,7 +869,7 @@ def consultar():
                 except Exception:
                     _fuentes_v2 = []
                 print(f"[ORQUESTADOR_V2] OK son={_res_v2['codigo_son']} enriquecida={_res_v2.get('consulta_enriquecida', question[:40])}")
-                return jsonify({
+                _resp_v2 = {
                     "answer": _informe_v2,
                     "from_cache": False,
                     "cache_via": "orquestador_v2",
@@ -882,7 +882,16 @@ def consultar():
                         "consulta_enriquecida": _res_v2.get("consulta_enriquecida"),
                         "version": "v2",
                     },
-                })
+                }
+                # Paso 6.5: si el validador de suficiencia pide ficha, incluir en respuesta
+                if _res_v2.get("solicita_ficha_tecnica"):
+                    _resp_v2["solicita_ficha_tecnica"] = True
+                    _resp_v2["meta"]["nivel_confianza"] = _res_v2.get("nivel_confianza", "AMARILLO")
+                    _resp_v2["meta"]["datos_faltantes"] = _res_v2.get("datos_faltantes", [])
+                    _resp_v2["meta"]["confianza"] = _res_v2.get("confianza", "PROVISIONAL")
+                    if _res_v2.get("nivel_confianza") == "ROJO":
+                        _resp_v2["meta"]["clasificacion_provisional"] = True
+                return jsonify(_resp_v2)
             else:
                 # v2 no resolvio el SON — intentar R4 (fallback_clasificacion) antes del pipeline viejo
                 print(f"[ORQUESTADOR_V2] sin codigo_son — advertencias: {_res_v2.get('advertencias')}. Intentando R4.")
