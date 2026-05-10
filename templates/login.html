@@ -26,79 +26,82 @@
       position: relative;
       min-height: 100vh;
       display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
+      align-items: center; justify-content: flex-end;
       text-align: center;
-      background: linear-gradient(175deg, #0a1628 0%, #132744 40%, #1a3a5f 70%, #0d2a4a 100%);
       overflow: hidden;
-      padding: 24px 20px;
+      padding: 0 20px 40px;
     }
 
-    /* Imagen de fondo simulada con gradiente portuario */
+    /* Imagen de fondo cubriendo toda la interfaz */
     .portada::before {
       content: '';
       position: absolute; inset: 0;
-      background:
-        radial-gradient(ellipse at 70% 20%, rgba(59,130,246,0.12) 0%, transparent 50%),
-        radial-gradient(ellipse at 30% 80%, rgba(14,165,233,0.08) 0%, transparent 50%),
-        linear-gradient(180deg, rgba(10,22,40,0.3) 0%, rgba(10,22,40,0.9) 100%);
+      background: url('/static/img/fondo-portada.webp') center center / cover no-repeat;
       z-index: 0;
     }
 
-    /* Ondas decorativas de agua */
+    /* Overlay oscuro para legibilidad */
     .portada::after {
       content: '';
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 120px;
-      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 120'%3E%3Cpath fill='%230a1628' fill-opacity='0.5' d='M0,64L48,58.7C96,53,192,43,288,48C384,53,480,75,576,80C672,85,768,75,864,64C960,53,1056,43,1152,42.7C1248,43,1344,53,1392,58.7L1440,64L1440,120L0,120Z'/%3E%3C/svg%3E") no-repeat bottom;
-      background-size: cover;
+      position: absolute; inset: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(0,0,0,0.15) 0%,
+        rgba(0,0,0,0.3) 30%,
+        rgba(10,22,40,0.75) 60%,
+        rgba(10,22,40,0.95) 85%
+      );
       z-index: 0;
     }
 
     .portada-content { position: relative; z-index: 1; width: 100%; max-width: 400px; }
 
-    /* Escudo RD */
+    /* Escudo RD - arriba a la derecha */
     .escudo-rd {
-      width: 110px; height: 110px;
+      position: fixed;
+      top: 20px; right: 16px;
+      width: 72px; height: 72px;
+      z-index: 10;
+      background: rgba(255,255,255,0.92);
       border-radius: 50%;
-      border: 3px solid rgba(212,175,55,0.5);
+      border: 2.5px solid rgba(212,175,55,0.7);
       overflow: hidden;
-      background: rgba(255,255,255,0.95);
       display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 6px 28px rgba(0,0,0,0.5);
-      margin: 0 auto 24px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
     }
     .escudo-rd img {
-      width: 88%; height: 88%; object-fit: contain;
+      width: 85%; height: 85%; object-fit: contain;
     }
 
     /* Logo CLOPAS */
     .portada-logo {
-      font-size: 3.2rem; font-weight: 900;
+      font-size: 3.5rem; font-weight: 900;
       color: #fff;
-      letter-spacing: 6px;
-      text-shadow: 0 4px 24px rgba(0,0,0,0.5);
+      letter-spacing: 8px;
+      text-shadow: 0 4px 30px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.5);
       margin-bottom: 4px;
     }
     .portada-sub-aduanas {
-      font-size: 0.72rem; font-weight: 600;
-      color: rgba(212,175,55,0.9);
-      letter-spacing: 3px;
+      font-size: 0.75rem; font-weight: 600;
+      color: rgba(212,175,55,1);
+      letter-spacing: 4px;
       text-transform: uppercase;
       margin-bottom: 10px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.5);
     }
     .portada-org {
-      font-size: 0.88rem;
-      color: rgba(226,232,240,0.85);
+      font-size: 0.92rem;
+      color: rgba(255,255,255,0.9);
       line-height: 1.5;
       margin-bottom: 32px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.5);
     }
 
     /* Linea decorativa dorada */
     .gold-line {
       width: 60px; height: 2px;
       background: linear-gradient(90deg, transparent, #d4af37, transparent);
-      margin: 0 auto 24px;
+      margin: 0 auto 20px;
     }
 
     /* Botones portada */
@@ -238,13 +241,12 @@
 
 <!-- ═══════════════════ PORTADA ═══════════════════ -->
 <div class="portada" id="portada">
+  <!-- Escudo RD arriba a la derecha -->
+  <div class="escudo-rd">
+    <img src="/static/icons/escudo-rd.svg" alt="Escudo Republica Dominicana">
+  </div>
+
   <div class="portada-content">
-
-    <!-- Escudo RD -->
-    <div class="escudo-rd">
-      <img src="/static/icons/escudo-rd.svg" alt="Escudo Republica Dominicana">
-    </div>
-
     <!-- Logo -->
     <div class="portada-logo">CLOPAS</div>
     <div class="portada-sub-aduanas">A D U A N A S</div>
