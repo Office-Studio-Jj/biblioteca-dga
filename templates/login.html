@@ -57,29 +57,19 @@
 
     .portada-content { position: relative; z-index: 1; width: 100%; max-width: 400px; }
 
-    /* Escudo RD + iniciales */
-    .escudo-row {
-      display: flex; align-items: center; justify-content: center;
-      gap: 14px; margin-bottom: 20px;
-    }
+    /* Escudo RD */
     .escudo-rd {
-      width: 72px; height: 72px;
+      width: 110px; height: 110px;
       border-radius: 50%;
-      border: 2.5px solid rgba(212,175,55,0.6);
+      border: 3px solid rgba(212,175,55,0.5);
       overflow: hidden;
-      background: rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.95);
       display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      box-shadow: 0 6px 28px rgba(0,0,0,0.5);
+      margin: 0 auto 24px;
     }
     .escudo-rd img {
-      width: 100%; height: 100%; object-fit: cover;
-    }
-    .iniciales-rd {
-      font-size: 2.8rem; font-weight: 900;
-      color: #d4af37;
-      letter-spacing: 4px;
-      text-shadow: 0 2px 12px rgba(212,175,55,0.4);
-      line-height: 1;
+      width: 88%; height: 88%; object-fit: contain;
     }
 
     /* Logo CLOPAS */
@@ -98,16 +88,7 @@
       margin-bottom: 10px;
     }
     .portada-org {
-      font-size: 0.88rem;
-      color: rgba(226,232,240,0.85);
-      line-height: 1.5;
-      margin-bottom: 32px;
-    }
-    .portada-org strong {
-      display: block;
-      font-size: 1rem;
-      color: #fff;
-      margin-bottom: 2px;
+      display: none;
     }
 
     /* Linea decorativa dorada */
@@ -256,23 +237,16 @@
 <div class="portada" id="portada">
   <div class="portada-content">
 
-    <!-- Escudo RD + iniciales -->
-    <div class="escudo-row">
-      <div class="escudo-rd">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Coat_of_arms_of_the_Dominican_Republic.svg/200px-Coat_of_arms_of_the_Dominican_Republic.svg.png"
-             alt="Escudo RD" loading="eager">
-      </div>
-      <div class="iniciales-rd">RD</div>
+    <!-- Escudo RD -->
+    <div class="escudo-rd">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Coat_of_arms_of_the_Dominican_Republic.svg/200px-Coat_of_arms_of_the_Dominican_Republic.svg.png"
+           alt="Escudo Republica Dominicana" loading="eager">
     </div>
 
     <!-- Logo -->
     <div class="portada-logo">CLOPAS</div>
     <div class="portada-sub-aduanas">A D U A N A S</div>
     <div class="gold-line"></div>
-
-    <div class="portada-org">
-      <strong>Consultoría Logística de Puertos y Aduanas (CLOPAS)</strong>
-    </div>
 
     <!-- Botones -->
     <div class="portada-btns">
