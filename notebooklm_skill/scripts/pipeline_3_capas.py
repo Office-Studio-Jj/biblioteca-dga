@@ -44,6 +44,12 @@ except Exception as _e_gate:
     _gate_validar_salida = None
     _tool9_validar_exclusion = None
 
+try:
+    from sub_agentes.validador_jerarquia_sa import validar_y_corregir as _gate_jerarquia_sa
+except Exception as _e_jer:
+    print(f"[PIPELINE] Aviso: validador_jerarquia_sa no disponible ({_e_jer}).")
+    _gate_jerarquia_sa = None
+
 # ── Cache de consultas frecuentes (TTL 7 dias) ──────────────────────────
 # Bug APP-2026-001 #5: productos repetidos no deben recorrer las 3 capas.
 _CACHE_CONSULTAS_PATH = os.path.join(_DATA, "cache_consultas.json")
@@ -1418,6 +1424,18 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
                     print(f"[PIPELINE] Opcion B cache keyword: {codigo_propuesto} (score={_mejor_score})")
             except Exception:
                 pass
+
+    # GATE JERARQUIA SA: valida que el codigo propuesto respeta el recorrido
+    # jerarquico del Arancel. Si "Las demas" fue propuesto pero existe hermana
+    # especifica que aplica, corrige ANTES de enviar a Capa 1.
+    if _gate_jerarquia_sa is not None and codigo_propuesto:
+        _son_validado, _informe_jer = _gate_jerarquia_sa(consulta, codigo_propuesto)
+        trazabilidad["gate_jerarquia_sa"] = _informe_jer
+        if _son_validado != codigo_propuesto:
+            print(f"[PIPELINE] Gate Jerarquia SA corrigio: {codigo_propuesto} -> {_son_validado}")
+            codigo_propuesto = _son_validado
+            c2["codigo"] = _son_validado
+            c2["correccion_jerarquica"] = _informe_jer.get("razon", "")
 
     # CAPA 1: Claude/SQLite verificador (recibe caracteristicas detectadas en Capa 3)
     caracs = c3.get("caracteristicas_detectadas", {})
