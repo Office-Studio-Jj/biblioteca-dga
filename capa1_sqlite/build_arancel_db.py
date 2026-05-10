@@ -290,13 +290,13 @@ def main(con_pdf=False):
     # CEO 04-MAY-2026: Sinónimos arancelarios (datos semilla)
     # Formato: (termino_busqueda, termino_oficial, capitulo, partida, tipo, son_destino)
     _SINONIMOS = [
-        ('pantalla celular', 'modulos de pantalla plana', '85', '8524', 'parte_de', '8524.12.14'),
-        ('display celular', 'modulos de pantalla plana', '85', '8524', 'parte_de', '8524.12.14'),
-        ('screen celular', 'modulos de pantalla plana', '85', '8524', 'parte_de', '8524.12.14'),
-        ('pantalla para celular', 'modulos de pantalla plana', '85', '8524', 'parte_de', '8524.12.14'),
-        ('pantalla generica celular', 'modulos de pantalla plana', '85', '8524', 'parte_de', '8524.12.14'),
-        ('LCD celular', 'modulos de pantalla plana LCD', '85', '8524', 'parte_de', '8524.11.14'),
-        ('pantalla oled celular', 'modulos de pantalla plana OLED', '85', '8524', 'parte_de', '8524.12.14'),
+        ('pantalla celular', 'partes de telefonos - las demas', '85', '8517', 'parte_de', '8517.79.00'),
+        ('display celular', 'partes de telefonos - las demas', '85', '8517', 'parte_de', '8517.79.00'),
+        ('screen celular', 'partes de telefonos - las demas', '85', '8517', 'parte_de', '8517.79.00'),
+        ('pantalla para celular', 'partes de telefonos - las demas', '85', '8517', 'parte_de', '8517.79.00'),
+        ('pantalla generica celular', 'partes de telefonos - las demas', '85', '8517', 'parte_de', '8517.79.00'),
+        ('LCD celular', 'partes de telefonos - las demas', '85', '8517', 'parte_de', '8517.79.00'),
+        ('pantalla oled celular', 'partes de telefonos - las demas', '85', '8517', 'parte_de', '8517.79.00'),
         ('liofilizador', 'aparatos de liofilizacion', '84', '8419', 'sinonimo', '8419.33.90'),
         ('freeze dryer', 'aparatos de liofilizacion', '84', '8419', 'sinonimo', '8419.33.90'),
         ('liofilizadora', 'aparatos de liofilizacion', '84', '8419', 'sinonimo', '8419.33.90'),
@@ -331,7 +331,7 @@ def main(con_pdf=False):
 
     # CEO 04-MAY-2026: Partes de productos (datos semilla)
     _PARTES = [
-        ('pantalla', 'telefono celular', '8517', '8524.12.14', 'Partida 85.24 SA 7ma Enmienda — modulo pantalla plana'),
+        ('pantalla', 'telefono celular', '8517', '8517.79.00', 'Seccion XVI Nota 2 — parte de telefono, Las demas'),
         ('bateria', 'telefono celular', '8517', '8506/8507', 'Seccion XVI Nota 2'),
         ('cargador', 'telefono celular', '8517', '8504.40', 'Seccion XVI Nota 2'),
         ('motor electrico', 'scooter electrico', '8711', '8501', 'Seccion XVI Nota 2'),

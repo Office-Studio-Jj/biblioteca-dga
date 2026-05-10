@@ -441,7 +441,8 @@ _PARES_ELEMENTO_APARATO = [
                   "pantalla telefono", "pantalla smartphone", "pantalla movil", "pantalla de celular",
                   "pantalla generica celular", "pantalla lcd celular", "pantalla oled celular",
                   "pantalla tactil celular", "touchscreen celular", "pantalla repuesto celular"],
-     "partida_elem": "8524", "partida_aparato": "8517", "nota": "Partida 85.24 SA 7ma Enmienda: modulos de pantalla plana"},
+     "partida_elem": "8517", "partida_aparato": None, "son_directo": "8517.79.00",
+     "nota": "Parte de telefono celular — 8517.79.00 Las demas partes y accesorios"},
     {"elem_kw": ["robot libreria cintas", "modulo robotico almacenamiento", "robot tape library",
                   "robot quantum scalar", "robot g2", "robot picker", "robot de cintas",
                   "brazo robotico libreria", "robot autoloader"],
@@ -494,25 +495,11 @@ _MAPA_PARTIDAS_RGI = {
         "exclusiones_partida": ["8528 monitores, 9006 fotograficas"],
         "criterio_subpartida": "tipo de captura + uso",
     },
-    "8524": {
-        "trigger": ["pantalla celular", "display celular", "pantalla telefono", "pantalla smartphone",
-                     "pantalla tactil celular", "touchscreen celular", "pantalla repuesto",
-                     "modulo pantalla", "pantalla lcd repuesto", "pantalla oled repuesto",
-                     "pantalla generica celular", "pantalla para celular"],
-        "rgi": "RGI 1 + Nota 2 Seccion XVI (parte que es mercancia en si misma)",
-        "notas_legales": [
-            "Partida 85.24 SA 7ma Enmienda 2022: modulos de pantalla plana, incluso con pantalla tactil",
-            "Nota 2 Seccion XVI: partes que son mercancias en si mismas se clasifican en su propia partida",
-            "NO clasificar en 8517 (telefonos) — la pantalla es PARTE, no el aparato completo",
-        ],
-        "exclusiones_partida": ["8517 telefonos (aparato completo, no la pantalla sola)"],
-        "criterio_subpartida": "tipo pantalla (LCD=8524.11, OLED=8524.12) + uso (Cap.84/85/87/juegos)",
-    },
     "8528": {
         "trigger": ["televisor", "monitor", "pantalla display", "pantalla tv"],
         "rgi": "RGI 1",
         "notas_legales": ["Cap.85 — receptores y monitores"],
-        "exclusiones_partida": ["8443 monitores impresion", "8524 modulos pantalla plana sueltos"],
+        "exclusiones_partida": ["8443 monitores impresion"],
         "criterio_subpartida": "tecnologia (LCD/LED) + uso (TV vs monitor)",
     },
     "8473": {
@@ -1261,49 +1248,61 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     codigo_propuesto = c2.get("codigo")
 
     # PRE-FILTRO PARTES: detectar si la consulta es una PARTE (pantalla, robot cintas, etc.)
-    # ANTES de FTS, para redirigir al capitulo correcto y evitar clasificar como el aparato.
-    _prefiltro_parte = _detectar_confusion_elemento_aparato(consulta, "")
+    # ANTES de FTS, para redirigir al SON correcto y evitar clasificar como el aparato completo.
+    # Si el par tiene son_directo, usar ese codigo sin buscar (ej: pantalla→8517.79.00 "Las demas").
+    _prefiltro_parte = None
+    _son_directo = None
+    consulta_l = consulta.lower()
+    for par in _PARES_ELEMENTO_APARATO:
+        if any(kw in consulta_l for kw in par["elem_kw"]):
+            _prefiltro_parte = {
+                "clase_error": "prefiltro_parte_detectada",
+                "partida_correcta": par["partida_elem"],
+                "fundamento": par["nota"],
+            }
+            _son_directo = par.get("son_directo")
+            break
+
     if not _prefiltro_parte:
-        consulta_l = consulta.lower()
-        for par in _PARES_ELEMENTO_APARATO:
-            if any(kw in consulta_l for kw in par["elem_kw"]):
-                _prefiltro_parte = {
-                    "clase_error": "prefiltro_parte_detectada",
-                    "partida_correcta": par["partida_elem"],
-                    "fundamento": par["nota"],
-                }
-                break
+        _prefiltro_parte = _detectar_confusion_elemento_aparato(consulta, "")
 
     if _prefiltro_parte and not codigo_propuesto:
-        _partida_correcta = _prefiltro_parte["partida_correcta"]
-        try:
-            cache_path = os.path.join(_DATA, "fuentes_nomenclatura", "arancel_cache.json")
-            with open(cache_path, "r", encoding="utf-8") as f:
-                _cache_pf = json.load(f)
-            _codigos_pf = _cache_pf.get("codigos", _cache_pf)
-            _palabras_q = [w.lower() for w in consulta.split() if len(w) >= 4]
-            _mejor_score = 0
-            _mejor_codigo = None
-            for _cod, _desc in _codigos_pf.items():
-                if not _cod.startswith(_partida_correcta):
-                    continue
-                _desc_lower = str(_desc).lower()
-                _hits = sum(1 for p in _palabras_q if p in _desc_lower)
-                if _hits > _mejor_score:
-                    _mejor_score = _hits
-                    _mejor_codigo = _cod
-            if not _mejor_codigo:
-                _candidatos_partida = sorted([c for c in _codigos_pf.keys() if c.startswith(_partida_correcta)])
-                if _candidatos_partida:
-                    _mejor_codigo = _candidatos_partida[-1]
-            if _mejor_codigo:
-                codigo_propuesto = _mejor_codigo
-                c2["codigo"] = codigo_propuesto
-                c2["fuente_opcion_b"] = f"prefiltro_parte_{_partida_correcta}"
-                c2["prefiltro_parte"] = _prefiltro_parte
-                print(f"[PIPELINE] Pre-filtro PARTE detectada: {_prefiltro_parte['fundamento']} -> {codigo_propuesto}")
-        except Exception as _e_pf:
-            print(f"[PIPELINE] Pre-filtro parte error: {_e_pf}")
+        if _son_directo:
+            codigo_propuesto = _son_directo
+            c2["codigo"] = codigo_propuesto
+            c2["fuente_opcion_b"] = f"prefiltro_parte_son_directo"
+            c2["prefiltro_parte"] = _prefiltro_parte
+            print(f"[PIPELINE] Pre-filtro PARTE (son_directo): {_prefiltro_parte['fundamento']} -> {codigo_propuesto}")
+        else:
+            _partida_correcta = _prefiltro_parte["partida_correcta"]
+            try:
+                cache_path = os.path.join(_DATA, "fuentes_nomenclatura", "arancel_cache.json")
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    _cache_pf = json.load(f)
+                _codigos_pf = _cache_pf.get("codigos", _cache_pf)
+                _palabras_q = [w.lower() for w in consulta.split() if len(w) >= 4]
+                _mejor_score = 0
+                _mejor_codigo = None
+                for _cod, _desc in _codigos_pf.items():
+                    if not _cod.startswith(_partida_correcta):
+                        continue
+                    _desc_lower = str(_desc).lower()
+                    _hits = sum(1 for p in _palabras_q if p in _desc_lower)
+                    if _hits > _mejor_score:
+                        _mejor_score = _hits
+                        _mejor_codigo = _cod
+                if not _mejor_codigo:
+                    _candidatos_partida = sorted([c for c in _codigos_pf.keys() if c.startswith(_partida_correcta)])
+                    if _candidatos_partida:
+                        _mejor_codigo = _candidatos_partida[-1]
+                if _mejor_codigo:
+                    codigo_propuesto = _mejor_codigo
+                    c2["codigo"] = codigo_propuesto
+                    c2["fuente_opcion_b"] = f"prefiltro_parte_{_partida_correcta}"
+                    c2["prefiltro_parte"] = _prefiltro_parte
+                    print(f"[PIPELINE] Pre-filtro PARTE detectada: {_prefiltro_parte['fundamento']} -> {codigo_propuesto}")
+            except Exception as _e_pf:
+                print(f"[PIPELINE] Pre-filtro parte error: {_e_pf}")
 
     # Opcion B CEO: si Capa 2 fue pre-filtro Gemini (capitulo_candidato), Capa 1
     # recibe el capitulo como pista para su busqueda SON — no hay codigo todavia.
