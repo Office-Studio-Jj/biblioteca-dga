@@ -3,28 +3,188 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Logistica de Puertos y Aduanas RD</title>
-  <meta name="theme-color" content="#1e3a5f">
+  <title>CLOPAS — Consultoria Logistica de Puertos y Aduanas</title>
+  <meta name="theme-color" content="#0a1628">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Puertos y Aduanas">
+  <meta name="apple-mobile-web-app-title" content="CLOPAS">
   <meta name="format-detection" content="telephone=no">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="manifest" href="/static/manifest.json">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html, body {
-      height: 100%; background: #0f172a;
+      height: 100%;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      color: #e2e8f0; display: flex; align-items: center; justify-content: center;
+      color: #e2e8f0;
+      overflow-x: hidden;
     }
-    .box { width: 100%; max-width: 380px; padding: 0 24px; text-align: center; }
-    .logo { font-size: 3.2rem; margin-bottom: 10px; }
-    h1 { font-size: 1.05rem; font-weight: 700; color: #d4af37; line-height: 1.3; margin-bottom: 4px; }
-    .sub { font-size: 0.82rem; color: #cbd5e1; margin-bottom: 24px; }
 
-    /* Role selector - 3 buttons */
+    /* ── PORTADA (splash) ── */
+    .portada {
+      position: relative;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      background: linear-gradient(175deg, #0a1628 0%, #132744 40%, #1a3a5f 70%, #0d2a4a 100%);
+      overflow: hidden;
+      padding: 24px 20px;
+    }
+
+    /* Imagen de fondo simulada con gradiente portuario */
+    .portada::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse at 70% 20%, rgba(59,130,246,0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 30% 80%, rgba(14,165,233,0.08) 0%, transparent 50%),
+        linear-gradient(180deg, rgba(10,22,40,0.3) 0%, rgba(10,22,40,0.9) 100%);
+      z-index: 0;
+    }
+
+    /* Ondas decorativas de agua */
+    .portada::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 120px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 120'%3E%3Cpath fill='%230a1628' fill-opacity='0.5' d='M0,64L48,58.7C96,53,192,43,288,48C384,53,480,75,576,80C672,85,768,75,864,64C960,53,1056,43,1152,42.7C1248,43,1344,53,1392,58.7L1440,64L1440,120L0,120Z'/%3E%3C/svg%3E") no-repeat bottom;
+      background-size: cover;
+      z-index: 0;
+    }
+
+    .portada-content { position: relative; z-index: 1; width: 100%; max-width: 400px; }
+
+    /* Escudo RD + iniciales */
+    .escudo-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 14px; margin-bottom: 20px;
+    }
+    .escudo-rd {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      border: 2.5px solid rgba(212,175,55,0.6);
+      overflow: hidden;
+      background: rgba(255,255,255,0.08);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .escudo-rd img {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    .iniciales-rd {
+      font-size: 2.8rem; font-weight: 900;
+      color: #d4af37;
+      letter-spacing: 4px;
+      text-shadow: 0 2px 12px rgba(212,175,55,0.4);
+      line-height: 1;
+    }
+
+    /* Logo CLOPAS */
+    .portada-logo {
+      font-size: 3.2rem; font-weight: 900;
+      color: #fff;
+      letter-spacing: 6px;
+      text-shadow: 0 4px 24px rgba(0,0,0,0.5);
+      margin-bottom: 4px;
+    }
+    .portada-sub-aduanas {
+      font-size: 0.72rem; font-weight: 600;
+      color: rgba(212,175,55,0.9);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .portada-org {
+      font-size: 0.88rem;
+      color: rgba(226,232,240,0.85);
+      line-height: 1.5;
+      margin-bottom: 32px;
+    }
+    .portada-org strong {
+      display: block;
+      font-size: 1rem;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+
+    /* Linea decorativa dorada */
+    .gold-line {
+      width: 60px; height: 2px;
+      background: linear-gradient(90deg, transparent, #d4af37, transparent);
+      margin: 0 auto 24px;
+    }
+
+    /* Botones portada */
+    .portada-btns { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+    .btn-portada {
+      display: block; width: 100%;
+      padding: 16px 20px;
+      border-radius: 14px;
+      font-size: 1rem; font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none; text-align: center;
+      touch-action: manipulation;
+      font-family: inherit;
+      letter-spacing: 0.5px;
+    }
+    .btn-portada:active { transform: scale(0.97); }
+    .btn-registrar {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff; border: none;
+      box-shadow: 0 4px 16px rgba(37,99,235,0.35);
+    }
+    .btn-iniciar {
+      background: transparent;
+      color: #fff;
+      border: 2px solid rgba(255,255,255,0.4);
+    }
+    .btn-iniciar:hover { border-color: rgba(255,255,255,0.7); }
+
+    .portada-footer {
+      margin-top: 32px;
+      font-size: 0.62rem;
+      color: rgba(148,163,184,0.6);
+      letter-spacing: 0.5px;
+    }
+
+    /* ── FORMULARIO LOGIN (oculto hasta que se pulsa "Iniciar sesion") ── */
+    .login-panel {
+      display: none;
+      position: fixed; inset: 0;
+      background: #0f172a;
+      z-index: 100;
+      overflow-y: auto;
+      animation: slideUp 0.3s ease-out;
+    }
+    .login-panel.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    @keyframes slideUp {
+      from { transform: translateY(40px); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+
+    .login-inner {
+      width: 100%; max-width: 380px;
+      padding: 32px 24px; text-align: center;
+    }
+
+    .btn-volver {
+      position: absolute; top: 16px; left: 16px;
+      background: none; border: none;
+      color: #94a3b8; font-size: 0.82rem;
+      cursor: pointer; padding: 8px 12px;
+      font-family: inherit;
+    }
+    .btn-volver:active { color: #d4af37; }
+
+    .login-logo { font-size: 2rem; margin-bottom: 8px; }
+    .login-title { font-size: 1.05rem; font-weight: 700; color: #d4af37; line-height: 1.3; margin-bottom: 4px; }
+    .login-sub { font-size: 0.82rem; color: #cbd5e1; margin-bottom: 24px; }
+
+    /* Role selector */
     .roles { display: flex; gap: 8px; margin-bottom: 20px; }
     .role-btn {
       flex: 1; padding: 10px 6px; border-radius: 14px; border: 2px solid #334155;
@@ -34,9 +194,8 @@
       font-family: inherit; line-height: 1.2;
       min-height: 56px; -webkit-appearance: none; appearance: none;
     }
-    .role-btn .rico { pointer-events: none; }
+    .role-btn .rico { pointer-events: none; font-size: 1.3rem; display: block; margin-bottom: 3px; }
     .role-btn:active { transform: scale(0.97); }
-    .role-btn .rico { font-size: 1.3rem; display: block; margin-bottom: 3px; }
     .role-btn.active-master   { border-color: #d4af37; color: #d4af37; background: #162030; }
     .role-btn.active-operativo { border-color: #22c55e; color: #22c55e; background: #0a2218; }
     .role-btn.active-invitado  { border-color: #22d3ee; color: #22d3ee; background: #0c1929; }
@@ -62,6 +221,7 @@
       width: 100%; background: linear-gradient(135deg, #d4af37, #b8962e);
       color: #0f172a; border: none; border-radius: 14px;
       padding: 14px; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      font-family: inherit;
     }
     .btn-login:active { opacity: 0.8; }
 
@@ -71,9 +231,8 @@
     .hint { margin-top: 12px; font-size: 0.75rem; color: #94a3b8; }
     .register-link { margin-top: 18px; font-size: 0.82rem; color: #94a3b8; }
     .register-link a { color: #d4af37; text-decoration: none; font-weight: 600; }
-    .footer { margin-top: 24px; font-size: 0.68rem; color: #475569; }
+    .footer-login { margin-top: 24px; font-size: 0.68rem; color: #475569; }
 
-    /* Recordarme */
     .remember-row {
       display: flex; align-items: center; gap: 8px;
       margin-top: 14px; font-size: 0.72rem; color: #64748b;
@@ -81,7 +240,6 @@
     .remember-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #d4af37; cursor: pointer; }
     .remember-row label { cursor: pointer; }
 
-    /* Sesion guardada badge */
     .saved-badge {
       display: none; align-items: center; gap: 6px;
       background: #0f2744; border: 1px solid #d4af37;
@@ -93,85 +251,141 @@
   </style>
 </head>
 <body>
-<div class="box">
-  <div class="logo">🔐</div>
-  <h1>CLOPAS<br><span style="font-size:0.55em;font-weight:400;opacity:0.8">Consultoria Logistica de Puertos y Aduanas</span></h1>
-  <div class="sub">Selecciona tu tipo de acceso</div>
 
-  <!-- Badge sesión guardada -->
-  <div class="saved-badge" id="savedBadge">
-    ✅ <span id="savedNombre">Sesión guardada</span>
-    <span class="saved-clear" id="btnOlvidar">✕ Olvidar</span>
-  </div>
+<!-- ═══════════════════ PORTADA ═══════════════════ -->
+<div class="portada" id="portada">
+  <div class="portada-content">
 
-  <form method="POST" action="/login">
-    <input type="hidden" name="role" id="roleInput" value="master">
-
-    <div class="roles">
-      <button type="button" class="role-btn" id="btnMaster" data-role="master">
-        <span class="rico">👑</span>Master
-      </button>
-      <button type="button" class="role-btn" id="btnOperativo" data-role="operativo">
-        <span class="rico">🛡️</span>Operativo
-      </button>
-      <button type="button" class="role-btn" id="btnGuest" data-role="invitado">
-        <span class="rico">👤</span>Usuario
-      </button>
-    </div>
-
-    <!-- Correo -->
-    <div id="emailWrap">
-      <div class="field-label" id="emailLabel">Correo registrado</div>
-      <div class="input-wrap">
-        <input type="email" id="correoField" name="correo" placeholder="tu@correo.com" autocomplete="email">
+    <!-- Escudo RD + iniciales -->
+    <div class="escudo-row">
+      <div class="escudo-rd">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Coat_of_arms_of_the_Dominican_Republic.svg/200px-Coat_of_arms_of_the_Dominican_Republic.svg.png"
+             alt="Escudo RD" loading="eager">
       </div>
+      <div class="iniciales-rd">RD</div>
     </div>
 
-    <div class="field-label">Contraseña</div>
-    <div class="input-wrap">
-      <input type="password" id="pwd" name="password" placeholder="••••••••" autocomplete="current-password" autofocus>
-      <button type="button" class="eye" id="btnTogglePwd">👁</button>
+    <!-- Logo -->
+    <div class="portada-logo">CLOPAS</div>
+    <div class="portada-sub-aduanas">A D U A N A S</div>
+    <div class="gold-line"></div>
+
+    <div class="portada-org">
+      <strong>Consultoría Logística de Puertos y Aduanas (CLOPAS)</strong>
     </div>
 
-    <!-- Recordarme -->
-    <div class="remember-row">
-      <input type="checkbox" id="recordarme">
-      <label for="recordarme">Guardar usuario y datos en este dispositivo</label>
+    <!-- Botones -->
+    <div class="portada-btns">
+      <a href="/registro" class="btn-portada btn-registrar">Registrarme</a>
+      <button type="button" class="btn-portada btn-iniciar" id="btnAbrirLogin">Iniciar sesión</button>
     </div>
 
-    <button type="submit" class="btn-login">Ingresar →</button>
-
-    {% if error %}<div class="error">{{ error }}</div>{% endif %}
-    <div class="hint" id="hint">Acceso completo al sistema</div>
-    <div style="margin-top:14px;text-align:center;">
-      <a href="/recuperar" style="font-size:0.72rem;color:#64748b;text-decoration:none;">¿Olvidaste tu contraseña? <span style="color:#d4af37;font-weight:600;">Recupérala aquí</span></a>
-    </div>
-  </form>
-
-  <div class="register-link" id="registerLink" style="display:none;">
-    ¿Primera vez? <a href="/registro">Regístrate aquí →</a>
+    <div class="portada-footer">República Dominicana</div>
   </div>
+</div>
 
-  <div class="footer">🔒 Acceso protegido</div>
+<!-- ═══════════════════ PANEL LOGIN (se desliza al pulsar "Iniciar sesion") ═══════════════════ -->
+<div class="login-panel" id="loginPanel">
+  <button type="button" class="btn-volver" id="btnVolver">← Volver</button>
+  <div class="login-inner">
+    <div class="login-logo">🔐</div>
+    <div class="login-title">CLOPAS</div>
+    <div class="login-sub">Selecciona tu tipo de acceso</div>
+
+    <!-- Badge sesion guardada -->
+    <div class="saved-badge" id="savedBadge">
+      ✅ <span id="savedNombre">Sesión guardada</span>
+      <span class="saved-clear" id="btnOlvidar">✕ Olvidar</span>
+    </div>
+
+    <form method="POST" action="/login">
+      <input type="hidden" name="role" id="roleInput" value="master">
+
+      <div class="roles">
+        <button type="button" class="role-btn" id="btnMaster" data-role="master">
+          <span class="rico">👑</span>Master
+        </button>
+        <button type="button" class="role-btn" id="btnOperativo" data-role="operativo">
+          <span class="rico">🛡️</span>Operativo
+        </button>
+        <button type="button" class="role-btn" id="btnGuest" data-role="invitado">
+          <span class="rico">👤</span>Usuario
+        </button>
+      </div>
+
+      <!-- Correo -->
+      <div id="emailWrap">
+        <div class="field-label" id="emailLabel">Correo registrado</div>
+        <div class="input-wrap">
+          <input type="email" id="correoField" name="correo" placeholder="tu@correo.com" autocomplete="email">
+        </div>
+      </div>
+
+      <div class="field-label">Contraseña</div>
+      <div class="input-wrap">
+        <input type="password" id="pwd" name="password" placeholder="••••••••" autocomplete="current-password">
+        <button type="button" class="eye" id="btnTogglePwd">👁</button>
+      </div>
+
+      <!-- Recordarme -->
+      <div class="remember-row">
+        <input type="checkbox" id="recordarme">
+        <label for="recordarme">Guardar usuario y datos en este dispositivo</label>
+      </div>
+
+      <button type="submit" class="btn-login">Ingresar →</button>
+
+      {% if error %}<div class="error">{{ error }}</div>{% endif %}
+      <div class="hint" id="hint">Acceso completo al sistema</div>
+      <div style="margin-top:14px;text-align:center;">
+        <a href="/recuperar" style="font-size:0.72rem;color:#64748b;text-decoration:none;">¿Olvidaste tu contraseña? <span style="color:#d4af37;font-weight:600;">Recupérala aquí</span></a>
+      </div>
+    </form>
+
+    <div class="register-link" id="registerLink" style="display:none;">
+      ¿Primera vez? <a href="/registro">Regístrate aquí →</a>
+    </div>
+
+    <div class="footer-login">🔒 Acceso protegido</div>
+  </div>
 </div>
 
 <script nonce="{{ csp_nonce }}">
+  // ── Portada <-> Login toggle ──
+  var portadaEl = document.getElementById('portada');
+  var loginPanel = document.getElementById('loginPanel');
+  var hasError = {{ 'true' if error else 'false' }};
+
+  document.getElementById('btnAbrirLogin').addEventListener('click', function() {
+    loginPanel.classList.add('active');
+    document.getElementById('pwd').focus();
+  });
+
+  document.getElementById('btnVolver').addEventListener('click', function() {
+    loginPanel.classList.remove('active');
+  });
+
+  // Si hay error de login, abrir panel directamente
+  if (hasError) {
+    loginPanel.classList.add('active');
+  }
+
   // ── Constantes de almacenamiento ──
-  const LS_CORREO = 'dga_login_correo';
-  const LS_ROLE   = 'dga_login_role';
-  const LS_NOMBRE = 'dga_login_nombre';
+  var LS_CORREO = 'dga_login_correo';
+  var LS_ROLE   = 'dga_login_role';
+  var LS_NOMBRE = 'dga_login_nombre';
 
   function setRole(r) {
     document.getElementById('roleInput').value = r;
-    const bm = document.getElementById('btnMaster');
-    const bo = document.getElementById('btnOperativo');
-    const bg = document.getElementById('btnGuest');
+    var bm = document.getElementById('btnMaster');
+    var bo = document.getElementById('btnOperativo');
+    var bg = document.getElementById('btnGuest');
     bm.className = 'role-btn' + (r === 'master'    ? ' active-master'    : '');
     bo.className = 'role-btn' + (r === 'operativo'  ? ' active-operativo'  : '');
     bg.className = 'role-btn' + (r === 'invitado'   ? ' active-invitado'   : '');
 
-    const correo = document.getElementById('correoField');
-    const emailWrap = document.getElementById('emailWrap');
+    var correo = document.getElementById('correoField');
+    var emailWrap = document.getElementById('emailWrap');
 
     if (r === 'master') {
       document.getElementById('hint').textContent = 'Acceso completo al sistema';
@@ -180,7 +394,7 @@
       correo.required = false;
       correo.value = '';
     } else if (r === 'operativo') {
-      document.getElementById('hint').textContent = 'Administrador operativo — gestión de usuarios y cuadernos';
+      document.getElementById('hint').textContent = 'Administrador operativo';
       emailWrap.style.display = 'block';
       document.getElementById('emailLabel').textContent = 'Correo de administrador operativo';
       correo.placeholder = 'tu@correo.com';
@@ -196,7 +410,7 @@
     }
   }
 
-  // ── Bind de role buttons (event delegation, robusto en mobile/PWA) ──
+  // ── Bind role buttons ──
   document.querySelectorAll('.role-btn').forEach(function(btn) {
     btn.addEventListener('click', function(ev) {
       ev.preventDefault();
@@ -204,46 +418,42 @@
     });
   });
 
-  // ── Al cargar: rellenar desde localStorage ──
+  // ── Al cargar: sesion guardada ──
   (function() {
-    const savedRole   = localStorage.getItem(LS_ROLE);
-    const savedCorreo = localStorage.getItem(LS_CORREO);
-    const savedNombre = localStorage.getItem(LS_NOMBRE);
+    var savedRole   = localStorage.getItem(LS_ROLE);
+    var savedCorreo = localStorage.getItem(LS_CORREO);
+    var savedNombre = localStorage.getItem(LS_NOMBRE);
 
     if (savedRole && savedCorreo) {
-      // Mostrar badge de sesion guardada
-      const badge = document.getElementById('savedBadge');
-      const labelEl = document.getElementById('savedNombre');
+      var badge = document.getElementById('savedBadge');
+      var labelEl = document.getElementById('savedNombre');
       badge.classList.add('show');
       labelEl.textContent = savedNombre ? ('👤 ' + savedNombre) : savedCorreo;
-      // Pre-seleccionar rol y correo
       setRole(savedRole);
-      const correoField = document.getElementById('correoField');
+      var correoField = document.getElementById('correoField');
       if (correoField) correoField.value = savedCorreo;
       document.getElementById('recordarme').checked = true;
+      // Auto-abrir login si tiene sesion guardada
+      loginPanel.classList.add('active');
     } else {
-      // Recuperar rol del intento anterior (tras error de login)
-      const lastRole = sessionStorage.getItem('lastAttemptedRole');
+      var lastRole = sessionStorage.getItem('lastAttemptedRole');
       if (lastRole) {
         setRole(lastRole);
         sessionStorage.removeItem('lastAttemptedRole');
       } else {
-        // Primera visita: mostrar "Usuario" por defecto
         setRole('invitado');
       }
     }
   })();
 
-  // ── Al enviar el formulario: guardar si "Recordarme" esta marcado ──
+  // ── Guardar al enviar ──
   document.querySelector('form').addEventListener('submit', function() {
-    const correo = (document.getElementById('correoField').value || '').trim();
-    const role   = document.getElementById('roleInput').value;
-    // Siempre guardar el rol intentado en sessionStorage para recuperar tras error
+    var correo = (document.getElementById('correoField').value || '').trim();
+    var role   = document.getElementById('roleInput').value;
     sessionStorage.setItem('lastAttemptedRole', role);
     if (document.getElementById('recordarme').checked) {
       if (correo) localStorage.setItem(LS_CORREO, correo);
       localStorage.setItem(LS_ROLE, role);
-      // nombre se guarda desde index.html tras login exitoso
     } else {
       localStorage.removeItem(LS_CORREO);
       localStorage.removeItem(LS_ROLE);
@@ -262,13 +472,12 @@
   }
 
   function togglePwd() {
-    const f = document.getElementById('pwd');
+    var f = document.getElementById('pwd');
     f.type = f.type === 'password' ? 'text' : 'password';
   }
 
-  // Bind seguro (CSP-friendly) de controles auxiliares
   document.getElementById('btnTogglePwd').addEventListener('click', togglePwd);
-  const olvidarEl = document.getElementById('btnOlvidar');
+  var olvidarEl = document.getElementById('btnOlvidar');
   if (olvidarEl) olvidarEl.addEventListener('click', borrarSesionGuardada);
 </script>
 </body>
