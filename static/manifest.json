@@ -1,7 +1,7 @@
 {
-  "name": "Logistica de Puertos y Aduanas RD",
-  "short_name": "Puertos y Aduanas",
-  "description": "App oficial de consulta aduanera. 8 cuadernos especializados: Nomenclaturas, Legal DGA, Valoracion, Regimenes, Aforo, VUCERD, Normas de Origen y Comercio Exterior. Clasificacion arancelaria con IA verificada.",
+  "name": "CLOPAS — Consultoria Logistica de Puertos y Aduanas",
+  "short_name": "CLOPAS",
+  "description": "App de consulta aduanera. 8 cuadernos especializados: Nomenclaturas, Legal, Valoracion, Regimenes, Aforo, VUCERD, Normas de Origen y Comercio Exterior. Clasificacion arancelaria con IA verificada.",
   "start_url": "/",
   "id": "/",
   "scope": "/",
