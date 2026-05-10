@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Notebook Library Management for NotebookLM
-Manages a library of NotebookLM notebooks with metadata
-Based on the MCP server implementation
+Notebook Library Management — Biblioteca DGA
+Gestiona cuadernos de consulta con metadata.
+Fuente actual: Gemini API + Notion (Capa 2) + SQLite (Capa 1).
 """
 
 import json

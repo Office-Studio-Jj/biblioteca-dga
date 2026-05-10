@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Authentication Manager for NotebookLM
+Authentication Manager (legacy — ruta navegador)
+Fuente actual: Gemini API + Notion (Capa 2) + SQLite (Capa 1).
 Handles Google login and browser state persistence
-Based on the MCP server implementation
 
 Implements hybrid auth approach:
 - Persistent browser profile (user_data_dir) for fingerprint consistency

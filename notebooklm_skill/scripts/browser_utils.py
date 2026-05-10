@@ -1,6 +1,6 @@
 """
-Browser Utilities for NotebookLM Skill
-Handles browser launching, stealth features, and common interactions
+Browser Utilities (legacy — ruta navegador ya no es fuente principal)
+Fuente actual: Gemini API + Notion (Capa 2) + SQLite (Capa 1).
 """
 
 import json

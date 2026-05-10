@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
 Gemini API backend para Biblioteca DGA
-Reemplaza la automatización de navegador cuando GEMINI_API_KEY está disponible.
+Fuente de consulta: Gemini API (pre-filtro) + Notion (Capa 2) + SQLite (Capa 1).
 
 Cada cuaderno tiene un sistema de prompts especializado con contexto DGA completo
-para la República Dominicana, permitiendo respuestas precisas sin necesidad de
-acceder a NotebookLM directamente.
+para la Republica Dominicana. Notion es fuente unica de verdad para conocimiento
+estructurado. SQLite (arancel_cache.json) para datos exactos DAI/ITBIS/ISC.
 """
 
 import argparse
@@ -190,7 +190,7 @@ REGLAS OBLIGATORIAS DE CODIGOS:
 3. Antes de recomendar un codigo de 8 digitos, DEBES poder citar la DESCRIPCION OFICIAL de esa subpartida nacional del Arancel de la DGA. Si no puedes citarla textualmente, usa solo 6 digitos.
 4. VALIDACION OBLIGATORIA: Despues de elegir un codigo, verifica que la descripcion oficial de esa subpartida nacional CORRESPONDA al producto consultado. Si la descripcion dice "para juguetes" y el producto NO es un juguete, el codigo es INCORRECTO.
 5. Si la extension nacional no puede determinarse con certeza, indicar SOLO la subpartida SA de 6 digitos (XXXX.XX) con el texto: "[extension nacional debe verificarse en el Arancel vigente de la DGA]".
-6. Los codigos DEBEN existir fisicamente en el archivo Arancel.pdf del cuaderno NotebookLM. Si un codigo no aparece en esa fuente, NO lo recomiendes como definitivo.
+6. Los codigos DEBEN existir en la base de datos arancelaria (arancel_cache.json / arancel_rd.db). Si un codigo no aparece en esa fuente, NO lo recomiendes como definitivo.
 7. Ejemplos de formatos CORRECTOS: 8501.10.91, 8703.23.19, 0402.21.10
 8. Ejemplos de formatos INCORRECTOS: 8501.10.00.00 (10 digitos), 8501.10.10 para un motor automotriz (descripcion no coincide)
 9. Si tienes duda sobre la extension nacional exacta, escribe: "XXXX.XX.[verificar en Arancel RD]" y explica por que no puedes determinarla.

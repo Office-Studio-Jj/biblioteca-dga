@@ -4,11 +4,11 @@ PIPELINE 3 CAPAS — Arquitectura Two-Brain DGA
 
 Orquesta las 3 capas en el orden correcto, con verificacion de cada una:
 
-    CAPA 3 (Gemini pre-filtro) → solo identifica Capitulo SA candidato (2 digitos)
-       ↓ NO clasifica SON — Decision CEO 03-May-2026 Opcion B
-    CAPA 2 (Notion/Merceologia) → busca ficha del producto usando capitulo candidato
-       ↓ fuente="gemini_prefiltro" cuando Gemini fue pre-filtro
-    CAPA 1 (Claude/SQLite ARBITRO LEGAL) → RGI 1-6 + Notas Legales + SON exacta
+    CAPA 3 (Gemini pre-filtro) -> solo identifica Capitulo SA candidato (2 digitos)
+       | NO clasifica SON -- Decision CEO 03-May-2026 Opcion B
+    CAPA 2 (Notion/Merceologia) -> busca ficha del producto usando capitulo candidato
+       | fuente="gemini_prefiltro" cuando Gemini fue pre-filtro
+    CAPA 1 (Claude/SQLite ARBITRO LEGAL) -> RGI 1-6 + Notas Legales + SON exacta
 
 Cada capa registra su resultado en `trazabilidad`. Si una capa falla, la
 siguiente compensa. El resultado final es la mejor combinacion verificada.
@@ -1130,7 +1130,7 @@ exitoso. Modificar manualmente si la clasificacion necesita ajuste de detalle
 
 
 def _componer_respuesta_ground_truth(consulta: str, c2: dict, c1: dict) -> str:
-    """Compone la respuesta final con la estructura del NotebookLM ground truth:
+    """Compone la respuesta final con la estructura del Arancel verificado (Capa 1 SQLite):
        1. Identificacion Merceologica (Capa 2)
        2. Determinacion de Partida (Capa 1)
        3. Subpartida Operativa Nacional (Capa 1)
@@ -1226,7 +1226,7 @@ def _componer_respuesta_ground_truth(consulta: str, c2: dict, c1: dict) -> str:
             out.append(f"  - Excluye: {cf['exclusion_destino']}")
         out.append("")
 
-    # Resumen — formato del NotebookLM ground truth
+    # Resumen — formato del Arancel verificado (Capa 1 SQLite)
     out.append("### Resumen")
     out.append("| Elemento | Detalle |")
     out.append("|---|---|")
@@ -1533,7 +1533,7 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
                     c1, c2 = c1_retry, c2_retry
                     codigo_propuesto = codigo_retry
 
-    # Construir respuesta final con formato del NotebookLM ground truth
+    # Construir respuesta final con formato del Arancel verificado (Capa 1 SQLite)
     if c2.get("ok") and c1.get("ok"):
         trazabilidad["codigo_final"] = c1["codigo_propuesto"]
         trazabilidad["gravamen_final"] = c1.get("gravamen", "verificar")

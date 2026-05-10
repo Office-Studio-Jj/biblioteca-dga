@@ -396,7 +396,7 @@ def _notificar_whatsapp_registro(nombre, correo, whatsapp_usuario):
         import urllib.request
         import urllib.parse
         mensaje = (
-            f"📲 Nuevo registro en Biblioteca DGA\n\n"
+            f"Nuevo registro en Biblioteca DGA\n\n"
             f"Nombre: {nombre}\n"
             f"Correo: {correo}\n"
             f"WhatsApp: {whatsapp_usuario}\n"
@@ -1965,7 +1965,7 @@ def admin_cuadernos_guardar():
     nombre = d.get("nombre", "").strip()
     nid    = d.get("id", "").strip()
     emoji  = d.get("emoji", "📚").strip()
-    uid    = d.get("uid", "")   # Si existe → editar; si vacío → crear
+    uid    = d.get("uid", "")   # Si existe -> editar; si vacio -> crear
 
     if not nombre or not nid:
         return jsonify({"error": "Nombre e ID son obligatorios."}), 400
@@ -2508,7 +2508,7 @@ def admin_sync_notion():
 def merceologia_clasificar_auto():
     """
     Pipeline 5 agentes (CEO 04-MAY-2026):
-      Guardian → Cazador → Fiscal → Juez RGI → Dictaminador
+      Guardian -> Cazador -> Fiscal -> Juez RGI -> Dictaminador
 
     Body JSON:
       {
@@ -2556,11 +2556,11 @@ def biblioteca_buscar():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-# ── Diagnóstico del sistema de consultas (Gemini + NotebookLM) ───────────
+# ── Diagnostico del sistema de consultas (Gemini API + Notion + SQLite) ──
 @app.route("/admin/diagnostico-notebooklm")
 @master_required
 def admin_diagnostico_notebooklm():
-    """Prueba el backend activo de consultas: primero Gemini, luego NotebookLM navegador."""
+    """Prueba el backend activo de consultas: Gemini API + Notion Capa 2 + SQLite Capa 1."""
     TEST_Q  = "Di exactamente la palabra OK y nada más."
     TEST_NB = "biblioteca-de-nomenclaturas"
     gemini_key = os.environ.get("GEMINI_API_KEY", "")
@@ -2593,7 +2593,7 @@ def admin_diagnostico_notebooklm():
     else:
         report["gemini_status"] = "OMITIDO — agrega GEMINI_API_KEY en Railway > Variables"
 
-    # ── Test NotebookLM navegador (informativo) ────────────────────────
+    # ── Test navegador legacy (informativo, solo funciona en local) ────
     cmd_n = [PYTHON, "scripts/ask_question.py",
              "--question", TEST_Q,
              "--notebook-id", TEST_NB]
@@ -2893,7 +2893,7 @@ def api_validar_codigo_manual():
 @login_required
 def api_consultar_isc_partida():
     """Sub-agente ISC: consulta si una partida arancelaria lleva ISC u otros impuestos.
-    Flujo: cache local → Gemini cuaderno legal → DGII tabla codificada.
+    Flujo: cache local -> Gemini API -> DGII tabla codificada.
     """
     import re as _re
     d = request.json or {}
@@ -3221,7 +3221,7 @@ _DISCLAIMER = (
     "\"Adjuntar ficha técnica (PDF o JPG)\"."
 )
 
-# ── Lógica de consulta: Gemini API (primario) → NotebookLM navegador (fallback) ──
+# ── Logica de consulta: Gemini API (primario) + Notion (Capa 2) + SQLite (Capa 1) ──
 def _parse_subprocess_answer(output, stderr, notebook_id):
     """Extrae la respuesta de texto del stdout de ask_question.py o ask_gemini.py."""
     sep60 = "=" * 60
@@ -3441,13 +3441,15 @@ def _consultar_cache_fallback(question: str, notebook_id: str) -> "str | None":
 
 
 def ask_notebooklm(question, notebook_id, timeout=60):
-    """Wrapper de seguridad — siempre retorna string, nunca propaga excepciones.
+    """Wrapper de seguridad para consultas Gemini API + Notion.
 
-    Capas de proteccion (para eliminar el error generico en movil):
-      1. Intento normal (_ask_notebooklm_internal)
-      2. Categorizacion de excepcion (Timeout/Network/API/Otros) para log claro
-      3. Fallback a cache arancelario verificado (si notebook de nomenclaturas)
+    Capas de proteccion:
+      1. Intento Gemini API (_ask_notebooklm_internal)
+      2. Categorizacion de excepcion (Timeout/Network/API/Otros)
+      3. Fallback a cache arancelario verificado SQLite (Capa 1)
       4. Mensaje final categorizado (nunca generico opaco)
+    Nota: nombre 'ask_notebooklm' mantenido por compatibilidad de llamadas.
+    Fuente real: Gemini API + Notion (Capa 2) + SQLite (Capa 1).
     """
     _tipo_err = None
     _detalle_err = None
@@ -3550,8 +3552,8 @@ def _ask_notebooklm_internal(question, notebook_id, timeout=60):
                 "(ej: '¿Cuál es el código arancelario de anillos de oro para joyería?') "
                 "y vuelve a consultar. Si el problema persiste, intenta en unos minutos.")
 
-    # ── Ruta 2: NotebookLM con navegador (SOLO local/Windows) ────────────
-    print(f"[ASK] Usando NotebookLM (navegador) para notebook_id={notebook_id}")
+    # ── Ruta 2: Navegador legacy (SOLO local/Windows, ya no es fuente principal) ──
+    print(f"[ASK] Usando navegador legacy para notebook_id={notebook_id}")
     cmd = [PYTHON, "scripts/ask_question.py", "--question", question, "--notebook-id", notebook_id]
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
@@ -3603,7 +3605,7 @@ def _migrate_users_admin_to_operativo():
 
 # Ejecutar migraciones al importar el módulo
 _migrate_users_admin_to_operativo()
-load_passwords()  # Dispara migración admin→master en passwords.json
+load_passwords()  # Dispara migracion admin->master en passwords.json
 
 # ── Pre-calentamiento: verificar/subir Arancel PDF a Gemini al iniciar ──
 def _precalentar_arancel():
