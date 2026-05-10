@@ -14,6 +14,7 @@ WORKDIR /app
 # Si se define DESPUÉS, patchright instala en ~/.cache/ms-playwright y
 # luego no lo encuentra al ejecutar consultas → "Executable doesn't exist".
 ENV PYTHONIOENCODING=utf-8
+ENV PYTHONUTF8=1
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
 

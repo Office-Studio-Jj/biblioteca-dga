@@ -3,9 +3,9 @@ auto_compress_pipeline.py — Pipeline de compresion inteligente DGA
 Objetivo: reducir tiempo de consulta de producto a 8-10 segundos.
 
 Etapas:
-  1. Extraer texto de PDFs (pdfplumber → fallback bytes)
+  1. Extraer texto de PDFs (pdfplumber -> fallback bytes)
   2. Chunkear contenido en fragmentos indexables (<4000 chars)
-  3. Construir indice keyword → chunk (HS codes, capitulos, notas)
+  3. Construir indice keyword -> chunk (HS codes, capitulos, notas)
   4. Comprimir caches JSON (minify + deduplicate)
   5. Generar ZIP optimizado para NotebookLM
   6. Emitir stats: ratio de compresion + tiempo estimado de consulta
@@ -47,7 +47,7 @@ CHUNK_OVERLAP = 200    # solapamiento para continuidad de contexto
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def log(msg: str, nivel: str = "INFO"):
-    iconos = {"INFO": "  ", "OK": "✓", "WARN": "⚠", "ERR": "✗", "STEP": "▶"}
+    iconos = {"INFO": "  ", "OK": "[OK]", "WARN": "[!]", "ERR": "[X]", "STEP": "[>]"}
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {iconos.get(nivel,'·')} {msg}", flush=True)
 
 
@@ -178,7 +178,7 @@ def chunkear(texto: str, nombre_base: str) -> list[dict]:
 # ── Etapa 3: Indice de busqueda ──────────────────────────────────────────────
 
 def construir_indice(todos_chunks: list[dict]) -> dict:
-    """Indice invertido keyword+HS → lista de chunk IDs."""
+    """Indice invertido keyword+HS -> lista de chunk IDs."""
     indice: dict[str, list[str]] = {}
     for chunk in todos_chunks:
         terminos = set(chunk.get("keywords", [])) | set(chunk.get("hs_codes", []))
@@ -257,8 +257,8 @@ Reduccion tamano:    {stats.get('reduccion_pct', 0):.1f}%
 TIEMPO DE CONSULTA ESTIMADO: {stats.get('tiempo_consulta_estimado', '8-10')} segundos
 
 CARGAR EN NOTEBOOKLM:
-1. NotebookLM → cuaderno DGA
-2. Agregar fuente → Cargar archivo → seleccionar master_notebooklm.zip
+1. NotebookLM -> cuaderno DGA
+2. Agregar fuente -> Cargar archivo -> seleccionar master_notebooklm.zip
 3. Esperar indexacion (~2 min)
 4. Las consultas responderan en 8-10 segundos
 
@@ -291,7 +291,7 @@ def ejecutar_pipeline(modo: str = "full", forzar: bool = False) -> dict:
 
     log(f"Fuentes: {len(archivos_pdf)} PDFs + {len(archivos_json)} JSONs", "INFO")
 
-    # ── Etapa 1+2: PDFs → texto → chunks ────────────────────────────────────
+    # ── Etapa 1+2: PDFs -> texto -> chunks ────────────────────────────────────
     for pdf in archivos_pdf:
         sha = sha256_file(pdf)
         hashes_nuevos[str(pdf)] = sha
@@ -325,7 +325,7 @@ def ejecutar_pipeline(modo: str = "full", forzar: bool = False) -> dict:
         chunk_txt = CHUNKS_DIR / f"{pdf.stem}.txt"
         chunk_txt.write_text(texto, encoding="utf-8")
 
-        log(f"{pdf.name} → {len(chunks)} chunks, {len(texto)//1000}K chars", "OK")
+        log(f"{pdf.name} -> {len(chunks)} chunks, {len(texto)//1000}K chars", "OK")
         archivos_procesados += 1
 
     # ── Etapa 3: Comprimir JSONs ─────────────────────────────────────────────
@@ -338,13 +338,13 @@ def ejecutar_pipeline(modo: str = "full", forzar: bool = False) -> dict:
         data_comprimida = comprimir_cache_json(jf)
         caches_comprimidos[jf.name] = data_comprimida
         archivos_procesados += 1
-        log(f"Cache comprimido: {jf.name} → {jf.stat().st_size//1024} KB", "OK")
+        log(f"Cache comprimido: {jf.name} -> {jf.stat().st_size//1024} KB", "OK")
 
     # ── Etapa 4: Indice ──────────────────────────────────────────────────────
     indice = construir_indice(todos_chunks)
     with open(INDEX_FILE, "w", encoding="utf-8") as f:
         json.dump(indice, f, ensure_ascii=False, separators=(",", ":"))
-    log(f"Indice: {len(indice)} entradas → {len(todos_chunks)} chunks", "OK")
+    log(f"Indice: {len(indice)} entradas -> {len(todos_chunks)} chunks", "OK")
 
     # ── Etapa 5: ZIP master ──────────────────────────────────────────────────
     duracion_pipeline = time.time() - t_inicio

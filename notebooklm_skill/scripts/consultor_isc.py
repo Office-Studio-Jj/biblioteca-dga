@@ -306,7 +306,7 @@ def _guardar_en_cache(codigo: str, resultado: dict, cache: dict) -> None:
     entrada["fecha"] = time.strftime("%Y-%m-%d")
     cache["cache_consultas"][codigo] = entrada
     _guardar_cache(cache)
-    print(f"[ISC-AGENTE] Guardado en cache: {codigo} → {resultado.get('isc')}")
+    print(f"[ISC-AGENTE] Guardado en cache: {codigo} -> {resultado.get('isc')}")
 
 
 if __name__ == "__main__":

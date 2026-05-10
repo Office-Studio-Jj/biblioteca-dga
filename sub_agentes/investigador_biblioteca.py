@@ -132,7 +132,7 @@ def formatear_contexto_gemini(snippets: list[dict]) -> str:
         return "(Sin resultados en biblioteca-nomenclatura)"
     partes = []
     for i, s in enumerate(snippets, 1):
-        boost = " ★" if s.get("boost_capitulo") else ""
+        boost = " *" if s.get("boost_capitulo") else ""
         partes.append(
             f"[{i}] {s['pdf_nombre']} (p.{s['pagina']}){boost}\n"
             f"    Capitulos mencionados: {s.get('capitulos') or '-'}\n"

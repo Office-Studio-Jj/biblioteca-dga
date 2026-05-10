@@ -13,7 +13,7 @@ PRINCIPIO FUNDAMENTAL:
   Python es la autoridad final. Gemini obedece.
 
 ARQUITECTURA:
-  Usuario → server.py → ask_gemini.py (borrador) → supervisor_interno.py → Usuario
+  Usuario -> server.py -> ask_gemini.py (borrador) -> supervisor_interno.py -> Usuario
 """
 
 import re
@@ -245,11 +245,11 @@ def _normalizar_codigo(codigo: str) -> Optional[str]:
     Retorna None si no es convertible.
 
     Maneja variantes comunes de formato erroneo:
-      - Con separadores distintos: 8525-80-90, 8525/80/90  → 8525.80.90
-      - Sin separadores: 85258090                           → 8525.80.90
-      - Ceros faltantes: 8525.8.9                           → 8525.08.09
-      - Extension 10 dig: 8525.80.90.00                     → 8525.80.90 (truncar)
-      - Espacios: " 8525.80.90 "                            → 8525.80.90
+      - Con separadores distintos: 8525-80-90, 8525/80/90  -> 8525.80.90
+      - Sin separadores: 85258090                           -> 8525.80.90
+      - Ceros faltantes: 8525.8.9                           -> 8525.08.09
+      - Extension 10 dig: 8525.80.90.00                     -> 8525.80.90 (truncar)
+      - Espacios: " 8525.80.90 "                            -> 8525.80.90
     """
     if not codigo:
         return None
@@ -500,7 +500,7 @@ def _sanitizar_respuesta_gemini(respuesta: str) -> Tuple[str, List[str]]:
 
 # ── Codigos arancelarios verificados en el Arancel impreso de la RD ──────
 # Cada clave = subpartida SA (6 digitos XXXX.XX)
-# Cada valor = dict de extension_nacional (2 digitos) → descripcion oficial
+# Cada valor = dict de extension_nacional (2 digitos) -> descripcion oficial
 CODIGOS_VERIFICADOS_RD = {
     "9018.90": {
         "11": "Para medida de la presion arterial",
@@ -633,7 +633,7 @@ INCOHERENCIAS_CONOCIDAS = [
                       "e-cigarette", "vape", "pod", "vapeador", "cigarro electronico"],
         "capitulos_incorrectos": ["9619", "2402", "2403", "2404"],
         "capitulo_correcto": "8543.40 (.11 o .12)",
-        "mensaje": "Vapers/cigarrillos electronicos → 8543.40.11 o 8543.40.12. "
+        "mensaje": "Vapers/cigarrillos electronicos -> 8543.40.11 o 8543.40.12. "
                    "NUNCA 9619 (higienicos), NUNCA Cap. 24 (tabaco)",
     },
     {
@@ -641,14 +641,14 @@ INCOHERENCIAS_CONOCIDAS = [
                       "panito humedo", "toallita"],
         "capitulos_incorrectos": ["8543", "8501", "3926"],
         "capitulo_correcto": "9619.00",
-        "mensaje": "Productos higienicos → 9619.00.xx",
+        "mensaje": "Productos higienicos -> 9619.00.xx",
     },
     {
         "productos": ["papel camilla", "papel sabana", "papel medico", "rollo medico",
                       "papel examen", "papel camion", "sabana desechable"],
         "capitulos_incorrectos": ["9619", "4818.90.90", "4818.90.19", "4818.90.10"],
         "capitulo_correcto": "4818.90.00",
-        "mensaje": "Papel camilla y papeles similares de uso medico/sanitario → "
+        "mensaje": "Papel camilla y papeles similares de uso medico/sanitario -> "
                    "4818.90.00 (Los demas). "
                    "NUNCA 4818.90.90 ni 4818.90.19 — NO EXISTEN en el Arancel RD. "
                    "La unica extension valida bajo 4818.90 es .00",
@@ -830,7 +830,7 @@ def _check_codigo_arancelario(respuesta: str) -> Tuple[str, str, str]:
 def _check_incoherencia_producto(respuesta: str, pregunta: str) -> Tuple[str, str]:
     """
     Detecta incoherencias producto-capitulo usando reglas confirmadas en campo.
-    Ejemplo: vaper clasificado en 9619 (higienicos) → ERROR.
+    Ejemplo: vaper clasificado en 9619 (higienicos) -> ERROR.
     """
     pregunta_lower = pregunta.lower()
     resp_lower = respuesta.lower()
@@ -875,7 +875,7 @@ def _check_dominio(respuesta: str, notebook_id: str) -> Tuple[str, str]:
 
 
 def _normalizar_numero_ley(ref: str) -> str:
-    """Extrae el patron numerico de una referencia legal (ej: 'Ley 168-21' → '168-21')."""
+    """Extrae el patron numerico de una referencia legal (ej: 'Ley 168-21' -> '168-21')."""
     m = re.search(r'(\d+[\-/]\d+|\d{4,})', ref)
     if m:
         return m.group(1).replace("/", "-")
@@ -1062,7 +1062,7 @@ def _check_gravamen_arancelario(respuesta: str) -> Tuple[str, str, str]:
             respuesta, flags=re.IGNORECASE
         )
         return (respuesta, "ERROR",
-                f"CORREGIDO: {codigo} gravamen {grav_respuesta}%→{grav_verificado}% segun {fuente} (Arancel 7ma Enmienda)")
+                f"CORREGIDO: {codigo} gravamen {grav_respuesta}%->{grav_verificado}% segun {fuente} (Arancel 7ma Enmienda)")
 
     return (respuesta, "OK",
             f"{codigo} gravamen {grav_respuesta}% VERIFICADO segun {fuente}")

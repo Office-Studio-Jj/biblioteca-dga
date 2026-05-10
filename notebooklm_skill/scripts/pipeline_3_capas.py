@@ -1232,7 +1232,7 @@ def _componer_respuesta_ground_truth(consulta: str, c2: dict, c1: dict) -> str:
     out.append("|---|---|")
     out.append(f"| **Producto consultado** | **{consulta}** |")
     out.append(f"| Partida | {partida[:2]}.{partida[2:]} |")
-    out.append(f"| ⭐ **PARTIDA NAC. SUGERIDA** | ## **`{codigo}`** |")
+    out.append(f"| * **PARTIDA NAC. SUGERIDA** | ## **`{codigo}`** |")
     if leyes:
         ley_principal = leyes[0]
         ben = ley_principal.get("beneficio", {})

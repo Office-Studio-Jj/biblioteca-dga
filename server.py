@@ -23,8 +23,10 @@ app = Flask(__name__, static_folder='static')
 import sys
 from pathlib import Path
 
-# ── Fix encoding: piped stdout en Railway usa ASCII por defecto, causando
-# UnicodeEncodeError cuando se imprime emoji en respuestas de Gemini ──────
+# ── Fix encoding raiz: Windows cp1252 y Railway ASCII no soportan Unicode ──
+# Forzar UTF-8 en TODOS los contextos: stdout, stderr, subprocesos, locale
+os.environ["PYTHONIOENCODING"] = "utf-8"
+os.environ["PYTHONUTF8"] = "1"
 try:
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -1158,7 +1160,7 @@ def _comprimir_imagen(image_path, max_size_kb=500, max_dim=1024):
         compressed = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
         img.save(compressed.name, "JPEG", quality=80, optimize=True)
         new_size = os.path.getsize(compressed.name) / 1024
-        print(f"[VISION] Imagen comprimida: {size_kb:.0f}KB → {new_size:.0f}KB "
+        print(f"[VISION] Imagen comprimida: {size_kb:.0f}KB -> {new_size:.0f}KB "
               f"({img.size[0]}x{img.size[1]})")
         return compressed.name
     except Exception as e:
@@ -2129,7 +2131,7 @@ def _aplicar_correccion_gravamen(codigo, valor_correcto, error_id):
         for e in errores["errores"]:
             if e["id"] == error_id:
                 e["estado"] = "corregido"
-                e["correccion_aplicada"] = f"Cache actualizado: {codigo} gravamen → {valor_correcto}%"
+                e["correccion_aplicada"] = f"Cache actualizado: {codigo} gravamen -> {valor_correcto}%"
                 break
         _save_errores(errores)
         # Proteger en blacklist para que no se sobreescriba en re-extraccion
@@ -3413,14 +3415,14 @@ def _consultar_cache_fallback(question: str, notebook_id: str) -> "str | None":
 
     # Formatear respuesta de fallback
     lineas = [
-        "⚠️ RESPUESTA DE EMERGENCIA — CACHE ARANCELARIO VERIFICADO",
+        "ATENCION: RESPUESTA DE EMERGENCIA -- CACHE ARANCELARIO VERIFICADO",
         "",
         f"El sistema de IA no pudo procesar tu consulta en este momento.",
         f"Los siguientes códigos del Arancel 7ma Enmienda pueden ser relevantes para:",
         f"  \"{question.strip()}\"",
         "",
         "RESULTADOS DEL CACHE VERIFICADO (pdfplumber, 0% IA):",
-        "─" * 50,
+        "-" * 50,
     ]
     for score, codigo, descripcion in top:
         # Extraer gravamen del final de la descripcion
@@ -3429,9 +3431,9 @@ def _consultar_cache_fallback(question: str, notebook_id: str) -> "str | None":
         lineas.append(f"  {codigo}: {descripcion.strip()}{grav_str}")
 
     lineas += [
-        "─" * 50,
+        "-" * 50,
         "",
-        "⚠️ AVISO: Estos resultados son orientativos basados en búsqueda de palabras clave.",
+        "ATENCION: Estos resultados son orientativos basados en busqueda de palabras clave.",
         "Para clasificación oficial, reformule su consulta o intente de nuevo en unos segundos.",
         "Verifique siempre con el Arancel oficial antes de usar en declaraciones aduaneras.",
     ]

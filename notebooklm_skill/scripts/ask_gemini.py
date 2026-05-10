@@ -47,10 +47,10 @@ FASE 3 - FUNCION TECNICA (Ref: Dec. 755-22 Criterio interpretativo)
 Determinar: funcion tecnica especifica, contexto de uso, funcion prevalente del articulo en su estado comercial presentado.
 
 FASE 4 - CLASIFICACION ARANCELARIA (Ref: SA 7a Enmienda / Notas OMC)
-Aplicar RGI 1-6 del Sistema Armonizado. Recorrer: Seccion → Capitulo → Partida (4 digitos) → Subpartida SA (6 digitos) → Subpartida Nacional RD (8 digitos, formato XXXX.XX.XX). Verificar notas legales de seccion y capitulo aplicables. IMPORTANTE: El codigo final DEBE existir en el Arancel.pdf de la fuente — NO inventar extensiones nacionales. Al llegar a la extension nacional (ultimos 2 digitos), LISTAR TODAS las opciones disponibles bajo esa subpartida SA con sus descripciones oficiales, y SELECCIONAR la que coincida con el producto. Si la extension nacional exacta no se puede confirmar con su descripcion oficial, indicar solo los 6 digitos SA y senalar que los 2 digitos nacionales deben verificarse en el Arancel de la DGA.
+Aplicar RGI 1-6 del Sistema Armonizado. Recorrer: Seccion -> Capitulo -> Partida (4 digitos) -> Subpartida SA (6 digitos) -> Subpartida Nacional RD (8 digitos, formato XXXX.XX.XX). Verificar notas legales de seccion y capitulo aplicables. IMPORTANTE: El codigo final DEBE existir en el Arancel.pdf de la fuente — NO inventar extensiones nacionales. Al llegar a la extension nacional (ultimos 2 digitos), LISTAR TODAS las opciones disponibles bajo esa subpartida SA con sus descripciones oficiales, y SELECCIONAR la que coincida con el producto. Si la extension nacional exacta no se puede confirmar con su descripcion oficial, indicar solo los 6 digitos SA y senalar que los 2 digitos nacionales deben verificarse en el Arancel de la DGA.
 
 FASE 5 - DETERMINACION DE ORIGEN (Ref: Ley 14-93 / Dec. 755-22)
-Arbol decisorio: ¿Obtenido enteramente en un pais? Si no → ¿Sufrio transformacion sustancial? → Si no → Materia constitutiva principal. Determinar criterio de origen aplicable.
+Arbol decisorio: ¿Obtenido enteramente en un pais? Si no -> ¿Sufrio transformacion sustancial? -> Si no -> Materia constitutiva principal. Determinar criterio de origen aplicable.
 
 FASE 6 - RESTRICCIONES Y PERMISOS PREVIOS (Ref: Leyes sectoriales)
 Verificar aplicabilidad de: Ley 42-01 (Salud Publica / DIGEMAPS) | Ley 41-08 (Sanidad Animal y Vegetal) | Ley 6097 (Telecomunicaciones / INDOTEL) | Resoluciones DGA vigentes | Reglamentos INDOCAL | Permisos Ministerio de Agricultura | CITES / Medio Ambiente.
@@ -63,7 +63,7 @@ Verificar: (1) Consistencia: la funcion concuerda con la partida SA asignada. (2
   a) FORMATO: El codigo tiene EXACTAMENTE 8 digitos (XXXX.XX.XX), NO 10 digitos, NO extensiones ".00.00" inventadas.
   b) DESCRIPCION: La descripcion oficial de la subpartida nacional COINCIDE con el producto consultado. Ejemplo de ERROR: recomendar 8501.10.10 ("Motores para juguetes") para un motor automotriz — la descripcion NO coincide.
   c) COHERENCIA: Si el producto es automotriz, la subpartida NO puede decir "para juguetes". Si el producto es alimenticio, la subpartida NO puede decir "para uso industrial". La descripcion debe SER COHERENTE con el producto.
-  d) COHERENCIA DE CAPITULO: Verifica que el titulo del CAPITULO COMPLETO sea compatible con el producto. Ejemplos de INCOHERENCIA GRAVE confirmada: dispositivo electronico en Cap. 96 (higienicos/panales) → RECHAZADO; accesorio medico textil en 9018.90.91 (codigo que no existe, el rango termina en .19) → RECHAZADO. Si el capitulo es incompatible, "Los demas" de ese capitulo TAMPOCO aplica.
+  d) COHERENCIA DE CAPITULO: Verifica que el titulo del CAPITULO COMPLETO sea compatible con el producto. Ejemplos de INCOHERENCIA GRAVE confirmada: dispositivo electronico en Cap. 96 (higienicos/panales) -> RECHAZADO; accesorio medico textil en 9018.90.91 (codigo que no existe, el rango termina en .19) -> RECHAZADO. Si el capitulo es incompatible, "Los demas" de ese capitulo TAMPOCO aplica.
   e) EXISTENCIA DEL CODIGO: Si el codigo termina en .91 pero el rango nacional de esa partida solo llega a .19 o .09, el codigo NO EXISTE — usar 6 digitos con nota de verificacion.
   Si el codigo falla CUALQUIERA de estas 5 validaciones, NO recomendar ese codigo. En su lugar, dar la subpartida SA de 6 digitos e indicar que la extension nacional requiere verificacion en el Arancel vigente de la DGA.
 Determinar resultado: APROBADA / CONDICIONADA (falta documentacion especifica o extension nacional no verificada) / RECHAZADA (requiere revision completa).
@@ -195,7 +195,7 @@ REGLAS OBLIGATORIAS DE CODIGOS:
 8. Ejemplos de formatos INCORRECTOS: 8501.10.00.00 (10 digitos), 8501.10.10 para un motor automotriz (descripcion no coincide)
 9. Si tienes duda sobre la extension nacional exacta, escribe: "XXXX.XX.[verificar en Arancel RD]" y explica por que no puedes determinarla.
 10. SIEMPRE incluir junto al codigo la DESCRIPCION OFICIAL de la subpartida nacional que estas recomendando, para que el usuario pueda contrastar con su ejemplar del Arancel.
-11. VERIFICACION A NIVEL DE CAPITULO (obligatoria antes de confirmar cualquier codigo): Verifica que el TITULO del Capitulo completo sea coherente con el producto. Si el capitulo describe higienicos y tu producto es electronico → INCORRECTO. Si el capitulo describe optica/medicina y tu producto es textil → INCORRECTO. El hecho de que exista 'XXXX.XX.90 — Los demas' en cualquier partida NO significa que cualquier producto puede ir ahi si el capitulo es incompatible.
+11. VERIFICACION A NIVEL DE CAPITULO (obligatoria antes de confirmar cualquier codigo): Verifica que el TITULO del Capitulo completo sea coherente con el producto. Si el capitulo describe higienicos y tu producto es electronico -> INCORRECTO. Si el capitulo describe optica/medicina y tu producto es textil -> INCORRECTO. El hecho de que exista 'XXXX.XX.90 — Los demas' en cualquier partida NO significa que cualquier producto puede ir ahi si el capitulo es incompatible.
 12. PATRON .91 NO UNIVERSAL: El patron de extension .91 (como 8501.10.91) NO existe en todos los capitulos. En capitulos donde las extensiones terminan en .19 o .09, "Los demas" ES ese codigo. Si asignas .91 a una partida cuyo rango nacional termina en .19, es una ALUCINACION.
 
 FORMATO DE RESPUESTA — ESTRUCTURA OBLIGATORIA EN DOS PARTES:
@@ -712,7 +712,7 @@ def _corregir_gravamen_con_cache(answer: str, codigo: str) -> str:
             grav_gemini = float(m.group(1))
             if grav_gemini != float(grav_verificado):
                 print(f"[GEMINI-CACHE] CORRECCION gravamen: Gemini={grav_gemini}% "
-                      f"→ Verificado={grav_verificado}% para {codigo} (fuente: {fuente_grav})")
+                      f"-> Verificado={grav_verificado}% para {codigo} (fuente: {fuente_grav})")
                 # Reemplazar en todos los formatos
                 for repl_pat in [
                     r'((?:GRAVAMEN|Gravamen|gravamen)[^:]*:\s*)\d+(\s*%)',
@@ -784,7 +784,7 @@ def _compuerta_final_gravamen(answer: str, notebook_id: str) -> str:
     if grav_verificado is None:
         print(f"[GATE-FINAL] AVISO: {codigo} no verificable — aviso legal agregado")
         return answer + (
-            "\n\n⚠️ AVISO LEGAL: El gravamen de este codigo no pudo verificarse "
+            "\n\nATENCION: AVISO LEGAL: El gravamen de este codigo no pudo verificarse "
             "contra el Arancel 7ma Enmienda. Verifique manualmente."
         )
 
@@ -986,7 +986,7 @@ def _rag_context_from_cache(question: str) -> str:
 
 def _detectar_estandar_tecnico(question: str) -> dict | None:
     """CORRECCIÓN #2: Detecta estándar técnico internacional en el texto.
-    Si HDMI, USB-C, OBD, Bluetooth, etc. → devuelve clasificación directa sin preguntas."""
+    Si HDMI, USB-C, OBD, Bluetooth, etc. -> devuelve clasificación directa sin preguntas."""
     try:
         est_path = os.path.join(_DATA_DIR, 'estandares_tecnicos.json')
         with open(est_path, 'r', encoding='utf-8') as f:
@@ -1049,7 +1049,7 @@ def _verificar_itbis_capa1(answer: str, codigo: str) -> str:
 
         if "EXENTO" in itbis_capa1 and "EXENTO" not in itbis_gemini.upper():
             nuevo = "EXENTO — verificado en columna EX.ITBIS del Arancel RD (Capa 1 SQLite, 0% IA)"
-            print(f"[ITBIS-GATE] CORRECCIÓN EX.ITBIS: '{itbis_gemini}' → EXENTO para {codigo}")
+            print(f"[ITBIS-GATE] CORRECCIÓN EX.ITBIS: '{itbis_gemini}' -> EXENTO para {codigo}")
             if m_itbis:
                 answer = answer[:m_itbis.start()] + f"ITBIS: {nuevo}" + answer[m_itbis.end():]
             answer += (
@@ -1131,7 +1131,7 @@ def _detectar_partidas_concurrentes(answer: str, question: str) -> str:
 
     opciones = []
     for cod in codigos_unicos[:3]:
-        # DAI: lookup posicional → fallback Capa 1 SQLite
+        # DAI: lookup posicional -> fallback Capa 1 SQLite
         g = grav_data.get(cod, {}).get('g')
         if g is None:
             g_capa1 = _capa1_grav(cod)
@@ -1166,15 +1166,15 @@ def _detectar_partidas_concurrentes(answer: str, question: str) -> str:
     lineas.append(f"{'CÓDIGO':<14} {'DAI':>5} {'ITBIS':>6} {'CARGA/$1000CIF':>16}  DESCRIPCIÓN")
     lineas.append("-" * 80)
     for o in sorted(opciones, key=lambda x: x["carga_1000"]):
-        marca = " ← MÁS FAVORABLE" if o["carga_1000"] == min(cargas) else ""
+        marca = " << MAS FAVORABLE" if o["carga_1000"] == min(cargas) else ""
         lineas.append(f"{o['cod']:<14} {o['dai']:>4}% {o['itbis']:>5}%  ${o['carga_1000']:>12,.2f}{marca}")
         lineas.append(f"{'':14}   {o['desc']}")
     lineas.append(f"\nDIFERENCIAL FISCAL: ${diferencial:,.2f} por cada $1,000 CIF")
 
     if diferencial > 50:
-        lineas.append("⚠ ALERTA CLASIFICACIÓN EN DISPUTA: Diferencial > $50/$1,000 CIF.")
-        lineas.append("  → Aplicar RGI 3a): partida con descripción más específica prevalece.")
-        lineas.append("  → Recomendada Consulta Vinculante DGA — Art. 5 Ley 168-21.")
+        lineas.append("ATENCION: ALERTA CLASIFICACIÓN EN DISPUTA: Diferencial > $50/$1,000 CIF.")
+        lineas.append("  -> Aplicar RGI 3a): partida con descripción más específica prevalece.")
+        lineas.append("  -> Recomendada Consulta Vinculante DGA — Art. 5 Ley 168-21.")
 
     lineas.append("---FIN_PARTIDAS_CONCURRENTES---")
     print(f"[PARTIDAS-CONC] {len(opciones)} partidas detectadas, diferencial=${diferencial:.2f}")
@@ -1183,7 +1183,7 @@ def _detectar_partidas_concurrentes(answer: str, question: str) -> str:
 
 def _bloquear_sensor_8512(answer: str, question: str) -> str:
     """CORRECCIÓN #5: Bloquea 8512.30.00 cuando se usa para sensores vehiculares.
-    8512.30.00 = SOLO bocinas/alarmas acústicas. Sensores → Cap.90 con DAI=0%."""
+    8512.30.00 = SOLO bocinas/alarmas acústicas. Sensores -> Cap.90 con DAI=0%."""
     if '8512.30.00' not in answer:
         return answer
 
@@ -1220,7 +1220,7 @@ def _bloquear_sensor_8512(answer: str, question: str) -> str:
             nuevo_dai = tipo_detectado['dai']
             nota_legal = tipo_detectado['nota_legal']
         else:
-            # Sin tipo específico → genérico Cap.90
+            # Sin tipo específico -> genérico Cap.90
             nuevo_cod = "9031.80"
             nuevo_desc = "Instrumentos y aparatos de medida o verificación — Los demás"
             nuevo_dai = 0
@@ -1254,7 +1254,7 @@ def _bloquear_sensor_8512(answer: str, question: str) -> str:
     except Exception as _e:
         print(f"[SENSOR-8512] Error: {_e}")
         answer += (
-            "\n\n⚠ CORRECCIÓN CEO: 8512.30.00 es INCORRECTO para sensores vehiculares. "
+            "\n\nATENCION: CORRECCIÓN CEO: 8512.30.00 es INCORRECTO para sensores vehiculares. "
             "Clasificar en Cap.90 (DAI=0%) según Nota 2 Sección XVII SA."
         )
     return answer
@@ -1597,8 +1597,8 @@ def ask_gemini(question, notebook_id, _intento=1):
 
         # ── VERIFICACION CACHE-FIRST (nomenclatura) ──────────────────────
         # 1. Extraer codigo del borrador
-        # 2. Si existe en cache (7,616 codigos) → CONFIRMADO + validar gravamen
-        # 3. Si NO existe en cache → verificar con Gemini + Arancel PDF
+        # 2. Si existe en cache (7,616 codigos) -> CONFIRMADO + validar gravamen
+        # 3. Si NO existe en cache -> verificar con Gemini + Arancel PDF
         _notas_slot: dict = {}
         _notas_thread = None
         if notebook_id == "biblioteca-de-nomenclaturas":

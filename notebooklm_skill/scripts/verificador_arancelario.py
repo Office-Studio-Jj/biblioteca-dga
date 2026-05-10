@@ -12,10 +12,10 @@ Ambas verificaciones se hacen en UNA sola consulta dirigida para minimizar
 latencia y costo de API.
 
 ARQUITECTURA:
-  ask_gemini.py → Gemini genera borrador con codigo + gravamen + ITBIS
-                → verificador_arancelario.py verifica AMBOS contra fuentes
-                → Si codigo o cargos incorrectos: corrige antes del supervisor
-                → supervisor_interno.py valida el resultado ya corregido
+  ask_gemini.py -> Gemini genera borrador con codigo + gravamen + ITBIS
+                -> verificador_arancelario.py verifica AMBOS contra fuentes
+                -> Si codigo o cargos incorrectos: corrige antes del supervisor
+                -> supervisor_interno.py valida el resultado ya corregido
 """
 
 import re
@@ -141,8 +141,8 @@ tu respuesta PROBABLEMENTE es incorrecta. Verifica de nuevo.
 VERIFICACION 3 — ITBIS (columna EX. ITBIS):
 - Tasa general: 18% sobre (CIF + gravamen).
 - Lee la columna EX. ITBIS del Arancel:
-  Si esta EN BLANCO → ITBIS 18% aplica normalmente.
-  Si tiene una marca (X, E, 0, o similar) → producto EXENTO de ITBIS.
+  Si esta EN BLANCO -> ITBIS 18% aplica normalmente.
+  Si tiene una marca (X, E, 0, o similar) -> producto EXENTO de ITBIS.
 - Productos tipicamente exentos: alimentos basicos (canasta familiar), medicamentos,
   insumos agropecuarios, libros, combustibles (Ley 11-92 Art. 343).
 - NO asumir exencion sin evidencia. Por defecto aplica 18%.
@@ -385,7 +385,7 @@ def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str, arancel_
 
             grav = resultado.get("gravamen_ad_valorem", "?")
             estado = "CONFIRMADO" if existe else "NO EXISTE"
-            print(f"[VERIFICADOR] Codigo: {codigo} → {estado} (correcto: {codigo_c})")
+            print(f"[VERIFICADOR] Codigo: {codigo} -> {estado} (correcto: {codigo_c})")
             print(f"[VERIFICADOR] Gravamen: {grav} | ITBIS: {itbis} | Selectivo: {selec}")
 
             return resultado
@@ -465,7 +465,7 @@ def _corregir_cargos_en_respuesta(respuesta: str, resultado: dict, codigo_final:
                 respuesta,
                 flags=re.IGNORECASE
             )
-        # Tambien corregir en parentesis: "(0%)" → "(20%)"
+        # Tambien corregir en parentesis: "(0%)" -> "(20%)"
         respuesta = re.sub(
             r'(ad[\s\-]*valorem[^)]*?)\d+(%\s*(?:\(|,|\.|\)))',
             r'\g<1>' + gravamen.replace('%', '') + r'\2',
@@ -594,7 +594,7 @@ def pre_verificar_codigo_en_respuesta(respuesta: str, pregunta: str, api_key: st
         )
 
         fue_corregida = True
-        print(f"[VERIFICADOR] Codigo corregido: {codigo} → {codigo_correcto}")
+        print(f"[VERIFICADOR] Codigo corregido: {codigo} -> {codigo_correcto}")
     else:
         # Codigo confirmado — agregar marca de verificacion
         descripcion = resultado.get("descripcion_oficial", "")

@@ -61,7 +61,7 @@ class BrowserFactory:
                         context.add_cookies(state['cookies'])
                         # print(f"  🔧 Injected {len(state['cookies'])} cookies from state.json")
             except Exception as e:
-                print(f"  ⚠️  Could not load state.json: {e}")
+                print(f"  [WARN]  Could not load state.json: {e}")
 
 
 class StealthUtils:
@@ -84,7 +84,7 @@ class StealthUtils:
                 pass
         
         if not element:
-            print(f"⚠️ Element not found for typing: {selector}")
+            print(f"[WARN] Element not found for typing: {selector}")
             return
 
         # Click to focus

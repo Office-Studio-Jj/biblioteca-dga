@@ -212,7 +212,7 @@ def main():
     print(f"Creando {len(DATABASES)} bases de datos bajo pagina {PARENT_PAGE_ID[:8]}...")
     ids = {}
     for spec in DATABASES:
-        print(f"  → {spec['title']}...", end=" ", flush=True)
+        print(f"  -> {spec['title']}...", end=" ", flush=True)
         r = crear_db(spec)
         if r.get("object") == "error":
             print(f"ERROR {r.get('status')}: {r.get('body', '')[:200]}")
