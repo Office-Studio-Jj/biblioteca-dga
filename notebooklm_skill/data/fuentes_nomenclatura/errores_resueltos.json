@@ -2,8 +2,8 @@
   "_meta": {
     "version": "2.0",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
-    "ultima_actualizacion": "2026-05-03",
-    "total_errores": 31,
+    "ultima_actualizacion": "2026-05-10",
+    "total_errores": 32,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -1096,6 +1096,51 @@
       "prioridad": "CRITICA",
       "estado": "PENDIENTE_IMPLEMENTACION",
       "bugs_que_resuelve": ["BUG-004 medalla", "BUG-005 bodycam", "BUG-006 tirilla glucosa"]
+    },
+    {
+      "id": "ERR-032",
+      "titulo": "Clase PARTE vs APARATO: pantalla celular, robot tape library, liofilizador",
+      "sintomas_usuario": [
+        "pantalla celular clasificada como telefono 8517.11",
+        "robot de cintas clasificado como robot industrial 8428.70",
+        "liofilizador en los demas 8419.89 en vez de 8419.33",
+        "display celular en 8517",
+        "pantalla para celular mal clasificada",
+        "freeze dryer clasificacion incorrecta"
+      ],
+      "keywords_match": [
+        "pantalla celular",
+        "display celular",
+        "robot tape library",
+        "robot quantum scalar",
+        "robot g2",
+        "liofilizador",
+        "freeze dryer",
+        "parte clasificada como aparato",
+        "8517.11 pantalla",
+        "8428.70 robot cintas",
+        "8419.89 liofilizador"
+      ],
+      "componente": "notebooklm_skill/scripts/pipeline_3_capas.py",
+      "tipo": "clasificacion/pre-filtro-partes",
+      "fix_resumen": "Pre-filtro PARTES ejecutado ANTES del FTS. Detecta consultas de partes/componentes y redirige al capitulo correcto: pantalla→8524, robot cintas→8473, liofilizador→8419.33. Nuevos pares ELEMENTO vs APARATO, entradas _MAPA_PARTIDAS_RGI, sinonimos build_arancel_db.py, y reglas 11-13 en refuerzo Gemini.",
+      "archivos": [
+        "notebooklm_skill/scripts/pipeline_3_capas.py",
+        "notebooklm_skill/scripts/ask_gemini.py",
+        "capa1_sqlite/build_arancel_db.py"
+      ],
+      "lineas_clave": [
+        "_PARES_ELEMENTO_APARATO: pantalla celular→8524, robot cintas→8473",
+        "_MAPA_PARTIDAS_RGI: 8524, 8473, 8419 nuevas entradas",
+        "Pre-filtro parte ANTES del FTS en ejecutar_pipeline()",
+        "Refuerzo Gemini reglas 11-13"
+      ],
+      "verificacion": "Consulta 'pantalla para celular' debe retornar 8524.xx (NO 8517.11). Consulta 'robot G2 quantum scalar' debe retornar 8473.30.90 (NO 8428.70). Consulta 'liofilizador profesional' debe retornar 8419.33.90 (NO 8419.89.90).",
+      "fecha_resolucion": "2026-05-10",
+      "commit": "b2acf80",
+      "origen": "Reporte usuario con 4 screenshots produccion",
+      "prioridad": "ALTA",
+      "estado": "RESUELTO"
     }
   ]
 }
