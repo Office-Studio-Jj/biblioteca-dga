@@ -441,12 +441,13 @@ _PARES_ELEMENTO_APARATO = [
                   "pantalla telefono", "pantalla smartphone", "pantalla movil", "pantalla de celular",
                   "pantalla generica celular", "pantalla lcd celular", "pantalla oled celular",
                   "pantalla tactil celular", "touchscreen celular", "pantalla repuesto celular"],
-     "partida_elem": "8517", "partida_aparato": None, "son_directo": "8517.79.00",
-     "nota": "Parte de telefono celular — 8517.79.00 Las demas partes y accesorios"},
+     "partida_elem": "8517", "partida_aparato": None, "subpartida_pista": "8517.7",
+     "nota": "Parte de telefono celular — buscar jerarquicamente en 8517.7x (partes)"},
     {"elem_kw": ["robot libreria cintas", "modulo robotico almacenamiento", "robot tape library",
                   "robot quantum scalar", "robot g2", "robot picker", "robot de cintas",
                   "brazo robotico libreria", "robot autoloader"],
-     "partida_elem": "8473", "partida_aparato": "8428", "nota": "Seccion XVI Nota 2: parte de maquina ADP 8471"},
+     "partida_elem": "8473", "partida_aparato": "8428", "subpartida_pista": "8473.3",
+     "nota": "Seccion XVI Nota 2: parte de maquina ADP 8471 — buscar en 8473.3x"},
 ]
 
 
@@ -467,6 +468,76 @@ def _detectar_confusion_elemento_aparato(consulta: str, codigo: str) -> Optional
                     "fundamento": par["nota"],
                 }
     return None
+
+
+def _buscar_jerarquico_en_partida(consulta: str, partida: str, subpartida_pista: str = "") -> Optional[str]:
+    """
+    Busqueda jerarquica dentro de una partida (4 digitos).
+
+    Recorre TODOS los SON de la partida en orden jerarquico:
+      Partida (4 dig) -> Subpartida SA (6 dig) -> SON Nacional (8 dig)
+
+    Para cada nivel, compara la descripcion oficial contra la consulta.
+    Si encuentra match especifico, retorna ese SON.
+    Si no encuentra ninguno especifico, retorna el "Las demas" del nivel
+    mas profundo aplicable.
+
+    Este es el procedimiento correcto segun RGI 1-6 y la estructura
+    del Arancel de la Republica Dominicana (Decreto 36-22).
+    """
+    try:
+        cache_path = os.path.join(_DATA, "fuentes_nomenclatura", "arancel_cache.json")
+        with open(cache_path, "r", encoding="utf-8") as f:
+            _cache = json.load(f)
+        _codigos = _cache.get("codigos", _cache)
+    except Exception:
+        return None
+
+    # Filtrar todos los SON de esta partida, ordenados
+    _prefijo = subpartida_pista if subpartida_pista and len(subpartida_pista) >= 4 else partida
+    hermanas = sorted([
+        (cod, str(desc).lower())
+        for cod, desc in _codigos.items()
+        if cod.startswith(_prefijo)
+    ])
+    if not hermanas:
+        return None
+
+    # Palabras clave de la consulta para matching
+    _stopwords = {"para", "como", "cual", "este", "esta", "donde", "tiene", "tipo",
+                  "generica", "generico", "modelo", "marca", "uso", "nuevo", "nueva"}
+    palabras = [w.lower() for w in re.findall(r'\b[a-záéíóúüñ]{4,}\b', consulta.lower())
+                if w.lower() not in _stopwords]
+
+    # Fase 1: buscar match ESPECIFICO (descripcion oficial coincide con producto)
+    # Excluir codigos "Los/Las demas" de esta fase
+    _demas_pattern = re.compile(r'los dem[aá]s|las dem[aá]s', re.IGNORECASE)
+    mejor_score = 0
+    mejor_codigo = None
+    codigo_las_demas = None
+
+    for cod, desc in hermanas:
+        if _demas_pattern.search(desc):
+            codigo_las_demas = cod
+            continue
+        hits = sum(1 for p in palabras if p in desc)
+        if hits > mejor_score:
+            mejor_score = hits
+            mejor_codigo = cod
+
+    # Fase 2: si hay match especifico con score > 0, retornar ese
+    if mejor_codigo and mejor_score > 0:
+        print(f"[JERARQUICO] Match especifico: {mejor_codigo} (score={mejor_score})")
+        return mejor_codigo
+
+    # Fase 3: sin match especifico → "Las demas" del nivel mas profundo
+    if codigo_las_demas:
+        print(f"[JERARQUICO] Sin match especifico en {_prefijo} -> Las demas: {codigo_las_demas}")
+        return codigo_las_demas
+
+    # Fase 4: si no hay "Las demas" explicito, usar el ultimo codigo de la partida
+    print(f"[JERARQUICO] Sin 'Las demas' en {_prefijo} → ultimo: {hermanas[-1][0]}")
+    return hermanas[-1][0]
 
 
 _MAPA_PARTIDAS_RGI = {
@@ -1248,10 +1319,11 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     codigo_propuesto = c2.get("codigo")
 
     # PRE-FILTRO PARTES: detectar si la consulta es una PARTE (pantalla, robot cintas, etc.)
-    # ANTES de FTS, para redirigir al SON correcto y evitar clasificar como el aparato completo.
-    # Si el par tiene son_directo, usar ese codigo sin buscar (ej: pantalla→8517.79.00 "Las demas").
+    # ANTES de FTS, para redirigir al SON correcto via BUSQUEDA JERARQUICA.
+    # Procedimiento: identifica partida correcta → recorre jerarquicamente todas las SON
+    # de esa partida → si hay match especifico lo usa, si no → "Las demas" (RGI).
     _prefiltro_parte = None
-    _son_directo = None
+    _subpartida_pista = None
     consulta_l = consulta.lower()
     for par in _PARES_ELEMENTO_APARATO:
         if any(kw in consulta_l for kw in par["elem_kw"]):
@@ -1260,49 +1332,23 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
                 "partida_correcta": par["partida_elem"],
                 "fundamento": par["nota"],
             }
-            _son_directo = par.get("son_directo")
+            _subpartida_pista = par.get("subpartida_pista", "")
             break
 
     if not _prefiltro_parte:
         _prefiltro_parte = _detectar_confusion_elemento_aparato(consulta, "")
 
     if _prefiltro_parte and not codigo_propuesto:
-        if _son_directo:
-            codigo_propuesto = _son_directo
+        _partida_correcta = _prefiltro_parte["partida_correcta"]
+        _son_jerarquico = _buscar_jerarquico_en_partida(
+            consulta, _partida_correcta, _subpartida_pista or ""
+        )
+        if _son_jerarquico:
+            codigo_propuesto = _son_jerarquico
             c2["codigo"] = codigo_propuesto
-            c2["fuente_opcion_b"] = f"prefiltro_parte_son_directo"
+            c2["fuente_opcion_b"] = f"prefiltro_parte_jerarquico_{_partida_correcta}"
             c2["prefiltro_parte"] = _prefiltro_parte
-            print(f"[PIPELINE] Pre-filtro PARTE (son_directo): {_prefiltro_parte['fundamento']} -> {codigo_propuesto}")
-        else:
-            _partida_correcta = _prefiltro_parte["partida_correcta"]
-            try:
-                cache_path = os.path.join(_DATA, "fuentes_nomenclatura", "arancel_cache.json")
-                with open(cache_path, "r", encoding="utf-8") as f:
-                    _cache_pf = json.load(f)
-                _codigos_pf = _cache_pf.get("codigos", _cache_pf)
-                _palabras_q = [w.lower() for w in consulta.split() if len(w) >= 4]
-                _mejor_score = 0
-                _mejor_codigo = None
-                for _cod, _desc in _codigos_pf.items():
-                    if not _cod.startswith(_partida_correcta):
-                        continue
-                    _desc_lower = str(_desc).lower()
-                    _hits = sum(1 for p in _palabras_q if p in _desc_lower)
-                    if _hits > _mejor_score:
-                        _mejor_score = _hits
-                        _mejor_codigo = _cod
-                if not _mejor_codigo:
-                    _candidatos_partida = sorted([c for c in _codigos_pf.keys() if c.startswith(_partida_correcta)])
-                    if _candidatos_partida:
-                        _mejor_codigo = _candidatos_partida[-1]
-                if _mejor_codigo:
-                    codigo_propuesto = _mejor_codigo
-                    c2["codigo"] = codigo_propuesto
-                    c2["fuente_opcion_b"] = f"prefiltro_parte_{_partida_correcta}"
-                    c2["prefiltro_parte"] = _prefiltro_parte
-                    print(f"[PIPELINE] Pre-filtro PARTE detectada: {_prefiltro_parte['fundamento']} -> {codigo_propuesto}")
-            except Exception as _e_pf:
-                print(f"[PIPELINE] Pre-filtro parte error: {_e_pf}")
+            print(f"[PIPELINE] Pre-filtro PARTE (jerarquico): {_prefiltro_parte['fundamento']} -> {codigo_propuesto}")
 
     # Opcion B CEO: si Capa 2 fue pre-filtro Gemini (capitulo_candidato), Capa 1
     # recibe el capitulo como pista para su busqueda SON — no hay codigo todavia.
@@ -1328,21 +1374,21 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
                     (_term_fts,)
                 ).fetchall()
                 _con_fts.close()
-                    # Filtrar por capitulo candidato de Gemini
-                    _filtrados = [r for r in _rows_fts if r[0][:2] == capitulo_gemini[:2]]
-                    if _filtrados:
-                        codigo_propuesto = _filtrados[0][0]
-                        c2["codigo"] = codigo_propuesto
-                        c2["fuente_opcion_b"] = f"capitulo_{capitulo_gemini}_fts_match"
-                        _fts_encontrado = True
-                        print(f"[PIPELINE] Opcion B FTS match: {codigo_propuesto} ({_filtrados[0][1][:60]})")
-                    elif _rows_fts:
-                        # FTS encontro algo pero no en el capitulo de Gemini — usar mejor match global
-                        codigo_propuesto = _rows_fts[0][0]
-                        c2["codigo"] = codigo_propuesto
-                        c2["fuente_opcion_b"] = f"fts_global_override_cap_{capitulo_gemini}"
-                        _fts_encontrado = True
-                        print(f"[PIPELINE] Opcion B FTS global (Gemini cap {capitulo_gemini} sin match): {codigo_propuesto}")
+                # Filtrar por capitulo candidato de Gemini
+                _filtrados = [r for r in _rows_fts if r[0][:2] == capitulo_gemini[:2]]
+                if _filtrados:
+                    codigo_propuesto = _filtrados[0][0]
+                    c2["codigo"] = codigo_propuesto
+                    c2["fuente_opcion_b"] = f"capitulo_{capitulo_gemini}_fts_match"
+                    _fts_encontrado = True
+                    print(f"[PIPELINE] Opcion B FTS match: {codigo_propuesto} ({_filtrados[0][1][:60]})")
+                elif _rows_fts:
+                    # FTS encontro algo pero no en el capitulo de Gemini — usar mejor match global
+                    codigo_propuesto = _rows_fts[0][0]
+                    c2["codigo"] = codigo_propuesto
+                    c2["fuente_opcion_b"] = f"fts_global_override_cap_{capitulo_gemini}"
+                    _fts_encontrado = True
+                    print(f"[PIPELINE] Opcion B FTS global (Gemini cap {capitulo_gemini} sin match): {codigo_propuesto}")
         except Exception as _e_fts:
             print(f"[PIPELINE] FTS fallback error: {_e_fts}")
 
