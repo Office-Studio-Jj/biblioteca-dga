@@ -542,7 +542,7 @@ def _buscar_jerarquico_en_partida(consulta: str, partida: str, subpartida_pista:
         return codigo_las_demas
 
     # Fase 4: si no hay "Las demas" explicito, usar el ultimo codigo de la partida
-    print(f"[JERARQUICO] Sin 'Las demas' en {_prefijo} → ultimo: {hermanas[-1][0]}")
+    print(f"[JERARQUICO] Sin 'Las demas' en {_prefijo} -> ultimo: {hermanas[-1][0]}")
     return hermanas[-1][0]
 
 
@@ -778,7 +778,7 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
                         break  # DESC order = el mas alto primero = el mas residual
                 if _demas_parte and _demas_parte[0] != codigo_propuesto:
                     print(f"[CAPA1] Producto es PARTE/REPUESTO: '{consulta[:40]}' "
-                          f"→ redirigir {codigo_propuesto} a {_demas_parte[0]} ({_demas_parte[1][:40]})")
+                          f"-> redirigir {codigo_propuesto} a {_demas_parte[0]} ({_demas_parte[1][:40]})")
                     resultado["redireccion_partes"] = {
                         "codigo_original": codigo_propuesto,
                         "codigo_partes": _demas_parte[0],
@@ -838,7 +838,7 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
                         _desc_demas = _demas_rows[0][1]
                         print(f"[CAPA1] Semantica: '{consulta[:40]}' no matchea "
                               f"'{_desc_propuesta[:40]}' ({_match_ratio:.0%}). "
-                              f"Redirigir {codigo_propuesto} → {_son_demas} ({_desc_demas[:40]})")
+                              f"Redirigir {codigo_propuesto} -> {_son_demas} ({_desc_demas[:40]})")
                         resultado["redireccion_los_demas"] = {
                             "codigo_original": codigo_propuesto,
                             "desc_original": _desc_propuesta[:100],
