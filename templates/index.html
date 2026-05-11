@@ -1070,7 +1070,7 @@
               style="padding:10px 8px;background:#1e3a5f;color:#93c5fd;border:1px solid #1e40af;border-radius:12px;font-size:0.75rem;font-weight:700;cursor:pointer;text-align:center;">
               🔑 Modificar clave
             </button>
-            <a href="/logout"
+            <a href="#" id="btnLogout"
               style="display:block;padding:10px 8px;background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b;border-radius:12px;font-size:0.75rem;font-weight:700;text-align:center;text-decoration:none;">
               🚪 Cerrar sesión
             </a>
@@ -4498,79 +4498,60 @@
   }
 
   /* ══════════════════════════════════════════════════════
-     ASISTENTE VIRTUAL - Tutorial interactivo para usuarios
+     ASISTENTE VIRTUAL - Video educativo automatico
+     El usuario solo observa. No interviene.
      ══════════════════════════════════════════════════════ */
 
-  const _TUTOR_STEPS = [
+  const _VIDEO_SLIDES = [
     {
-      target: '#nbGrid',
-      childSelector: '[data-id="biblioteca-de-nomenclaturas"]',
-      title: '📖 Paso 1: Selecciona un cuaderno',
-      body: 'Toca el cuaderno <strong>"Nomenclaturas"</strong> que esta resaltado. Esperare a que lo toques.',
-      action: 'highlight-child',
-      interactive: true,
-      waitFor: () => !!(typeof selId !== 'undefined' && selId)
+      icon: '📖',
+      title: 'Elige un cuaderno',
+      body: 'Selecciona el cuaderno que necesitas. Por ejemplo, <strong>"Nomenclaturas"</strong> para clasificar productos o <strong>"Legal"</strong> para consultar leyes.',
+      duration: 5000
     },
     {
-      target: '#qInput',
-      title: '✏️ Paso 2: Escribe tu consulta',
-      body: 'Escribe la descripcion del producto en este campo. Ejemplo: <em>"Dron aereo para agricultura"</em>. Avanzo cuando escribas algo.',
-      interactive: true,
-      waitFor: () => {
-        const q = document.getElementById('qInput');
-        return q && q.value.trim().length >= 3;
-      }
+      icon: '✏️',
+      title: 'Escribe tu consulta',
+      body: 'Describe el producto en lenguaje natural. Ejemplo: <em>"Dron aereo para agricultura con camara integrada"</em>.',
+      duration: 5000
     },
     {
-      target: '.attach-btn-gal',
-      title: '🖼️ Paso 3 (opcional): Sube una imagen',
-      body: 'Si tienes una <strong>foto del producto</strong> en tu galeria, puedes adjuntarla aqui. Toca <em>Siguiente</em> si no quieres adjuntar nada.',
+      icon: '📷',
+      title: 'Adjunta evidencia (opcional)',
+      body: 'Puedes subir una <strong>foto desde galeria</strong>, <strong>tomar una foto</strong> con la camara, o adjuntar un <strong>PDF</strong> con la ficha tecnica del producto.',
+      duration: 5000
     },
     {
-      target: '.attach-btn-cam',
-      title: '📸 Paso 4 (opcional): Toma una foto',
-      body: 'Tambien puedes abrir la <strong>camara</strong> y fotografiar el producto. Toca <em>Siguiente</em> para continuar.',
+      icon: '🚀',
+      title: 'Toca "Consultar"',
+      body: 'El sistema analiza tu consulta usando el <strong>protocolo merceologico de 8 fases</strong> con verificacion de IA contra la base arancelaria oficial.',
+      duration: 5000
     },
     {
-      target: '.attach-btn',
-      title: '📎 Paso 5 (opcional): Adjunta un PDF',
-      body: 'Si tienes una <strong>ficha tecnica en PDF</strong> del producto, adjuntala aqui para mas precision. Toca <em>Siguiente</em>.',
+      icon: '📋',
+      title: 'Recibe tu resultado',
+      body: 'Obtendras el <strong>codigo arancelario</strong> (XXXX.XX.XX), impuestos (DAI, ITBIS, ISC), permisos VUCERD y el analisis completo.',
+      duration: 5000
     },
     {
-      target: '#btnSend',
-      title: '🚀 Paso 6: Toca Consultar',
-      body: 'Ahora toca el boton <strong>"Consultar →"</strong> resaltado para enviar tu consulta. Esperare a que lo toques.',
-      interactive: true,
-      waitFor: () => {
-        const r = document.getElementById('respCard');
-        return r && r.classList.contains('show');
-      }
-    },
-    {
-      target: '#respCard',
-      title: '📋 Paso 7: Tu resultado',
-      body: 'Aqui aparece la <strong>tarjeta con el codigo arancelario</strong> (XXXX.XX.XX), impuestos (Gravamen, ITBIS, ISC), permisos VUCERD y analisis del protocolo merceologico de 8 fases.',
-    },
-    {
-      target: '#conformitySection',
-      title: '✅ Paso 8: Confirma o refina',
-      body: 'Si estas <strong>conforme</strong>, guarda la consulta y descarga el informe PDF. Si <strong>no</strong>, adjunta una ficha tecnica o repite en otro cuaderno.',
-      virtual: true
+      icon: '✅',
+      title: 'Confirma o refina',
+      body: 'Si estas <strong>conforme</strong>, descarga el informe PDF. Si <strong>no</strong>, adjunta ficha tecnica o consulta en otro cuaderno para mayor precision.',
+      duration: 5000
     }
   ];
 
-  let _tutorIdx = 0;
-  let _tutorOn = false;
-  let _tutorPointer = null;
-  let _tutorWatcher = null;
+  let _videoIdx = 0;
+  let _videoOn = false;
+  let _videoTimer = null;
+  let _hasActiveSearch = false;
 
-  function _tutorInit() {
-    // Crear FAB si no existe
+  function _videoInit() {
     if (document.getElementById('tutorFab')) return;
 
+    // FAB Ayuda
     const fab = document.createElement('button');
     fab.id = 'tutorFab';
-    fab.onclick = _tutorStart;
     fab.innerHTML = '🎓<span style="display:block;font-size:0.55rem;font-weight:700;letter-spacing:0.5px;margin-top:1px;color:#d4af37;">Ayuda</span>';
     Object.assign(fab.style, {
       position: 'fixed', bottom: '20px', right: '20px', width: '56px', height: '56px',
@@ -4580,47 +4561,28 @@
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       lineHeight: '1', padding: '0', transition: 'bottom 0.3s ease'
     });
+    fab.addEventListener('click', _videoStart);
     document.body.appendChild(fab);
 
-    // Reposicionar FAB cuando hay contenido que tapa
-    function _tutorReposFab() {
-      const fab = document.getElementById('tutorFab');
-      if (!fab || _tutorOn) return;
+    // Ocultar FAB cuando hay respuesta visible
+    function _reposFab() {
+      const f = document.getElementById('tutorFab');
+      if (!f || _videoOn) return;
       const resp = document.getElementById('respCard');
-      // Si hay respuesta visible, ocultar FAB para no tapar contenido
       if (resp && resp.classList.contains('show')) {
-        fab.style.display = 'none';
+        f.style.display = 'none';
+        _hasActiveSearch = true;
         return;
       }
-      fab.style.display = 'flex';
-      fab.style.bottom = '20px';
+      _hasActiveSearch = false;
+      f.style.display = 'flex';
     }
-    // Observar cambios en conformidad y respuesta
-    const _fabObserver = new MutationObserver(_tutorReposFab);
-    const _confEl = document.getElementById('conformitySection');
+    const _fabObs = new MutationObserver(_reposFab);
     const _respEl = document.getElementById('respCard');
-    if (_confEl) _fabObserver.observe(_confEl, { attributes: true, attributeFilter: ['style'] });
-    if (_respEl) _fabObserver.observe(_respEl, { attributes: true, attributeFilter: ['class'] });
-    window.addEventListener('scroll', _tutorReposFab, { passive: true });
-    window.addEventListener('resize', _tutorReposFab, { passive: true });
+    if (_respEl) _fabObs.observe(_respEl, { attributes: true, attributeFilter: ['class'] });
+    window.addEventListener('scroll', _reposFab, { passive: true });
 
-    // Overlay
-    const ov = document.createElement('div');
-    ov.id = 'tutorOverlay';
-    Object.assign(ov.style, {
-      position: 'fixed', inset: '0', zIndex: '9500', display: 'none', pointerEvents: 'none'
-    });
-    ov.innerHTML = `
-      <div id="tutorBackdrop" style="position:absolute;inset:0;background:transparent;pointer-events:none;"></div>
-      <div id="tutorTooltip" style="
-        position:absolute; z-index:9700; background:#1e293b; border:2px solid #d4af37;
-        border-radius:16px; padding:16px 18px; max-width:320px; width:calc(100% - 40px);
-        box-shadow:0 8px 30px rgba(0,0,0,0.5); display:none; pointer-events:auto;
-      "></div>
-    `;
-    document.body.appendChild(ov);
-
-    // Estilos del tutorial
+    // Estilos del video educativo
     const style = document.createElement('style');
     style.textContent = `
       @keyframes tutorFabPulse {
@@ -4628,243 +4590,238 @@
         50% { box-shadow: 0 4px 30px rgba(212,175,55,0.6); }
       }
       #tutorFab { animation: tutorFabPulse 2s infinite; }
-      .tutor-hl {
-        position: relative; z-index: 9600 !important;
-        animation: tutorGlow 1.5s infinite !important;
-        pointer-events: auto !important;
+      #videoOverlay {
+        position: fixed; inset: 0; z-index: 9500;
+        background: rgba(0,0,0,0.85);
+        display: none; align-items: center; justify-content: center;
+        padding: 20px;
       }
-      @keyframes tutorGlow {
-        0%,100% { box-shadow: 0 0 0 4px rgba(212,175,55,0.7), 0 0 0 9999px rgba(0,0,0,0.55); }
-        50%     { box-shadow: 0 0 0 8px rgba(212,175,55,0.4), 0 0 0 9999px rgba(0,0,0,0.55); }
+      #videoOverlay.active { display: flex; }
+      .video-card {
+        background: linear-gradient(160deg, #1e3a5f, #0f2744);
+        border: 2px solid #d4af37; border-radius: 20px;
+        padding: 28px 24px; max-width: 360px; width: 100%;
+        text-align: center; position: relative;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.6);
       }
-      .tutor-ptr {
-        position: absolute; z-index: 9650; font-size: 1.8rem;
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
-        animation: tutorBounce 1s infinite; pointer-events: none;
+      .video-icon { font-size: 3rem; margin-bottom: 12px; display: block; }
+      .video-title {
+        font-size: 1.1rem; font-weight: 700; color: #d4af37;
+        margin-bottom: 10px;
       }
-      @keyframes tutorBounce {
-        0%,100% { transform: translateY(0); }
-        50% { transform: translateY(-8px); }
+      .video-body {
+        font-size: 0.85rem; color: #e2e8f0; line-height: 1.6;
+        margin-bottom: 20px; min-height: 60px;
       }
-      .tutor-tt-title {
-        font-size: 0.9rem; font-weight: 700; color: #d4af37;
-        margin-bottom: 6px;
+      .video-progress {
+        display: flex; gap: 6px; justify-content: center; margin-bottom: 16px;
       }
-      .tutor-tt-body {
-        font-size: 0.8rem; color: #e2e8f0; line-height: 1.5; margin-bottom: 14px;
+      .video-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #334155; transition: all 0.3s;
       }
-      .tutor-tt-footer {
-        display: flex; gap: 8px; align-items: center;
+      .video-dot.active { background: #d4af37; transform: scale(1.3); }
+      .video-dot.done { background: #4ade80; }
+      .video-bar {
+        height: 3px; background: #334155; border-radius: 3px;
+        margin-bottom: 18px; overflow: hidden;
       }
-      .tutor-tt-prog {
-        font-size: 0.7rem; color: #64748b; flex: 1;
+      .video-bar-fill {
+        height: 100%; background: linear-gradient(90deg, #d4af37, #4ade80);
+        border-radius: 3px; transition: width 0.3s linear;
       }
-      .tutor-btn-n {
-        padding: 8px 16px; border-radius: 10px; border: none;
-        font-size: 0.8rem; font-weight: 700; cursor: pointer;
+      .video-skip {
+        position: absolute; top: 12px; right: 14px;
+        background: none; border: none; color: #64748b;
+        font-size: 0.72rem; cursor: pointer; padding: 4px 8px;
+      }
+      .video-skip:active { color: #d4af37; }
+      .video-counter {
+        font-size: 0.68rem; color: #64748b; margin-bottom: 8px;
+      }
+      .video-cta {
+        display: none; padding: 14px 24px; border-radius: 14px; border: none;
+        font-size: 0.95rem; font-weight: 700; cursor: pointer;
+        width: 100%; margin-top: 4px;
+      }
+      .video-cta.primary {
         background: linear-gradient(135deg, #d4af37, #b8962e); color: #0f172a;
       }
-      .tutor-btn-p {
-        padding: 8px 12px; border-radius: 10px; border: none;
-        font-size: 0.8rem; font-weight: 600; cursor: pointer;
-        background: #334155; color: #94a3b8;
+      .video-cta.secondary {
+        background: #1e293b; color: #93c5fd; border: 1px solid #334155;
+        margin-top: 8px;
       }
-      .tutor-btn-s {
-        background: none; border: none; color: #64748b;
-        font-size: 0.72rem; cursor: pointer; padding: 4px;
+      .video-cta:active { opacity: 0.8; }
+      @keyframes videoFadeIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
       }
-      .tutor-waiting {
-        font-size: 0.78rem; font-weight: 700; color: #d4af37;
-        background: #2a2418; border: 1px solid #d4af3744;
-        border-radius: 999px; padding: 6px 12px;
-        animation: tutorWait 1.4s infinite;
-      }
-      @keyframes tutorWait {
-        0%,100% { opacity: 0.7; }
-        50% { opacity: 1; }
-      }
+      .video-card.animate { animation: videoFadeIn 0.4s ease-out; }
     `;
     document.body.appendChild(style);
-  }
 
-  function _tutorStart() {
-    _tutorIdx = 0;
-    _tutorOn = true;
-    // Asegurar que estamos en tab Consulta
-    const consultaTab = document.querySelector('.tab');
-    if (consultaTab) showTab('consulta', consultaTab);
-
-    const ov = document.getElementById('tutorOverlay');
-    ov.style.display = 'block';
-    ov.style.pointerEvents = 'none'; // permite que el usuario toque el target
-    const bd = document.getElementById('tutorBackdrop');
-    if (bd) bd.style.pointerEvents = 'none';
-    document.getElementById('tutorFab').style.display = 'none';
-    setTimeout(() => _tutorShow(), 300);
-  }
-
-  function _tutorClearWatcher() {
-    if (_tutorWatcher) { clearInterval(_tutorWatcher); _tutorWatcher = null; }
-  }
-
-  function _tutorShow() {
-    const step = _TUTOR_STEPS[_tutorIdx];
-
-    // Limpiar highlights y watchers anteriores
-    document.querySelectorAll('.tutor-hl').forEach(e => e.classList.remove('tutor-hl'));
-    if (_tutorPointer) { _tutorPointer.remove(); _tutorPointer = null; }
-    _tutorClearWatcher();
-
-    // Encontrar elemento target
-    let el;
-    if (step.action === 'highlight-child' && step.childSelector) {
-      el = document.querySelector(step.childSelector);
-    } else {
-      el = document.querySelector(step.target);
-    }
-
-    // Para pasos virtuales (elementos que no estan visibles aun)
-    if (!el || step.virtual) {
-      _tutorShowVirtual(step);
-      _tutorArmWaiter(step);
-      return;
-    }
-
-    // Highlight (CSS clase añade glow + spotlight)
-    el.classList.add('tutor-hl');
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-    // Puntero
-    _tutorPointer = document.createElement('div');
-    _tutorPointer.className = 'tutor-ptr';
-    _tutorPointer.textContent = '👇';
-    document.body.appendChild(_tutorPointer);
-
-    setTimeout(() => {
-      const rect = el.getBoundingClientRect();
-      _tutorPointer.style.left = (rect.left + rect.width / 2 - 14) + 'px';
-      _tutorPointer.style.top = (rect.top + window.scrollY - 36) + 'px';
-      _tutorRenderTooltip(step, rect);
-      _tutorArmWaiter(step);
-    }, 400);
-  }
-
-  // Si el paso es interactivo, vigilar que se cumpla la condicion
-  // y avanzar automaticamente cuando el usuario haga la accion.
-  function _tutorArmWaiter(step) {
-    if (!step.interactive || typeof step.waitFor !== 'function') return;
-    _tutorWatcher = setInterval(function() {
-      try {
-        if (step.waitFor()) {
-          _tutorClearWatcher();
-          // Pequeño delay para que se vea el feedback visual
-          setTimeout(() => { if (_tutorOn) _tutorNext(); }, 350);
-        }
-      } catch (e) { /* ignore */ }
-    }, 300);
-  }
-
-  function _tutorTooltipHTML(step) {
-    const isLast = _tutorIdx === _TUTOR_STEPS.length - 1;
-    const isFirst = _tutorIdx === 0;
-    const interactive = !!step.interactive;
-    const nextBtn = interactive
-      ? '<span class="tutor-waiting">⏳ Esperando tu accion...</span>'
-      : `<button class="tutor-btn-n" data-tutor="next">${isLast ? 'Comenzar!' : 'Siguiente →'}</button>`;
-    const leftBtn = !isFirst
-      ? '<button class="tutor-btn-p" data-tutor="prev">Anterior</button>'
-      : '<button class="tutor-btn-s" data-tutor="end">Saltar</button>';
-    return `
-      <div class="tutor-tt-title">${step.title}</div>
-      <div class="tutor-tt-body">${step.body}</div>
-      <div class="tutor-tt-footer">
-        <span class="tutor-tt-prog">Paso ${_tutorIdx + 1} de ${_TUTOR_STEPS.length}</span>
-        ${leftBtn}
-        ${nextBtn}
+    // Crear overlay
+    const ov = document.createElement('div');
+    ov.id = 'videoOverlay';
+    ov.innerHTML = `
+      <div class="video-card" id="videoCard">
+        <button class="video-skip" id="videoSkip">Saltar ✕</button>
+        <div class="video-counter" id="videoCounter"></div>
+        <span class="video-icon" id="videoIcon"></span>
+        <div class="video-title" id="videoTitle"></div>
+        <div class="video-body" id="videoBody"></div>
+        <div class="video-progress" id="videoDots"></div>
+        <div class="video-bar"><div class="video-bar-fill" id="videoBarFill"></div></div>
+        <button class="video-cta primary" id="videoCta1" data-video="cta1"></button>
+        <button class="video-cta secondary" id="videoCta2" data-video="cta2"></button>
       </div>
     `;
+    document.body.appendChild(ov);
+
+    // Event listeners
+    document.getElementById('videoSkip').addEventListener('click', _videoEnd);
+    document.getElementById('videoCta1').addEventListener('click', _videoCta1Action);
+    document.getElementById('videoCta2').addEventListener('click', _videoCta2Action);
   }
 
-  function _tutorShowVirtual(step) {
-    const tooltip = document.getElementById('tutorTooltip');
-    tooltip.innerHTML = _tutorTooltipHTML(step);
-    tooltip.style.top = '50%';
-    tooltip.style.left = '50%';
-    tooltip.style.transform = 'translate(-50%, -50%)';
-    tooltip.style.bottom = 'auto';
-    tooltip.style.display = 'block';
+  function _videoStart() {
+    _videoIdx = 0;
+    _videoOn = true;
+    document.getElementById('tutorFab').style.display = 'none';
+    document.getElementById('videoOverlay').classList.add('active');
+    _videoRender();
+    _videoAutoPlay();
   }
 
-  function _tutorRenderTooltip(step, rect) {
-    const tooltip = document.getElementById('tutorTooltip');
-    tooltip.innerHTML = _tutorTooltipHTML(step);
+  function _videoRender() {
+    const slide = _VIDEO_SLIDES[_videoIdx];
+    const card = document.getElementById('videoCard');
+    card.classList.remove('animate');
+    void card.offsetWidth;
+    card.classList.add('animate');
 
-    // Posicionar debajo del elemento
-    const spaceBelow = window.innerHeight - rect.bottom;
-    if (spaceBelow > 200) {
-      tooltip.style.top = (rect.bottom + window.scrollY + 14) + 'px';
-      tooltip.style.bottom = 'auto';
+    document.getElementById('videoIcon').textContent = slide.icon;
+    document.getElementById('videoTitle').textContent = slide.title;
+    document.getElementById('videoBody').innerHTML = slide.body;
+    document.getElementById('videoCounter').textContent = (_videoIdx + 1) + ' / ' + _VIDEO_SLIDES.length;
+
+    // Dots
+    const dotsEl = document.getElementById('videoDots');
+    dotsEl.innerHTML = _VIDEO_SLIDES.map(function(_, i) {
+      var cls = 'video-dot';
+      if (i < _videoIdx) cls += ' done';
+      if (i === _videoIdx) cls += ' active';
+      return '<div class="' + cls + '"></div>';
+    }).join('');
+
+    // Progress bar
+    var pct = ((_videoIdx + 1) / _VIDEO_SLIDES.length) * 100;
+    document.getElementById('videoBarFill').style.width = pct + '%';
+
+    // Ocultar CTAs durante reproduccion
+    document.getElementById('videoCta1').style.display = 'none';
+    document.getElementById('videoCta2').style.display = 'none';
+  }
+
+  function _videoAutoPlay() {
+    if (_videoTimer) clearTimeout(_videoTimer);
+    if (!_videoOn) return;
+    var slide = _VIDEO_SLIDES[_videoIdx];
+    _videoTimer = setTimeout(function() {
+      if (!_videoOn) return;
+      if (_videoIdx < _VIDEO_SLIDES.length - 1) {
+        _videoIdx++;
+        _videoRender();
+        _videoAutoPlay();
+      } else {
+        _videoShowCtas();
+      }
+    }, slide.duration);
+  }
+
+  function _videoShowCtas() {
+    var tutorDone = localStorage.getItem('dga_tutor_consulta_done');
+    var cta1 = document.getElementById('videoCta1');
+    var cta2 = document.getElementById('videoCta2');
+
+    if (!tutorDone) {
+      // Primera vez
+      cta1.textContent = 'Comenzar';
+      cta1.style.display = 'block';
+      cta2.style.display = 'none';
+    } else if (_hasActiveSearch) {
+      // Tiene una busqueda activa
+      cta1.textContent = 'Nueva busqueda';
+      cta1.style.display = 'block';
+      cta2.textContent = 'Editar busqueda';
+      cta2.style.display = 'block';
     } else {
-      tooltip.style.top = 'auto';
-      tooltip.style.bottom = (window.innerHeight - rect.top + 14) + 'px';
-    }
-    tooltip.style.left = '50%';
-    tooltip.style.transform = 'translateX(-50%)';
-    tooltip.style.display = 'block';
-  }
-
-  function _tutorNext() {
-    if (_tutorIdx < _TUTOR_STEPS.length - 1) {
-      _tutorIdx++;
-      _tutorShow();
-    } else {
-      _tutorEnd();
+      // Logueado, sin busqueda activa
+      cta1.textContent = 'Nueva busqueda';
+      cta1.style.display = 'block';
+      cta2.style.display = 'none';
     }
   }
 
-  function _tutorPrev() {
-    if (_tutorIdx > 0) {
-      _tutorIdx--;
-      _tutorShow();
-    }
+  function _videoCta1Action() {
+    // "Comenzar" o "Nueva busqueda"
+    localStorage.setItem('dga_tutor_consulta_done', '1');
+    _videoEnd();
+    // Limpiar consulta anterior si existe
+    var q = document.getElementById('qInput');
+    if (q) q.value = '';
+    var resp = document.getElementById('respCard');
+    if (resp) resp.classList.remove('show');
+    var conf = document.getElementById('conformitySection');
+    if (conf) conf.style.display = 'none';
+    // Resetear cuaderno seleccionado
+    if (typeof selId !== 'undefined') { selId = ''; selLabel = ''; }
+    document.querySelectorAll('.nb-btn').forEach(function(b) { b.classList.remove('selected'); });
+    if (typeof _updateSendBtn === 'function') _updateSendBtn();
+    // Scroll al inicio
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function _tutorEnd() {
-    _tutorOn = false;
-    _tutorClearWatcher();
-    const ov = document.getElementById('tutorOverlay');
-    if (ov) { ov.style.display = 'none'; ov.style.pointerEvents = 'none'; }
-    document.querySelectorAll('.tutor-hl').forEach(e => e.classList.remove('tutor-hl'));
-    if (_tutorPointer) { _tutorPointer.remove(); _tutorPointer = null; }
-    const tt = document.getElementById('tutorTooltip');
-    if (tt) tt.style.display = 'none';
-    const fab = document.getElementById('tutorFab');
-    if (fab) fab.style.display = 'flex';
+  function _videoCta2Action() {
+    // "Editar busqueda" — cierra el video y deja la consulta actual
+    localStorage.setItem('dga_tutor_consulta_done', '1');
+    _videoEnd();
+    var q = document.getElementById('qInput');
+    if (q) { q.focus(); q.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  }
+
+  function _videoEnd() {
+    _videoOn = false;
+    if (_videoTimer) { clearTimeout(_videoTimer); _videoTimer = null; }
+    document.getElementById('videoOverlay').classList.remove('active');
+    var fab = document.getElementById('tutorFab');
+    if (fab && !_hasActiveSearch) fab.style.display = 'flex';
     localStorage.setItem('dga_tutor_consulta_done', '1');
   }
 
-  // Delegate CSP-friendly para botones del tutorial (data-tutor)
-  document.addEventListener('click', function(ev) {
-    const t = ev.target.closest('[data-tutor]');
-    if (!t) return;
-    ev.preventDefault();
-    const a = t.getAttribute('data-tutor');
-    if (a === 'next') _tutorNext();
-    else if (a === 'prev') _tutorPrev();
-    else if (a === 'end') _tutorEnd();
-  });
-
-  // Inicializar tutorial al cargar
-  document.addEventListener('DOMContentLoaded', () => {
-    _tutorInit();
-    // Auto-mostrar si es primera vez como invitado
-    // NO iniciar si debe cambiar contraseña primero (evita superposicion modal + tutorial)
-    const role = '{{ role }}';
-    const tutorDone = localStorage.getItem('dga_tutor_consulta_done');
-    if (role === 'invitado' && !tutorDone && !MUST_CHANGE_PASSWORD) {
-      setTimeout(_tutorStart, 1200);
+  // Inicializar video educativo al cargar
+  document.addEventListener('DOMContentLoaded', function() {
+    _videoInit();
+    var role = '{{ role }}';
+    var tutorDone = localStorage.getItem('dga_tutor_consulta_done');
+    if (!tutorDone && !MUST_CHANGE_PASSWORD) {
+      setTimeout(_videoStart, 1200);
     }
   });
+
+  // ── Logout: limpiar localStorage antes de redirigir ──
+  (function() {
+    var btn = document.getElementById('btnLogout');
+    if (btn) btn.addEventListener('click', function(ev) {
+      ev.preventDefault();
+      localStorage.removeItem('dga_login_correo');
+      localStorage.removeItem('dga_login_role');
+      localStorage.removeItem('dga_login_nombre');
+      localStorage.removeItem('dga_tutor_consulta_done');
+      sessionStorage.clear();
+      window.location.href = '/logout';
+    });
+  })();
 
   // ── Backup robusto mobile: bind delegado para nb-btn y tabs ──
   // (algunos browsers movil + CSP estricto pueden fallar onclick inline; este listener es CSP-friendly)

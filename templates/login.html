@@ -316,6 +316,18 @@
   var portadaEl = document.getElementById('portada');
   var loginPanel = document.getElementById('loginPanel');
   var hasError = {{ 'true' if error else 'false' }};
+  var isLogout = new URLSearchParams(window.location.search).get('logout') === '1';
+
+  // Después de logout: limpiar TODO el estado guardado para volver a portada limpia
+  if (isLogout) {
+    localStorage.removeItem('dga_login_correo');
+    localStorage.removeItem('dga_login_role');
+    localStorage.removeItem('dga_login_nombre');
+    localStorage.removeItem('dga_tutor_consulta_done');
+    sessionStorage.removeItem('lastAttemptedRole');
+    // Limpiar el ?logout=1 de la URL sin recargar
+    history.replaceState(null, '', '/login');
+  }
 
   document.getElementById('btnAbrirLogin').addEventListener('click', function() {
     loginPanel.classList.add('active');
@@ -385,7 +397,7 @@
     var savedCorreo = localStorage.getItem(LS_CORREO);
     var savedNombre = localStorage.getItem(LS_NOMBRE);
 
-    if (savedRole && savedCorreo) {
+    if (savedRole && savedCorreo && !isLogout) {
       var badge = document.getElementById('savedBadge');
       var labelEl = document.getElementById('savedNombre');
       badge.classList.add('show');
@@ -394,7 +406,6 @@
       var correoField = document.getElementById('correoField');
       if (correoField) correoField.value = savedCorreo;
       document.getElementById('recordarme').checked = true;
-      // Auto-abrir login si tiene sesion guardada
       loginPanel.classList.add('active');
     } else {
       var lastRole = sessionStorage.getItem('lastAttemptedRole');
