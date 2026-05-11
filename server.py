@@ -814,6 +814,131 @@ def index():
                            first_access_pwd=first_access_pwd,
                            public_url=_get_public_url())
 
+# ── ROUTER MULTI-CUADERNO: detecta cuadernos complementarios por keywords ──
+_ROUTER_CUADERNOS = [
+    {
+        "id": "biblioteca-legal-y-procedimiento-dga",
+        "keywords": ["ley", "decreto", "articulo", "sancion", "infraccion", "recurso",
+                      "procedimiento legal", "fiscalizacion", "penalidad", "multa",
+                      "recurso reconsideracion", "tribunal", "codigo tributario",
+                      "ley 168", "dr-cafta", "ilicito", "contrabando"],
+        "pregunta_auto": "Marco legal y procedimiento aplicable a: {q}",
+    },
+    {
+        "id": "biblioteca-para-valoracion-dga",
+        "keywords": ["valor", "valoracion", "cif", "fob", "incoterm", "precio",
+                      "factura", "transaccion", "metodo valoracion", "ajuste",
+                      "valor en aduana", "seguro", "flete"],
+        "pregunta_auto": "Metodo de valoracion aduanera aplicable a: {q}",
+    },
+    {
+        "id": "biblioteca-guia-integral-de-regimenes-y-subastas",
+        "keywords": ["regimen", "zona franca", "admision temporal", "reimportacion",
+                      "transito", "drawback", "subasta", "aforo", "levante",
+                      "deposito", "abandono", "decomiso", "reexportacion"],
+        "pregunta_auto": "Regimen aduanero y procedimiento de aforo para: {q}",
+    },
+    {
+        "id": "biblioteca-para-aforo-dga",
+        "keywords": ["aforo", "inspeccion", "canal rojo", "canal verde", "revision",
+                      "despacho", "levante", "reconocimiento fisico", "apertura bultos"],
+        "pregunta_auto": "Procedimiento de aforo aduanero para: {q}",
+    },
+    {
+        "id": "biblioteca-procedimiento-vucerd",
+        "keywords": ["vucerd", "ventanilla unica", "permiso importacion", "indotel",
+                      "digemaps", "indocal", "agricultura permiso", "sanitario",
+                      "fitosanitario", "registro sanitario", "licencia importacion",
+                      "autorizacion previa", "control previo"],
+        "pregunta_auto": "Permisos y tramites VUCERD necesarios para importar: {q}",
+    },
+    {
+        "id": "biblioteca-de-normas-y-origen-dga",
+        "keywords": ["origen", "certificado origen", "norma origen", "preferencia",
+                      "dr-cafta", "tlc", "tratado", "desgravacion", "arancel preferencial",
+                      "acumulacion origen", "regla origen"],
+        "pregunta_auto": "Normas de origen y preferencias arancelarias para: {q}",
+    },
+    {
+        "id": "guia-maestra-comercio-exterior",
+        "keywords": ["portal", "pagina web", "enlace", "recurso online", "donde consultar",
+                      "sitio oficial", "herramienta", "guia"],
+        "pregunta_auto": "Recursos y portales oficiales relacionados con: {q}",
+    },
+]
+
+
+def _detectar_cuadernos_complementarios(consulta, notebook_principal):
+    """Detecta cuadernos complementarios relevantes para enriquecer la respuesta."""
+    consulta_l = consulta.lower()
+    complementarios = []
+    for ruta in _ROUTER_CUADERNOS:
+        if ruta["id"] == notebook_principal:
+            continue
+        score = sum(1 for kw in ruta["keywords"] if kw in consulta_l)
+        if score >= 1:
+            complementarios.append((score, ruta))
+    complementarios.sort(key=lambda x: x[0], reverse=True)
+    return [r[1] for r in complementarios[:2]]
+
+
+def _consultar_cuaderno_complementario(cuaderno_info, consulta, timeout=15):
+    """Consulta un cuaderno complementario y devuelve respuesta resumida."""
+    try:
+        pregunta = cuaderno_info["pregunta_auto"].format(q=consulta[:200])
+        nb_id = cuaderno_info["id"]
+        cached = _get_cached(pregunta, nb_id)
+        if cached:
+            return {"cuaderno": nb_id, "respuesta": cached[:800], "from_cache": True}
+        answer = ask_notebooklm(pregunta, nb_id, timeout=timeout)
+        if answer and not answer.startswith("[ERROR"):
+            _set_cached(pregunta, nb_id, answer)
+            return {"cuaderno": nb_id, "respuesta": answer[:800], "from_cache": False}
+    except Exception as e:
+        print(f"[ROUTER] Error cuaderno complementario {cuaderno_info['id']}: {e}")
+    return None
+
+
+def _recoger_complementarios(futures_list, executor, timeout_wait=2.0):
+    """Recoge resultados de cuadernos complementarios lanzados en paralelo."""
+    resultados = []
+    for nb_id, fut in futures_list:
+        try:
+            res = fut.result(timeout=timeout_wait)
+            if res and res.get("respuesta"):
+                resultados.append(res)
+                print(f"[ROUTER] Complementario OK: {nb_id[:30]}")
+        except Exception:
+            pass
+    if executor:
+        try:
+            executor.shutdown(wait=False)
+        except Exception:
+            pass
+    return resultados
+
+
+def _enriquecer_respuesta_con_complementarios(answer_text, complementarios):
+    """Agrega informacion de cuadernos complementarios al final de la respuesta."""
+    if not complementarios:
+        return answer_text
+    _nombres_cuaderno = {
+        "biblioteca-legal-y-procedimiento-dga": "Legal y Procedimientos",
+        "biblioteca-para-valoracion-dga": "Valoracion Aduanera",
+        "biblioteca-guia-integral-de-regimenes-y-subastas": "Regimenes y Subastas",
+        "biblioteca-para-aforo-dga": "Aforo Aduanero",
+        "biblioteca-procedimiento-vucerd": "VUCERD / Permisos",
+        "biblioteca-de-normas-y-origen-dga": "Normas de Origen",
+        "guia-maestra-comercio-exterior": "Guia Comercio Exterior",
+        "biblioteca-de-nomenclaturas": "Nomenclaturas",
+    }
+    partes = [answer_text, "\n\n---\n### Informacion complementaria\n"]
+    for comp in complementarios:
+        nombre = _nombres_cuaderno.get(comp["cuaderno"], comp["cuaderno"])
+        partes.append(f"\n**{nombre}:**\n{comp['respuesta'][:600]}\n")
+    return "".join(partes)
+
+
 @app.route("/consultar", methods=["POST"])
 @login_required
 def consultar():
@@ -842,6 +967,25 @@ def consultar():
     ip = _get_client_ip()
     if _rate_limited(f"consulta:{ip}", 'consulta'):
         return jsonify({"error": "Demasiadas consultas. Espera un momento."}), 429
+
+    # ── ROUTER MULTI-CUADERNO: lanzar consultas complementarias en paralelo ──
+    _complementarios_futures = []
+    _complementarios_executor = None
+    if not archivo and question:
+        _cuadernos_comp = _detectar_cuadernos_complementarios(question, notebook_id)
+        if _cuadernos_comp:
+            try:
+                from concurrent.futures import ThreadPoolExecutor as _TPE_comp
+                _complementarios_executor = _TPE_comp(max_workers=min(len(_cuadernos_comp), 2))
+                for _cb in _cuadernos_comp:
+                    _fut = _complementarios_executor.submit(
+                        _consultar_cuaderno_complementario, _cb, question, 15
+                    )
+                    _complementarios_futures.append((_cb["id"], _fut))
+                print(f"[ROUTER] {len(_cuadernos_comp)} cuaderno(s) complementario(s) "
+                      f"lanzados en paralelo: {[c['id'][:30] for c in _cuadernos_comp]}")
+            except Exception as _e_comp:
+                print(f"[ROUTER] Error lanzando complementarios: {_e_comp}")
 
     # ── Cache hit: respuesta instantánea para consultas repetidas (solo texto) ──
     if not archivo:
@@ -905,6 +1049,14 @@ def consultar():
                     _resp_v2["meta"]["confianza"] = _res_v2.get("confianza", "PROVISIONAL")
                     if _res_v2.get("nivel_confianza") == "ROJO":
                         _resp_v2["meta"]["clasificacion_provisional"] = True
+                # Recoger cuadernos complementarios
+                if _complementarios_futures:
+                    _comps = _recoger_complementarios(_complementarios_futures, _complementarios_executor)
+                    if _comps:
+                        _resp_v2["answer"] = _enriquecer_respuesta_con_complementarios(
+                            _resp_v2["answer"], _comps)
+                        _resp_v2["cuadernos_complementarios"] = [c["cuaderno"] for c in _comps]
+                    _complementarios_futures = []
                 return jsonify(_resp_v2)
             else:
                 # v2 no resolvio el SON — intentar R4 (fallback_clasificacion) antes del pipeline viejo
@@ -920,12 +1072,20 @@ def consultar():
                         _informe_r4 = _fi_r4(_res_v2)
                         _set_cached(question, notebook_id, _informe_r4)
                         print(f"[R4_FALLBACK] OK son={_res_r4['codigo_son']}")
-                        return jsonify({
+                        _r4_resp = {
                             "answer": _informe_r4,
                             "from_cache": False,
                             "cache_via": "fallback_r4",
                             "meta": {"codigo": _res_r4["codigo_son"], "version": "v2-r4"},
-                        })
+                        }
+                        if _complementarios_futures:
+                            _comps = _recoger_complementarios(_complementarios_futures, _complementarios_executor)
+                            if _comps:
+                                _r4_resp["answer"] = _enriquecer_respuesta_con_complementarios(
+                                    _r4_resp["answer"], _comps)
+                                _r4_resp["cuadernos_complementarios"] = [c["cuaderno"] for c in _comps]
+                            _complementarios_futures = []
+                        return jsonify(_r4_resp)
                 except Exception as _er4:
                     print(f"[R4_FALLBACK] Error: {_er4}. Continuando a pipeline_3_capas.")
         except Exception as _ev2:
@@ -1004,6 +1164,14 @@ def consultar():
                         _resp_p3c["fuentes_notion"] = _fuentes2
                 except Exception:
                     pass
+                # Recoger cuadernos complementarios
+                if _complementarios_futures:
+                    _comps = _recoger_complementarios(_complementarios_futures, _complementarios_executor)
+                    if _comps:
+                        _resp_p3c["answer"] = _enriquecer_respuesta_con_complementarios(
+                            _resp_p3c["answer"], _comps)
+                        _resp_p3c["cuadernos_complementarios"] = [c["cuaderno"] for c in _comps]
+                    _complementarios_futures = []
                 return jsonify(_resp_p3c)
             else:
                 print(f"[PIPELINE_3CAPAS] no resolvio (patron={traz.get('patron_intacto')}, "
@@ -1096,6 +1264,15 @@ def consultar():
                     _notion_executor.shutdown(wait=False)
                 except Exception:
                     pass
+
+        # Recoger cuadernos complementarios
+        if _complementarios_futures:
+            _comps = _recoger_complementarios(_complementarios_futures, _complementarios_executor)
+            if _comps:
+                resp["answer"] = _enriquecer_respuesta_con_complementarios(
+                    resp["answer"], _comps)
+                resp["cuadernos_complementarios"] = [c["cuaderno"] for c in _comps]
+            _complementarios_futures = []
 
         return jsonify(resp)
     except subprocess.TimeoutExpired:

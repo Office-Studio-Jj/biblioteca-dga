@@ -454,6 +454,12 @@ _PARES_ELEMENTO_APARATO = [
                   "brazo robotico libreria", "robot autoloader"],
      "partida_elem": "8473", "partida_aparato": "8428", "subpartida_pista": "8473.3",
      "nota": "Seccion XVI Nota 2: parte de maquina ADP 8471 — buscar en 8473.3x"},
+    {"elem_kw": ["control remoto", "mando a distancia", "mando distancia", "control tv",
+                  "remote control", "control universal", "control infrarrojo",
+                  "control remoto universal", "control remoto tv", "control remoto para tv",
+                  "control remoto television", "mando infrarrojo"],
+     "partida_elem": "8543", "partida_aparato": "8540", "subpartida_pista": "8543.7",
+     "nota": "Nota Legal 10 Cap.85: mandos a distancia inalambricos (IR) excluidos de 85.37, clasifican en 85.43 (maquinas con funcion propia)"},
 ]
 
 
@@ -662,6 +668,28 @@ _MAPA_PARTIDAS_RGI = {
         "notas_legales": ["Cap.30 — productos farmaceuticos"],
         "exclusiones_partida": ["3003 sin dosificar, 2106 suplementos"],
         "criterio_subpartida": "principio activo + forma farmaceutica",
+    },
+    "8543": {
+        "trigger": ["control remoto", "mando distancia", "mando a distancia",
+                     "control universal", "control infrarrojo", "remote control",
+                     "maquina funcion propia", "aparato funcion propia",
+                     "cigarrillo electronico", "vaporizador electrico"],
+        "rgi": "RGI 1 + Nota Legal 10 Cap.85",
+        "notas_legales": [
+            "Nota Legal 10 Cap.85: la partida 85.37 NO comprende los mandos a distancia inalambricos (IR) de aparatos receptores de TV u otros aparatos electricos — clasifican en 85.43",
+            "Partida 85.43: maquinas y aparatos electricos con funcion propia, no expresados en otra partida del Capitulo",
+            "8543.70.00 NO aplica ISC 10% — no es bien suntuario (Ley 11-92 Art. 375)",
+            "Control remoto IR: NO requiere permiso INDOTEL (no es equipo de radiocomunicacion)",
+            "Control remoto Bluetooth/RF: clasificaria en 8526.92.00 (radiotelemando) y SI requiere INDOTEL",
+        ],
+        "exclusiones_partida": [
+            "8537 (cuadros/paneles de mando — Nota 10 excluye mandos inalambricos IR)",
+            "8526 (si es radiofrecuencia/Bluetooth, no infrarrojo)",
+            "8528 (televisores — el control no es el aparato receptor)",
+            "8542 (circuitos integrados — el control es aparato con funcion propia, no componente)",
+            "8540 (tubos catodicos — completamente distinto)",
+        ],
+        "criterio_subpartida": "8543.70.00 para controles remotos IR y aparatos con funcion propia sin subpartida especifica",
     },
 }
 
@@ -1344,17 +1372,31 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     if not _prefiltro_parte:
         _prefiltro_parte = _detectar_confusion_elemento_aparato(consulta, "")
 
-    if _prefiltro_parte and not codigo_propuesto:
+    # Activar prefiltro si: (a) no hay codigo propuesto, o (b) el codigo propuesto
+    # esta en partida distinta a la correcta (Nota Legal desplaza la clasificacion).
+    _prefiltro_debe_corregir = (
+        _prefiltro_parte and (
+            not codigo_propuesto or
+            (codigo_propuesto and codigo_propuesto[:4] != _prefiltro_parte["partida_correcta"])
+        )
+    )
+    if _prefiltro_debe_corregir:
         _partida_correcta = _prefiltro_parte["partida_correcta"]
+        _codigo_anterior = codigo_propuesto or "(ninguno)"
         _son_jerarquico = _buscar_jerarquico_en_partida(
             consulta, _partida_correcta, _subpartida_pista or ""
         )
         if _son_jerarquico:
             codigo_propuesto = _son_jerarquico
             c2["codigo"] = codigo_propuesto
-            c2["fuente_opcion_b"] = f"prefiltro_parte_jerarquico_{_partida_correcta}"
+            c2["fuente_opcion_b"] = f"prefiltro_nota_legal_{_partida_correcta}"
             c2["prefiltro_parte"] = _prefiltro_parte
-            print(f"[PIPELINE] Pre-filtro PARTE (jerarquico): {_prefiltro_parte['fundamento']} -> {codigo_propuesto}")
+            c2["correccion_nota_legal"] = {
+                "codigo_incorrecto": _codigo_anterior,
+                "codigo_correcto": _son_jerarquico,
+                "fundamento": _prefiltro_parte.get("nota", ""),
+            }
+            print(f"[PIPELINE] Pre-filtro Nota Legal: {_codigo_anterior} -> {codigo_propuesto} ({_prefiltro_parte['nota'][:80]})")
 
     # Opcion B CEO: si Capa 2 fue pre-filtro Gemini (capitulo_candidato), Capa 1
     # recibe el capitulo como pista para su busqueda SON — no hay codigo todavia.

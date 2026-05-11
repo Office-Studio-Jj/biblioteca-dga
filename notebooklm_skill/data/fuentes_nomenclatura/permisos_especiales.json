@@ -9,11 +9,13 @@
       "entidad": "INDOTEL",
       "nombre": "Instituto Dominicano de las Telecomunicaciones",
       "base_legal": "Nota Adicional 1 Capitulo 85, Ley 153-98",
-      "aplica_a": "radiotelemando, aeronaves teledirigidas, drones, equipos radiocomunicacion, antenas",
-      "capitulos": ["85", "88"],
+      "aplica_a": "radiotelemando, aeronaves teledirigidas, drones, equipos radiocomunicacion, antenas, equipos RF/Bluetooth",
+      "capitulos": ["88"],
       "partidas": ["8517", "8525", "8526", "8527", "8806"],
       "keywords_consulta": ["dron", "drone", "radio", "telecomunicacion", "antena", "radioenlace",
-                             "telefono", "celular", "wifi", "bluetooth", "teledirigido", "control remoto"],
+                             "telefono", "celular", "wifi", "bluetooth", "teledirigido",
+                             "control remoto bluetooth", "control remoto rf", "control remoto radiofrecuencia"],
+      "exclusiones": ["8543 (control remoto infrarrojo — NO requiere INDOTEL, Nota 10 Cap.85)"],
       "tramite": "Solicitar autorizacion previa de importacion en INDOTEL antes del despacho"
     },
     {

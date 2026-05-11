@@ -70,7 +70,9 @@
         "2. Las partidas 8501 a 8504 no comprenden los articulos descritos en las partidas 8511, 8512, 8540, 8541 o 8542.",
         "3. En la partida 8507, la expresion acumuladores electricos comprende los presentados con elementos auxiliares.",
         "4. Los aparatos y material de la partida 8517 se clasifican alli aunque esten combinados con otros aparatos.",
-        "5. En la partida 8523, la expresion soportes comprende los preparados para grabar o los que ya contienen grabaciones."
+        "5. En la partida 8523, la expresion soportes comprende los preparados para grabar o los que ya contienen grabaciones.",
+        "10. La partida 85.37 NO comprende los mandos a distancia inalambricos con dispositivo infrarrojo de los aparatos receptores de television u otros aparatos electricos (partida 85.43). Los controles remotos IR clasifican en 8543.70.00 (maquinas y aparatos con funcion propia).",
+        "11.b) Las lamparas, tubos y modulos de diodos emisores de luz (LED), incluso con casquillo, se clasifican en la partida 85.39."
       ],
       "notas_explicativas_clave": [
         "Las camaras de video digitales se clasifican en 85.25 (8525.80 - 8525.89) segun capacidad de grabacion.",
