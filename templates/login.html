@@ -288,10 +288,10 @@
         <button type="button" class="eye" id="btnTogglePwd">👁</button>
       </div>
 
-      <!-- Recordarme -->
+      <!-- Recordarme (activado por defecto) -->
       <div class="remember-row">
-        <input type="checkbox" id="recordarme">
-        <label for="recordarme">Guardar usuario y datos en este dispositivo</label>
+        <input type="checkbox" id="recordarme" checked>
+        <label for="recordarme">Recordar mis datos en este dispositivo</label>
       </div>
 
       <button type="submit" class="btn-login">Ingresar →</button>
@@ -318,14 +318,11 @@
   var hasError = {{ 'true' if error else 'false' }};
   var isLogout = new URLSearchParams(window.location.search).get('logout') === '1';
 
-  // Después de logout: limpiar TODO el estado guardado para volver a portada limpia
+  // Después de logout explícito (botón "Cerrar sesión"): limpiar estado
+  // Nota: las credenciales guardadas (correo/pwd) se MANTIENEN para auto-login
   if (isLogout) {
-    localStorage.removeItem('dga_login_correo');
-    localStorage.removeItem('dga_login_role');
-    localStorage.removeItem('dga_login_nombre');
     localStorage.removeItem('dga_tutor_consulta_done');
     sessionStorage.removeItem('lastAttemptedRole');
-    // Limpiar el ?logout=1 de la URL sin recargar
     history.replaceState(null, '', '/login');
   }
 
@@ -347,6 +344,7 @@
   var LS_CORREO = 'dga_login_correo';
   var LS_ROLE   = 'dga_login_role';
   var LS_NOMBRE = 'dga_login_nombre';
+  var LS_PWD    = 'dga_login_pwd';
 
   function setRole(r) {
     document.getElementById('roleInput').value = r;
@@ -396,15 +394,19 @@
     var savedRole   = localStorage.getItem(LS_ROLE);
     var savedCorreo = localStorage.getItem(LS_CORREO);
     var savedNombre = localStorage.getItem(LS_NOMBRE);
+    var savedPwd    = localStorage.getItem(LS_PWD);
 
-    if (savedRole && savedCorreo && !isLogout) {
+    if (savedRole && !isLogout && (savedCorreo || savedRole === 'master')) {
       var badge = document.getElementById('savedBadge');
       var labelEl = document.getElementById('savedNombre');
       badge.classList.add('show');
-      labelEl.textContent = savedNombre ? ('👤 ' + savedNombre) : savedCorreo;
+      labelEl.textContent = savedNombre ? ('👤 ' + savedNombre) : (savedCorreo || 'Master');
       setRole(savedRole);
       var correoField = document.getElementById('correoField');
-      if (correoField) correoField.value = savedCorreo;
+      if (correoField && savedCorreo) correoField.value = savedCorreo;
+      if (savedPwd) {
+        try { document.getElementById('pwd').value = decodeURIComponent(escape(atob(savedPwd))); } catch(e) {}
+      }
       document.getElementById('recordarme').checked = true;
       loginPanel.classList.add('active');
     } else {
@@ -422,14 +424,17 @@
   document.querySelector('form').addEventListener('submit', function() {
     var correo = (document.getElementById('correoField').value || '').trim();
     var role   = document.getElementById('roleInput').value;
+    var pwd    = document.getElementById('pwd').value || '';
     sessionStorage.setItem('lastAttemptedRole', role);
     if (document.getElementById('recordarme').checked) {
       if (correo) localStorage.setItem(LS_CORREO, correo);
       localStorage.setItem(LS_ROLE, role);
+      if (pwd) localStorage.setItem(LS_PWD, btoa(unescape(encodeURIComponent(pwd))));
     } else {
       localStorage.removeItem(LS_CORREO);
       localStorage.removeItem(LS_ROLE);
       localStorage.removeItem(LS_NOMBRE);
+      localStorage.removeItem(LS_PWD);
     }
   });
 
@@ -437,9 +442,11 @@
     localStorage.removeItem(LS_CORREO);
     localStorage.removeItem(LS_ROLE);
     localStorage.removeItem(LS_NOMBRE);
+    localStorage.removeItem(LS_PWD);
     document.getElementById('savedBadge').classList.remove('show');
     document.getElementById('recordarme').checked = false;
     document.getElementById('correoField').value = '';
+    document.getElementById('pwd').value = '';
     setRole('master');
   }
 

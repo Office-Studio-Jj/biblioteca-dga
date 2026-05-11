@@ -4876,17 +4876,105 @@
   });
 
   // ── Logout: limpiar localStorage antes de redirigir ──
+  function doLogout(keepCredentials) {
+    if (!keepCredentials) {
+      localStorage.removeItem('dga_login_correo');
+      localStorage.removeItem('dga_login_role');
+      localStorage.removeItem('dga_login_nombre');
+    }
+    localStorage.removeItem('dga_tutor_consulta_done');
+    sessionStorage.clear();
+    window.location.href = '/logout';
+  }
+
   (function() {
     var btn = document.getElementById('btnLogout');
     if (btn) btn.addEventListener('click', function(ev) {
       ev.preventDefault();
-      localStorage.removeItem('dga_login_correo');
-      localStorage.removeItem('dga_login_role');
-      localStorage.removeItem('dga_login_nombre');
-      localStorage.removeItem('dga_tutor_consulta_done');
-      sessionStorage.clear();
-      window.location.href = '/logout';
+      doLogout(true);
     });
+  })();
+
+  // ── Idle Timer: 5 min inactividad → cierre de sesión ──
+  (function() {
+    var IDLE_WARN_MS  = 4 * 60 * 1000 + 30 * 1000; // 4:30 — mostrar aviso
+    var IDLE_LOGOUT_MS = 5 * 60 * 1000;              // 5:00 — cerrar sesión
+    var _idleWarnTimer = null;
+    var _idleLogoutTimer = null;
+    var _idleOverlay = null;
+    var _idleCountEl = null;
+    var _idleCountInterval = null;
+
+    function _createIdleOverlay() {
+      var ov = document.createElement('div');
+      ov.id = 'idleOverlay';
+      ov.innerHTML =
+        '<div class="idle-card">' +
+          '<div class="idle-icon">⏱️</div>' +
+          '<div class="idle-title">Sesión inactiva</div>' +
+          '<div class="idle-msg">Tu sesión se cerrará en <span id="idleCount">30</span> segundos por inactividad.</div>' +
+          '<button type="button" class="idle-btn-stay" id="idleBtnStay">Continuar trabajando</button>' +
+          '<button type="button" class="idle-btn-logout" id="idleBtnLogout">Cerrar sesión</button>' +
+        '</div>';
+      document.body.appendChild(ov);
+
+      var st = document.createElement('style');
+      st.textContent =
+        '#idleOverlay{position:fixed;inset:0;z-index:9999;background:rgba(10,22,40,0.92);' +
+        'display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(6px);}' +
+        '#idleOverlay.active{display:flex;}' +
+        '.idle-card{background:linear-gradient(160deg,#1e3a5f,#0f2744);border:2px solid #d4af37;' +
+        'border-radius:24px;padding:32px 24px;text-align:center;max-width:340px;width:100%;' +
+        'animation:idleFadeIn .3s ease-out;}' +
+        '@keyframes idleFadeIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}' +
+        '.idle-icon{font-size:3rem;margin-bottom:12px;}' +
+        '.idle-title{font-size:1.1rem;font-weight:800;color:#d4af37;margin-bottom:8px;}' +
+        '.idle-msg{font-size:0.85rem;color:#94a3b8;line-height:1.5;margin-bottom:24px;}' +
+        '.idle-msg span{color:#f87171;font-weight:700;font-size:1.1rem;}' +
+        '.idle-btn-stay{width:100%;padding:14px;border-radius:14px;border:none;' +
+        'background:linear-gradient(135deg,#d4af37,#b8962e);color:#0f172a;font-size:0.95rem;' +
+        'font-weight:700;cursor:pointer;margin-bottom:10px;font-family:inherit;}' +
+        '.idle-btn-logout{width:100%;padding:12px;border-radius:14px;border:1px solid #334155;' +
+        'background:transparent;color:#64748b;font-size:0.82rem;cursor:pointer;font-family:inherit;}';
+      document.head.appendChild(st);
+
+      _idleOverlay = ov;
+      _idleCountEl = document.getElementById('idleCount');
+
+      document.getElementById('idleBtnStay').addEventListener('click', function() { _idleReset(); });
+      document.getElementById('idleBtnLogout').addEventListener('click', function() { doLogout(true); });
+    }
+
+    function _idleShowWarn() {
+      if (!_idleOverlay) _createIdleOverlay();
+      _idleOverlay.classList.add('active');
+      var secs = 30;
+      _idleCountEl.textContent = secs;
+      _idleCountInterval = setInterval(function() {
+        secs--;
+        if (_idleCountEl) _idleCountEl.textContent = Math.max(secs, 0);
+        if (secs <= 0) clearInterval(_idleCountInterval);
+      }, 1000);
+    }
+
+    function _idleDoLogout() {
+      doLogout(true);
+    }
+
+    function _idleReset() {
+      if (_idleWarnTimer) clearTimeout(_idleWarnTimer);
+      if (_idleLogoutTimer) clearTimeout(_idleLogoutTimer);
+      if (_idleCountInterval) clearInterval(_idleCountInterval);
+      if (_idleOverlay) _idleOverlay.classList.remove('active');
+      _idleWarnTimer = setTimeout(_idleShowWarn, IDLE_WARN_MS);
+      _idleLogoutTimer = setTimeout(_idleDoLogout, IDLE_LOGOUT_MS);
+    }
+
+    ['mousemove','keydown','touchstart','click','scroll'].forEach(function(evt) {
+      document.addEventListener(evt, _idleReset, { passive: true });
+    });
+
+    _idleReset();
   })();
 
   // ── Backup robusto mobile: bind delegado para nb-btn y tabs ──
