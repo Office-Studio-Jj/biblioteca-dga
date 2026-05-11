@@ -943,18 +943,20 @@ def _enriquecer_respuesta_con_complementarios(answer_text, complementarios):
 @login_required
 def consultar():
     # Soporta JSON (sin archivo) y multipart/form-data (con archivo)
+    archivo_pdf = None
     if request.content_type and request.content_type.startswith("multipart/form-data"):
         question    = request.form.get("question", "").strip()
         notebook_id = request.form.get("notebook_id", "")
         archivo     = request.files.get("archivo")
+        archivo_pdf = request.files.get("archivo_pdf")
     else:
         data        = request.json or {}
         question    = data.get("question", "").strip()
         notebook_id = data.get("notebook_id", "")
         archivo     = None
 
-    if not question and not archivo:
-        return jsonify({"error": "Escribe una pregunta o adjunta una foto del producto"}), 400
+    if not question and not archivo and not archivo_pdf:
+        return jsonify({"error": "Escribe una pregunta, adjunta un PDF o una foto del producto"}), 400
     if not notebook_id:
         return jsonify({"error": "Selecciona un cuaderno"}), 400
 
@@ -971,7 +973,7 @@ def consultar():
     # ── ROUTER MULTI-CUADERNO: lanzar consultas complementarias en paralelo ──
     _complementarios_futures = []
     _complementarios_executor = None
-    if not archivo and question:
+    if question:
         _cuadernos_comp = _detectar_cuadernos_complementarios(question, notebook_id)
         if _cuadernos_comp:
             try:
@@ -1220,6 +1222,28 @@ def consultar():
             print(f"[CONSULTAR] Error procesando archivo: {ex}")
             if not question:
                 return jsonify({"error": "No se pudo analizar la imagen. Intenta con otra foto o escribe tu consulta."}), 400
+
+    # Si hay PDF adjunto (ficha tecnica), extraer texto y enriquecer la consulta
+    if archivo_pdf:
+        ok_pdf, err_pdf = _validar_upload(archivo_pdf, {'application/pdf'})
+        if not ok_pdf:
+            return jsonify({"error": f"PDF: {err_pdf}"}), 400
+        try:
+            import tempfile, os as _os_pdf
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+                archivo_pdf.save(tmp_pdf.name)
+                _pdf_path = tmp_pdf.name
+            texto_pdf = _extraer_texto_archivo(_pdf_path, ".pdf")
+            _os_pdf.unlink(_pdf_path)
+            if texto_pdf:
+                question = (
+                    question + "\n\n[FICHA TECNICA PDF adjunta — datos verificados del producto, "
+                    "usar esta informacion como fuente prioritaria para clasificar]:\n"
+                    + texto_pdf[:4000]
+                )
+                print(f"[CONSULTAR] PDF ficha tecnica agregado: {len(texto_pdf)} chars")
+        except Exception as ex_pdf:
+            print(f"[CONSULTAR] Error procesando PDF adjunto: {ex_pdf}")
 
     # Timeout por tipo de consulta:
     #   Texto: 60s (Gemini + Arancel PDF + supervisor)

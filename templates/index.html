@@ -735,7 +735,7 @@
     .nb-btn .ico { font-size: 1.25rem; margin-bottom: 3px; }
     .nb-btn .txt { font-size: 0.63rem; }
 
-    /* ── Attach con botones de archivo / cámara ── */
+    /* ── Attach combinado: PDF + Foto en la misma consulta ── */
     .attach-zone { cursor: default; }
     .attach-btns-row {
       display: flex; gap: 8px; justify-content: center;
@@ -748,11 +748,21 @@
       cursor: pointer; transition: border-color 0.2s, color 0.2s;
     }
     .attach-btn:active { opacity: 0.7; }
-    .attach-btn-gal { border-color: #6d5aad; color: #d8ccfd; }
     .attach-btn-cam { border-color: #3b6fa0; color: #b3d9fd; }
-    .attach-zone.has-file .attach-btn { display: none; }
-    .attach-name { padding: 4px 14px 2px; }
-    .attach-remove { padding: 2px 14px 8px; font-size: 0.7rem; color: #f87171; cursor: pointer; }
+    .attach-files-list {
+      padding: 4px 14px; display: flex; flex-direction: column; gap: 4px;
+    }
+    .attach-file-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 8px; border-radius: 6px;
+      background: rgba(30,41,59,0.7); font-size: 0.72rem; color: #cbd5e1;
+    }
+    .attach-file-item .af-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .attach-file-item .af-remove {
+      color: #f87171; cursor: pointer; font-size: 0.68rem; font-weight: 700;
+      padding: 2px 6px; border-radius: 4px;
+    }
+    .attach-file-item .af-remove:active { background: rgba(248,113,113,0.2); }
 
     /* ── Tarjeta de Nomenclatura — formato legible mobile ── */
     .nom-card { font-size: 0.85rem; padding: 4px 0; }
@@ -881,20 +891,18 @@
       <div class="label">2. Escribe tu consulta</div>
       <div class="card">
         <div class="sel-tag" id="selTag"></div>
-        <textarea id="qInput" placeholder="Escribe tu pregunta o toma una foto..." rows="3" oninput="_updateSendBtn()"></textarea>
+        <textarea id="qInput" placeholder="Describe el producto a clasificar..." rows="3" oninput="_updateSendBtn()"></textarea>
 
-        <!-- Adjuntar ficha técnica -->
+        <!-- Adjuntar archivos: PDF + Foto combinados -->
         <div class="attach-zone" id="attachZone">
-          <input type="file" id="fileInput" accept=".pdf" onchange="onFileSelected(this)" style="display:none">
-          <input type="file" id="galleryInput" accept="image/*" onchange="onFileSelected(this)" style="display:none">
-          <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="onFileSelected(this)" style="display:none">
+          <input type="file" id="fileInput" accept=".pdf" onchange="onPdfSelected(this)" style="display:none">
+          <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="onImageSelected(this)" style="display:none">
+          <input type="file" id="galleryInput" accept="image/*" onchange="onImageSelected(this)" style="display:none">
           <div class="attach-btns-row" id="attachBtnsRow">
-            <button type="button" class="attach-btn" onclick="document.getElementById('fileInput').click()">📎 PDF</button>
-            <button type="button" class="attach-btn attach-btn-gal" onclick="document.getElementById('galleryInput').click()">🖼️ Galería</button>
-            <button type="button" class="attach-btn attach-btn-cam" onclick="document.getElementById('cameraInput').click()">📸 Foto</button>
+            <button type="button" class="attach-btn" onclick="document.getElementById('fileInput').click()">📎 Adjuntar PDF</button>
+            <button type="button" class="attach-btn attach-btn-cam" onclick="document.getElementById('galleryInput').click()">📸 Foto / Galeria</button>
           </div>
-          <div class="attach-name" id="attachName"></div>
-          <div class="attach-remove" id="attachRemove" onclick="removeFile(event)" style="display:none">✕ Quitar</div>
+          <div class="attach-files-list" id="attachFilesList"></div>
         </div>
 
         <button class="btn-primary" id="btnSend" onclick="send()" disabled>Consultar →</button>
@@ -1837,7 +1845,7 @@
 
   function _updateSendBtn() {
     const hasText = document.getElementById('qInput').value.trim().length > 0;
-    const hasFile = !!_attachedFile;
+    const hasFile = !!_attachedPdf || !!_attachedImage;
     document.getElementById('btnSend').disabled = !selId || (!hasText && !hasFile);
   }
 
@@ -1853,13 +1861,14 @@
   }
 
   let _attachedFile = null;
+  let _attachedPdf = null;
+  let _attachedImage = null;
 
-  function onFileSelected(input) {
+  function onPdfSelected(input) {
     const file = input.files[0];
     if (!file) return;
-    const allowed = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/webp'];
-    if (!allowed.includes(file.type) && !file.type.startsWith('image/')) {
-      alert('Solo se permiten archivos PDF o imágenes (JPG, PNG, foto).');
+    if (file.type !== 'application/pdf') {
+      alert('Solo se permiten archivos PDF.');
       input.value = '';
       return;
     }
@@ -1868,26 +1877,79 @@
       input.value = '';
       return;
     }
-    _attachedFile = file;
-    const zone = document.getElementById('attachZone');
-    zone.classList.add('has-file');
-    const icon = file.type.startsWith('image/') ? '📸' : '📄';
-    document.getElementById('attachName').textContent = icon + ' ' + file.name + ' (' + (file.size/1024).toFixed(0) + ' KB)';
-    document.getElementById('attachRemove').style.display = 'block';
-    document.getElementById('attachBtnsRow').style.display = 'none';
+    _attachedPdf = file;
+    _attachedFile = _attachedPdf;
+    _renderAttachedFiles();
+    _updateSendBtn();
+  }
+
+  function onImageSelected(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Solo se permiten imagenes (JPG, PNG, foto).');
+      input.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('La imagen no puede superar 10 MB.');
+      input.value = '';
+      return;
+    }
+    _attachedImage = file;
+    _attachedFile = _attachedImage;
+    _renderAttachedFiles();
+    _updateSendBtn();
+  }
+
+  function _renderAttachedFiles() {
+    const list = document.getElementById('attachFilesList');
+    list.innerHTML = '';
+    if (_attachedPdf) {
+      list.innerHTML += `<div class="attach-file-item">
+        <span>📄</span>
+        <span class="af-name">${_attachedPdf.name} (${(_attachedPdf.size/1024).toFixed(0)} KB)</span>
+        <span class="af-remove" onclick="removeAttach('pdf')">✕</span>
+      </div>`;
+    }
+    if (_attachedImage) {
+      list.innerHTML += `<div class="attach-file-item">
+        <span>📸</span>
+        <span class="af-name">${_attachedImage.name} (${(_attachedImage.size/1024).toFixed(0)} KB)</span>
+        <span class="af-remove" onclick="removeAttach('image')">✕</span>
+      </div>`;
+    }
+    const btnsRow = document.getElementById('attachBtnsRow');
+    const btns = btnsRow.querySelectorAll('.attach-btn');
+    btns[0].style.display = _attachedPdf ? 'none' : '';
+    btns[1].style.display = _attachedImage ? 'none' : '';
+    if (_attachedPdf && _attachedImage) btnsRow.style.display = 'none';
+    else btnsRow.style.display = 'flex';
+  }
+
+  function removeAttach(tipo) {
+    if (tipo === 'pdf') {
+      _attachedPdf = null;
+      document.getElementById('fileInput').value = '';
+    } else {
+      _attachedImage = null;
+      document.getElementById('cameraInput').value = '';
+      document.getElementById('galleryInput').value = '';
+    }
+    _attachedFile = _attachedPdf || _attachedImage || null;
+    _renderAttachedFiles();
     _updateSendBtn();
   }
 
   function removeFile(e) {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     _attachedFile = null;
+    _attachedPdf = null;
+    _attachedImage = null;
     document.getElementById('fileInput').value = '';
     document.getElementById('galleryInput').value = '';
     document.getElementById('cameraInput').value = '';
-    document.getElementById('attachZone').classList.remove('has-file');
-    document.getElementById('attachName').textContent = '';
-    document.getElementById('attachRemove').style.display = 'none';
-    document.getElementById('attachBtnsRow').style.display = 'flex';
+    _renderAttachedFiles();
     _updateSendBtn();
   }
 
@@ -2270,9 +2332,11 @@
     btn.disabled = true;
     btn.textContent = 'Consultando...';
     card.classList.add('show');
-    const loadMsg = _attachedFile && !q
-      ? 'Analizando imagen + Clasificación merceológica... (puede tardar hasta 1 min)'
-      : 'Consultando + Supervisor Interno... (puede tardar unos segundos)';
+    const _tieneArchivos = _attachedPdf || _attachedImage;
+    let loadMsg = 'Consultando + Supervisor Interno... (puede tardar unos segundos)';
+    if (_attachedImage && _attachedPdf) loadMsg = 'Analizando foto + PDF + Clasificacion... (puede tardar hasta 1 min)';
+    else if (_attachedImage) loadMsg = 'Analizando imagen + Clasificacion merceologica... (puede tardar hasta 1 min)';
+    else if (_attachedPdf) loadMsg = 'Procesando PDF + Clasificacion... (puede tardar unos segundos)';
     body.innerHTML = '<div class="loading-row"><div class="spin"></div>' + loadMsg + '</div>';
     nb.textContent = '';
 
@@ -2284,11 +2348,13 @@
     const _tid  = setTimeout(() => _ctrl.abort(), 180000);
     try {
       let res;
-      if (_attachedFile) {
+      const _hayArchivos = _attachedPdf || _attachedImage;
+      if (_hayArchivos) {
         const fd = new FormData();
         fd.append('question', q);
         fd.append('notebook_id', selId);
-        fd.append('archivo', _attachedFile);
+        if (_attachedImage) fd.append('archivo', _attachedImage);
+        if (_attachedPdf) fd.append('archivo_pdf', _attachedPdf);
         res = await fetch('/consultar', { method: 'POST', body: fd, signal: _ctrl.signal });
       } else {
         res = await fetch('/consultar', {
