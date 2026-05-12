@@ -2365,7 +2365,17 @@
         });
       }
       clearTimeout(_tid);
+      if (res.status === 401) {
+        body.innerHTML = '<span class="error">Tu sesión expiró. Redirigiendo al login...</span>';
+        setTimeout(function() { window.location.href = '/login'; }, 1500);
+        return;
+      }
       const data = await res.json();
+      if (data.session_expired) {
+        body.innerHTML = '<span class="error">Tu sesión expiró. Redirigiendo al login...</span>';
+        setTimeout(function() { window.location.href = '/login'; }, 1500);
+        return;
+      }
       if (data.error) {
         const esTimeout = /tiempo|tardó|tardar|timeout/i.test(data.error);
         if (esTimeout && _lastQuery) {

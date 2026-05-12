@@ -70,7 +70,7 @@ if _IS_CLOUD:
     _BASE     = Path("/app")
     PYTHON    = sys.executable
     SKILL_DIR = str(_BASE / "notebooklm_skill")
-    _DATA_DIR = _BASE / "data"
+    _DATA_DIR = Path("/data")
 else:
     _BASE     = Path(r"C:\Users\Usuario")
     PYTHON    = str(_BASE / r".claude\skills\notebooklm\.venv\Scripts\python.exe")
@@ -78,6 +78,20 @@ else:
     _DATA_DIR = Path(r"C:\Users\Usuario\Desktop\Biblioteca Notebooklm DGA\usuarios_y_administradores")
 
 _DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+# ── Seed: copiar datos por defecto si el volumen persistente esta vacio ──
+if _IS_CLOUD:
+    _SEED_DIR = _BASE / "data_seed"
+    if _SEED_DIR.exists():
+        for seed_file in _SEED_DIR.glob("*.json"):
+            dest = _DATA_DIR / seed_file.name
+            if not dest.exists():
+                try:
+                    import shutil
+                    shutil.copy2(seed_file, dest)
+                    print(f"[SEED] Copiado {seed_file.name} -> {dest}")
+                except Exception as e:
+                    print(f"[SEED] Error copiando {seed_file.name}: {e}")
 
 # ── SECRET_KEY segura: env var > archivo persistente > generada ─────────
 def _get_or_create_secret_key():
@@ -537,6 +551,8 @@ def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if not session.get("logged_in"):
+            if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.content_type and "json" in request.content_type:
+                return jsonify({"error": "Sesion expirada", "session_expired": True}), 401
             return redirect(url_for("login"))
         return f(*args, **kwargs)
     return decorated
