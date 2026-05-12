@@ -438,6 +438,49 @@
     }
   });
 
+  function filtrarBotonesPorTipo(tipo) {
+    var bm = document.getElementById('btnMaster');
+    var bo = document.getElementById('btnOperativo');
+    var bg = document.getElementById('btnGuest');
+    if (!tipo) {
+      bm.style.display = ''; bo.style.display = ''; bg.style.display = '';
+      return;
+    }
+    if (tipo === 'operativo') {
+      bm.style.display = 'none'; bo.style.display = ''; bg.style.display = 'none';
+      setRole('operativo');
+    } else if (tipo === 'invitado') {
+      bm.style.display = 'none'; bo.style.display = 'none'; bg.style.display = '';
+      setRole('invitado');
+    } else {
+      bm.style.display = ''; bo.style.display = ''; bg.style.display = '';
+    }
+  }
+
+  var _checkTimer = null;
+  function checkUserType(correo) {
+    if (!correo || correo.indexOf('@') < 0) {
+      filtrarBotonesPorTipo(null);
+      return;
+    }
+    clearTimeout(_checkTimer);
+    _checkTimer = setTimeout(function() {
+      fetch('/api/check-user-type', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({correo: correo})
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.tipo) filtrarBotonesPorTipo(d.tipo);
+        else filtrarBotonesPorTipo(null);
+      }).catch(function() {});
+    }, 400);
+  }
+
+  var correoInput = document.getElementById('correoField');
+  if (correoInput) {
+    correoInput.addEventListener('input', function() { checkUserType(this.value.trim()); });
+    correoInput.addEventListener('blur', function() { checkUserType(this.value.trim()); });
+  }
+
   function borrarSesionGuardada() {
     localStorage.removeItem(LS_CORREO);
     localStorage.removeItem(LS_ROLE);
@@ -447,7 +490,8 @@
     document.getElementById('recordarme').checked = false;
     document.getElementById('correoField').value = '';
     document.getElementById('pwd').value = '';
-    setRole('master');
+    filtrarBotonesPorTipo(null);
+    setRole('invitado');
   }
 
   function togglePwd() {
@@ -458,6 +502,17 @@
   document.getElementById('btnTogglePwd').addEventListener('click', togglePwd);
   var olvidarEl = document.getElementById('btnOlvidar');
   if (olvidarEl) olvidarEl.addEventListener('click', borrarSesionGuardada);
+
+  // Al cargar con credenciales guardadas, filtrar botones por tipo
+  (function() {
+    var sc = localStorage.getItem(LS_CORREO);
+    var sr = localStorage.getItem(LS_ROLE);
+    if (sc && sr && sr !== 'master') {
+      filtrarBotonesPorTipo(sr);
+    } else if (sc) {
+      checkUserType(sc);
+    }
+  })();
 </script>
 </body>
 </html>

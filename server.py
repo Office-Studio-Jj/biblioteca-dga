@@ -303,7 +303,7 @@ _cargar_cache_consultas()
 # ── Rate limiter en memoria ─────────────────────────────────────────────
 _rate_limits = defaultdict(list)
 _RATE_CONFIGS = {
-    'login':           {'max': 5,  'window': 900},   # 5 intentos / 15 min
+    'login':           {'max': 8,  'window': 180},   # 8 intentos / 3 min
     'recovery':        {'max': 3,  'window': 600},   # 3 solicitudes / 10 min
     'recovery_verify': {'max': 5,  'window': 300},   # 5 verificaciones / 5 min
     'password_change': {'max': 5,  'window': 600},   # 5 cambios / 10 min
@@ -625,6 +625,17 @@ def registro():
 
     return render_template("registro.html", error=None)
 
+# ── Check user type (para filtrar botones de rol en login) ──────────────
+@app.route("/api/check-user-type", methods=["POST"])
+def check_user_type():
+    correo = (request.json or {}).get("correo", "").strip().lower()
+    if not correo:
+        return jsonify({"tipo": None})
+    usuario = find_user_by_email(correo)
+    if not usuario:
+        return jsonify({"tipo": None})
+    return jsonify({"tipo": usuario.get("tipo", "invitado")})
+
 # ── Login ───────────────────────────────────────────────────────────────
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -634,7 +645,7 @@ def login():
     if request.method == "POST":
         ip = _get_client_ip()
         if _rate_limited(f"login:{ip}", 'login'):
-            error = "Demasiados intentos. Espera 15 minutos antes de intentar de nuevo."
+            error = "Demasiados intentos. Espera 3 minutos antes de intentar de nuevo."
             referer = request.headers.get("Referer", "")
             if "/invitado" in referer:
                 return render_template("login_invitado.html", error=error)
