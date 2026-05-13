@@ -477,6 +477,10 @@ def load_passwords():
     if "admin" in data and "master" not in data:
         data["master"] = data.pop("admin")
         save_passwords(data)
+    if not data.get("master"):
+        data["master"] = _DEFAULT_MASTER_HASH
+    if not data.get("invitado"):
+        data["invitado"] = _DEFAULT_GUEST_HASH
     return data
 
 def save_passwords(data):
