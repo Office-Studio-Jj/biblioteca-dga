@@ -472,15 +472,21 @@ def load_passwords():
         with open(PASSWORDS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception:
-        return {"master": _DEFAULT_MASTER_HASH, "invitado": _DEFAULT_GUEST_HASH}
-    # ── Migración: renombrar "admin" → "master" ──
+        data = {"master": _DEFAULT_MASTER_HASH, "invitado": _DEFAULT_GUEST_HASH}
+        save_passwords(data)
+        return data
+    changed = False
     if "admin" in data and "master" not in data:
         data["master"] = data.pop("admin")
-        save_passwords(data)
+        changed = True
     if not data.get("master"):
         data["master"] = _DEFAULT_MASTER_HASH
+        changed = True
     if not data.get("invitado"):
         data["invitado"] = _DEFAULT_GUEST_HASH
+        changed = True
+    if changed:
+        save_passwords(data)
     return data
 
 def save_passwords(data):
@@ -650,6 +656,29 @@ def registro():
 
     return render_template("registro.html", error=None)
 
+# ── Diagnóstico temporal (remover después) ──────────────────────────────
+@app.route("/api/debug-auth")
+def debug_auth():
+    import os
+    data_dir = str(_DATA_DIR)
+    files = {}
+    for fname in ["usuarios.json", "passwords.json"]:
+        fpath = _DATA_DIR / fname
+        files[fname] = {"exists": fpath.exists(), "size": fpath.stat().st_size if fpath.exists() else 0}
+    users = load_users()
+    user_count = len(users.get("usuarios", []))
+    user_emails = [u.get("correo", "?") for u in users.get("usuarios", [])]
+    pwds = load_passwords()
+    return jsonify({
+        "data_dir": data_dir,
+        "files": files,
+        "user_count": user_count,
+        "user_emails": user_emails,
+        "master_hash_len": len(pwds.get("master", "")),
+        "guest_hash_len": len(pwds.get("invitado", "")),
+        "guest_hash_preview": pwds.get("invitado", "")[:10] + "..."
+    })
+
 # ── Check user type (para filtrar botones de rol en login) ──────────────
 @app.route("/api/check-user-type", methods=["POST"])
 def check_user_type():
@@ -766,6 +795,7 @@ def login():
                 error = "Ingresa tu correo registrado para acceder como invitado."
             else:
                 usuario = find_user_by_email(correo)
+                print(f"[AUTH-DEBUG] correo={correo}, usuario_found={usuario is not None}")
                 if not usuario:
                     error = "Correo no registrado. ¿Primera vez? Regístrate primero."
                 elif usuario.get("bloqueado"):
@@ -774,6 +804,7 @@ def login():
                     primer_acceso = not usuario.get("password_changed", False)
                     user_pw_hash  = usuario.get("password_hash", "")
                     guest_stored  = get_guest_hash()
+                    print(f"[AUTH-DEBUG] primer_acceso={primer_acceso}, has_personal_hash={bool(user_pw_hash)}, guest_hash_len={len(guest_stored)}")
 
                     ok_personal   = False
                     personal_rehash = False
@@ -786,6 +817,7 @@ def login():
                         ok_shared, shared_rehash = _pw_verify(pwd, guest_stored)
 
                     pwd_ok = ok_personal or ok_shared
+                    print(f"[AUTH-DEBUG] ok_personal={ok_personal}, ok_shared={ok_shared}, pwd_ok={pwd_ok}")
                     if not pwd_ok:
                         error = "Contraseña incorrecta. Intenta de nuevo."
                     else:
