@@ -2289,6 +2289,43 @@
              background:rgba(248,113,113,0.12);border:1px solid rgba(248,113,113,0.4);
              border-radius:8px;color:#f87171;font-size:0.72rem;font-weight:600;">
         </div>
+
+        <!-- Partida sugerida por usuario -->
+        <div style="margin:10px 0 4px;padding:10px 12px;background:rgba(56,189,248,0.08);
+             border:1px solid rgba(56,189,248,0.25);border-radius:8px;">
+          <div style="color:#38bdf8;font-weight:700;font-size:0.78rem;margin-bottom:6px;">
+            Partida sugerida por usuario
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="text" id="inputSugerida-${_esc(code)}" placeholder="XXXX.XX.XX"
+              maxlength="10" style="flex:1;padding:7px 10px;background:rgba(15,23,42,0.6);
+              border:1px solid rgba(56,189,248,0.3);border-radius:6px;color:#e2e8f0;
+              font-size:0.82rem;font-family:monospace;letter-spacing:0.05em;">
+            <button onclick="validarSugerida('${_esc(code)}')"
+              style="padding:7px 14px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);
+              border-radius:6px;color:#38bdf8;font-size:0.76rem;cursor:pointer;white-space:nowrap;">
+              Validar
+            </button>
+          </div>
+          <div id="resultSugerida-${_esc(code)}" style="display:none;margin-top:8px;font-size:0.74rem;"></div>
+        </div>
+
+        <!-- Hermanas: partidas semejantes -->
+        <div id="hermanasSection-${_esc(code)}" style="display:none;margin:8px 0 4px;padding:10px 12px;
+             background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:8px;">
+          <div style="color:#10b981;font-weight:700;font-size:0.78rem;margin-bottom:6px;">
+            Partidas hermanas y semejantes
+          </div>
+          <div id="hermanasLista-${_esc(code)}" style="font-size:0.72rem;"></div>
+        </div>
+        <button onclick="cargarHermanas('${_esc(code)}')"
+          style="width:100%;margin:4px 0 2px;padding:8px;background:rgba(16,185,129,0.1);
+                 border:1px solid rgba(16,185,129,0.3);border-radius:8px;color:#10b981;
+                 font-size:0.76rem;cursor:pointer;letter-spacing:0.02em;"
+          id="btn-hermanas-${_esc(code)}">
+          Ver partidas hermanas y semejantes
+        </button>
+
         ${detailsBlock}
       </div>`;
   }
@@ -2494,6 +2531,11 @@
       renderSavedProducts();
       document.getElementById('nbChoiceSection').style.display = 'block';
       document.getElementById('sameNbLabel').textContent = _lastNbName;
+      // Auto-cargar hermanas al decir "No conforme" (si es nomenclatura)
+      if (_lastNomenclaturaData) {
+        const _code = _lastNomenclaturaData.subpartidaNac || _lastNomenclaturaData.subpartida || '';
+        if (_code) cargarHermanas(_code);
+      }
       document.getElementById('fichaSection').scrollIntoView({behavior: 'smooth', block: 'start'});
     }
   }
@@ -3877,6 +3919,119 @@
       });
       btn.textContent = '⚖️ Reintentar verificación ISC';
       btn.disabled    = false;
+    }
+  }
+
+  // ── Validar partida sugerida por usuario ─────────────────────────────────
+  async function validarSugerida(codigoSistema) {
+    const input = document.getElementById('inputSugerida-' + codigoSistema);
+    const resultDiv = document.getElementById('resultSugerida-' + codigoSistema);
+    if (!input) return;
+    let cod = input.value.trim().replace(/\s/g, '');
+    if (!cod) { input.focus(); return; }
+    if (/^\d{8}$/.test(cod)) cod = cod.slice(0,4)+'.'+cod.slice(4,6)+'.'+cod.slice(6,8);
+    if (!/^\d{4}\.\d{2}\.\d{2}$/.test(cod)) {
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = '<div style="color:#f87171;">Formato invalido. Usa XXXX.XX.XX</div>';
+      return;
+    }
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<div style="color:#94a3b8;">Validando...</div>';
+    try {
+      const r = await fetch('/api/validar-sugerida', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ codigo: cod, query: _lastQuery || '', codigo_sistema: codigoSistema })
+      });
+      const data = await r.json();
+      if (data.error) {
+        resultDiv.innerHTML = '<div style="color:#f87171;">' + _esc(data.error) + '</div>';
+        return;
+      }
+      if (data.valido) {
+        resultDiv.innerHTML = `
+          <div style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);
+               border-radius:6px;padding:8px 10px;">
+            <div style="color:#86efac;font-weight:700;margin-bottom:4px;">ACEPTADA</div>
+            <div style="color:#cbd5e1;font-size:0.72rem;">${_esc(data.descripcion||'')}</div>
+            <div style="color:#94a3b8;font-size:0.68rem;margin-top:4px;">${_esc(data.razon||'')}</div>
+            <div style="color:#fde68a;font-size:0.7rem;margin-top:2px;">Gravamen: ${_esc(data.gravamen||'?')}%</div>
+          </div>`;
+      } else {
+        let hermHtml = '';
+        if (data.hermanas && data.hermanas.length) {
+          hermHtml = '<div style="margin-top:6px;"><div style="color:#64748b;font-size:0.68rem;margin-bottom:4px;">Hermanas evaluadas:</div>';
+          data.hermanas.forEach(h => {
+            const marker = h.es_corregido ? ' style="color:#86efac;font-weight:700;"' : (h.es_sugerido ? ' style="color:#f87171;"' : '');
+            const badge = h.es_corregido ? '<span style="color:#86efac;font-size:0.6rem;margin-left:4px;">RECOMENDADA</span>' : (h.es_sugerido ? '<span style="color:#f87171;font-size:0.6rem;margin-left:4px;">RECHAZADA</span>' : '');
+            hermHtml += '<div style="padding:3px 0;border-bottom:1px solid rgba(100,116,139,0.15);"><span' + marker + '>' + _esc(h.codigo) + '</span>' + badge + '<div style="color:#94a3b8;font-size:0.66rem;">' + _esc(h.descripcion) + '</div></div>';
+          });
+          hermHtml += '</div>';
+        }
+        let notasHtml = '';
+        if (data.notas_aplicadas && data.notas_aplicadas.length) {
+          notasHtml = '<div style="margin-top:6px;color:#64748b;font-size:0.66rem;"><strong>Notas Legales aplicadas:</strong><ul style="margin:2px 0 0 16px;padding:0;">';
+          data.notas_aplicadas.forEach(n => { notasHtml += '<li>' + _esc(n.substring(0,200)) + '</li>'; });
+          notasHtml += '</ul></div>';
+        }
+        resultDiv.innerHTML = `
+          <div style="background:rgba(248,113,113,0.12);border:1px solid rgba(248,113,113,0.3);
+               border-radius:6px;padding:8px 10px;">
+            <div style="color:#f87171;font-weight:700;margin-bottom:4px;">RECHAZADA</div>
+            <div style="color:#cbd5e1;font-size:0.72rem;">${_esc(data.razon||'')}</div>
+            ${data.codigo_corregido ? '<div style="margin-top:6px;color:#86efac;font-size:0.74rem;"><strong>Codigo recomendado:</strong> ' + _esc(data.codigo_corregido) + ' <span style="color:#64748b;">(' + _esc((data.descripcion_corregido||'').substring(0,80)) + ')</span> Grav. ' + _esc(data.gravamen_corregido||'?') + '%</div>' : ''}
+            ${notasHtml}
+            ${hermHtml}
+          </div>`;
+      }
+    } catch(e) {
+      resultDiv.innerHTML = '<div style="color:#f87171;">Error de conexion</div>';
+    }
+  }
+
+  // ── Cargar hermanas (partidas semejantes) ─────────────────────────────────
+  async function cargarHermanas(codigo) {
+    const section = document.getElementById('hermanasSection-' + codigo);
+    const lista = document.getElementById('hermanasLista-' + codigo);
+    const btn = document.getElementById('btn-hermanas-' + codigo);
+    if (!section || !lista) return;
+    if (section.style.display !== 'none') { section.style.display = 'none'; return; }
+    if (btn) { btn.textContent = 'Cargando...'; btn.disabled = true; }
+    try {
+      const r = await fetch('/api/hermanas', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ codigo: codigo })
+      });
+      const data = await r.json();
+      if (btn) { btn.textContent = 'Ver partidas hermanas y semejantes'; btn.disabled = false; }
+      if (data.error) { lista.innerHTML = '<div style="color:#f87171;">' + _esc(data.error) + '</div>'; section.style.display = 'block'; return; }
+
+      let html = '';
+      if (data.hermanas_subpartida && data.hermanas_subpartida.length) {
+        html += '<div style="color:#10b981;font-size:0.7rem;font-weight:600;margin-bottom:4px;">Misma subpartida (6 dig) — identicas/hermanas:</div>';
+        data.hermanas_subpartida.forEach(h => {
+          html += `<div style="padding:4px 0;border-bottom:1px solid rgba(16,185,129,0.15);">
+            <span style="color:#6ee7b7;font-weight:700;font-family:monospace;">${_esc(h.codigo)}</span>
+            <span style="color:#64748b;font-size:0.66rem;margin-left:6px;">Grav. ${_esc(h.gravamen)}%</span>
+            <div style="color:#94a3b8;font-size:0.68rem;">${_esc(h.descripcion)}</div></div>`;
+        });
+      }
+      if (data.hermanas_partida && data.hermanas_partida.length) {
+        html += '<div style="color:#10b981;font-size:0.7rem;font-weight:600;margin:8px 0 4px;">Misma partida (4 dig) — semejantes:</div>';
+        data.hermanas_partida.forEach(h => {
+          html += `<div style="padding:3px 0;border-bottom:1px solid rgba(16,185,129,0.1);">
+            <span style="color:#a7f3d0;font-family:monospace;">${_esc(h.codigo)}</span>
+            <span style="color:#64748b;font-size:0.66rem;margin-left:6px;">Grav. ${_esc(h.gravamen)}%</span>
+            <div style="color:#94a3b8;font-size:0.66rem;">${_esc(h.descripcion)}</div></div>`;
+        });
+      }
+      if (!html) html = '<div style="color:#64748b;">No se encontraron partidas hermanas.</div>';
+      lista.innerHTML = html;
+      section.style.display = 'block';
+      section.scrollIntoView({behavior:'smooth', block:'nearest'});
+    } catch(e) {
+      if (btn) { btn.textContent = 'Ver partidas hermanas y semejantes'; btn.disabled = false; }
+      lista.innerHTML = '<div style="color:#f87171;">Error de conexion</div>';
+      section.style.display = 'block';
     }
   }
 

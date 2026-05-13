@@ -3,7 +3,7 @@
     "version": "2.0",
     "descripcion": "Biblioteca canonica de errores resueltos. Fuente de consulta para auto-resolver-dga (skill que detecta errores recurrentes y aplica solucion conocida automaticamente).",
     "ultima_actualizacion": "2026-05-10",
-    "total_errores": 32,
+    "total_errores": 33,
     "uso": "Cargar al detectar nuevo error reportado. Hacer matching por keywords/componente/tipo/sintoma. Si match >= 0.7, aplicar solucion documentada y verificar."
   },
   "errores": [
@@ -1140,6 +1140,45 @@
       "commit": "b2acf80",
       "origen": "Reporte usuario con 4 screenshots produccion",
       "prioridad": "ALTA",
+      "estado": "RESUELTO"
+    },
+    {
+      "id": "ERR-033",
+      "titulo": "Motor electrico para drones clasificado como Motor para juguetes (8501.10.10 en vez de 8501.10.92)",
+      "sintomas_usuario": [
+        "motor dron clasificado como juguete",
+        "8501.10.10 incorrecto",
+        "motores para juguetes en vez de corriente alterna",
+        "clasificacion repetida erronea motor"
+      ],
+      "keywords_match": [
+        "8501.10.10",
+        "motor juguete",
+        "dron motor",
+        "motor electrico",
+        "corriente alterna",
+        "8501.10.92",
+        "motor brushless"
+      ],
+      "componente": "sub_agentes/validador_jerarquia_sa.py",
+      "tipo": "clasificacion/coherencia-semantica",
+      "fix_resumen": "Triple defensa: (1) BLACKLIST_COHERENCIA rechaza 8501.10.10 si consulta no contiene 'juguete', (2) score coherencia semantica < 15 busca mejor hermana, (3) gate post-pipeline en server.py revalida antes de responder al usuario.",
+      "archivos": [
+        "sub_agentes/validador_jerarquia_sa.py",
+        "server.py"
+      ],
+      "lineas_clave": [
+        "validador_jerarquia_sa.py: _BLACKLIST_COHERENCIA dict",
+        "validador_jerarquia_sa.py: _verificar_blacklist()",
+        "validador_jerarquia_sa.py: _score_coherencia_semantica()",
+        "validador_jerarquia_sa.py: _seleccionar_mejor_hermana()",
+        "server.py: Gate coherencia post-pipeline"
+      ],
+      "verificacion": "Consultar 'motores electricos para drones agricolas' -> debe retornar 8501.10.92 (De corriente alterna), NUNCA 8501.10.10",
+      "fecha": "2026-05-12",
+      "commit": "pendiente",
+      "origen": "Reporte usuario con screenshot produccion: regresion BUG-008",
+      "prioridad": "CRITICA",
       "estado": "RESUELTO"
     }
   ]

@@ -1213,6 +1213,25 @@ def consultar():
                     traz["respuesta_final"] = _ans_p3
                     traz["interceptor_ceo_001"] = True
 
+            # GATE COHERENCIA POST-PIPELINE: segunda barrera contra SON
+            # incoherentes (BUG-008 recurrente: 8501.10.10 para no-juguetes)
+            _cod_post = traz.get("codigo_final", "")
+            if _cod_post:
+                try:
+                    from sub_agentes.validador_jerarquia_sa import validar_y_corregir as _vyc
+                    _son_final, _inf_vyc = _vyc(question, _cod_post)
+                    if _son_final != _cod_post:
+                        print(f"[SERVER] Gate coherencia post-pipeline: "
+                              f"{_cod_post} -> {_son_final} "
+                              f"({_inf_vyc.get('defensa', 'jerarquia')})")
+                        traz["codigo_final"] = _son_final
+                        _old_resp = traz.get("respuesta_final", "")
+                        traz["respuesta_final"] = _old_resp.replace(
+                            _cod_post, _son_final)
+                        traz["gate_coherencia_post"] = _inf_vyc
+                except Exception as _e_vyc:
+                    print(f"[SERVER] Gate coherencia error: {_e_vyc}")
+
             if traz.get("patron_intacto") and traz.get("respuesta_final") and traz.get("codigo_final"):
                 print(f"[PIPELINE_3CAPAS] OK codigo={traz['codigo_final']} "
                       f"tiempo={traz.get('tiempo_total_ms')}ms")
@@ -3136,6 +3155,136 @@ def api_confirmar_clasificacion():
     })
     _guardar_blacklist(bl)
     return jsonify({"ok": True, "mensaje": f"Clasificacion {codigo} confirmada y guardada"})
+
+
+@app.route("/api/validar-sugerida", methods=["POST"])
+@login_required
+def api_validar_sugerida():
+    """Valida una partida sugerida por el usuario contra la consulta original.
+    Usa validador_jerarquia_sa para analizar con Notas Legales y RGI."""
+    import re as _re
+    d = request.json or {}
+    codigo_sugerido = d.get("codigo", "").strip().replace(" ", "")
+    query = d.get("query", "").strip()
+    codigo_sistema = d.get("codigo_sistema", "").strip()
+
+    if not query:
+        return jsonify({"error": "Consulta requerida"}), 400
+    if not _re.match(r'^\d{4}\.\d{2}\.\d{2}$', codigo_sugerido):
+        return jsonify({"error": "Formato invalido. Usa: XXXX.XX.XX"}), 400
+
+    cache_path = os.path.join(SKILL_DIR, "data", "fuentes_nomenclatura", "arancel_cache.json")
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+        codigos = cache.get("codigos", cache)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    if codigo_sugerido not in codigos:
+        return jsonify({
+            "valido": False, "codigo": codigo_sugerido,
+            "razon": f"Codigo {codigo_sugerido} no existe en el Arancel RD (7,616 SON verificados).",
+            "accion": "RECHAZADA"
+        })
+
+    try:
+        from sub_agentes.validador_jerarquia_sa import (
+            validar_y_corregir, obtener_hermanas, obtener_hermanas_partida
+        )
+        son_final, info = validar_y_corregir(query, codigo_sugerido)
+        desc_sugerido = codigos.get(codigo_sugerido, "")
+        desc_sistema = codigos.get(codigo_sistema, "") if codigo_sistema else ""
+        _m = _re.search(r'\s+(\d+)\s*$', desc_sugerido.strip())
+        grav_sugerido = _m.group(1) if _m else "?"
+
+        notas_c = info.get("notas_consultadas", {})
+        notas_lista = (notas_c.get("notas_cap", []) + notas_c.get("notas_sec", [])
+                       + notas_c.get("notas_subpartida", []))[:5]
+
+        if son_final == codigo_sugerido:
+            return jsonify({
+                "valido": True, "codigo": codigo_sugerido,
+                "descripcion": desc_sugerido, "gravamen": grav_sugerido,
+                "accion": "ACEPTADA",
+                "razon": info.get("razon", "La partida sugerida es coherente con la consulta."),
+                "defensa": info.get("defensa", "validacion"),
+                "notas_aplicadas": notas_lista,
+            })
+        else:
+            desc_corregido = codigos.get(son_final, "")
+            _m2 = _re.search(r'\s+(\d+)\s*$', desc_corregido.strip())
+            grav_corregido = _m2.group(1) if _m2 else "?"
+            hermanas = obtener_hermanas(codigo_sugerido)
+            hermanas_info = []
+            for cod, desc in hermanas[:8]:
+                _mg = _re.search(r'\s+(\d+)\s*$', desc.strip())
+                hermanas_info.append({
+                    "codigo": cod, "descripcion": desc[:120],
+                    "gravamen": _mg.group(1) if _mg else "?",
+                    "es_sugerido": cod == codigo_sugerido,
+                    "es_sistema": cod == codigo_sistema,
+                    "es_corregido": cod == son_final,
+                })
+            return jsonify({
+                "valido": False, "codigo": codigo_sugerido,
+                "descripcion_sugerido": desc_sugerido,
+                "codigo_corregido": son_final,
+                "descripcion_corregido": desc_corregido,
+                "gravamen_corregido": grav_corregido,
+                "accion": "RECHAZADA",
+                "razon": info.get("razon", "La partida no coincide con la descripcion del producto."),
+                "razonamiento_legal": info.get("razonamiento_legal", ""),
+                "defensa": info.get("defensa", "jerarquia"),
+                "notas_aplicadas": notas_lista,
+                "hermanas": hermanas_info,
+            })
+    except Exception as e:
+        print(f"[VALIDAR-SUGERIDA] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/hermanas", methods=["POST"])
+@login_required
+def api_hermanas():
+    """Devuelve partidas hermanas (misma subpartida 6 dig) y de la misma partida (4 dig)
+    para la seccion 'continuar busqueda'."""
+    import re as _re
+    d = request.json or {}
+    codigo = d.get("codigo", "").strip()
+    if not _re.match(r'^\d{4}\.\d{2}\.\d{2}$', codigo):
+        return jsonify({"error": "Codigo invalido"}), 400
+
+    cache_path = os.path.join(SKILL_DIR, "data", "fuentes_nomenclatura", "arancel_cache.json")
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+        codigos = cache.get("codigos", cache)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    prefijo_6 = codigo[:7]
+    prefijo_4 = codigo[:4]
+
+    hermanas_6 = []
+    hermanas_4 = []
+    for cod, desc in sorted(codigos.items()):
+        if cod == codigo:
+            continue
+        _mg = _re.search(r'\s+(\d+)\s*$', desc.strip())
+        grav = _mg.group(1) if _mg else "?"
+        entry = {"codigo": cod, "descripcion": desc[:140], "gravamen": grav}
+        if cod.startswith(prefijo_6):
+            hermanas_6.append(entry)
+        elif cod.startswith(prefijo_4):
+            hermanas_4.append(entry)
+
+    return jsonify({
+        "ok": True, "codigo": codigo,
+        "hermanas_subpartida": hermanas_6,
+        "hermanas_partida": hermanas_4[:15],
+        "desc_actual": codigos.get(codigo, "")[:140],
+    })
 
 
 @app.route("/api/validar-codigo-manual", methods=["POST"])
