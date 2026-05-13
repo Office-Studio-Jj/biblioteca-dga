@@ -435,9 +435,12 @@ def _notificar_whatsapp_registro(nombre, correo, whatsapp_usuario):
 def load_historial():
     try:
         with open(HISTORIAL_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
     except Exception:
-        return {"registros": []}
+        data = {}
+    if not isinstance(data, dict) or "registros" not in data:
+        data = {"registros": data.get("registros", []) if isinstance(data, dict) else []}
+    return data
 
 def save_historial(data):
     with open(HISTORIAL_FILE, "w", encoding="utf-8") as f:
