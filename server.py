@@ -449,9 +449,12 @@ def save_historial(data):
 def load_recovery():
     try:
         with open(RECOVERY_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
     except Exception:
-        return {"solicitudes": []}
+        data = {}
+    if not isinstance(data, dict) or "solicitudes" not in data:
+        data = {"solicitudes": data.get("solicitudes", []) if isinstance(data, dict) else []}
+    return data
 
 def save_recovery(data):
     with open(RECOVERY_FILE, "w", encoding="utf-8") as f:
@@ -538,9 +541,12 @@ def get_notebooks():
 def load_users():
     try:
         with open(USERS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
     except Exception:
-        return {"usuarios": []}
+        data = {}
+    if not isinstance(data, dict) or "usuarios" not in data:
+        data = {"usuarios": data.get("usuarios", []) if isinstance(data, dict) else []}
+    return data
 
 def save_users(data):
     with open(USERS_FILE, "w", encoding="utf-8") as f:
