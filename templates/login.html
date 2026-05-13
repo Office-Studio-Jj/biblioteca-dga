@@ -218,7 +218,7 @@
       padding: 5px 12px; border-radius: 20px; margin-bottom: 14px;
     }
     .saved-badge.show { display: inline-flex; }
-    .saved-clear { margin-left: 6px; color: #64748b; cursor: pointer; font-size: 0.75rem; text-decoration: underline; }
+    .saved-clear { margin-left: 8px; color: #f87171; cursor: pointer; font-size: 0.78rem; font-weight: 600; text-decoration: none; background: rgba(248,113,113,0.12); padding: 2px 8px; border-radius: 8px; border: 1px solid rgba(248,113,113,0.3); }
   </style>
 </head>
 <body>
@@ -298,8 +298,11 @@
 
       {% if error %}<div class="error">{{ error }}</div>{% endif %}
       <div class="hint" id="hint">Acceso completo al sistema</div>
-      <div style="margin-top:14px;text-align:center;">
-        <a href="/recuperar" style="font-size:0.72rem;color:#64748b;text-decoration:none;">¿Olvidaste tu contraseña? <span style="color:#d4af37;font-weight:600;">Recupérala aquí</span></a>
+      <div style="margin-top:18px;text-align:center;padding:12px 16px;background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.25);border-radius:12px;">
+        <a href="/recuperar" style="font-size:0.85rem;color:#e2e8f0;text-decoration:none;display:block;">
+          🔑 ¿Olvidaste tu contraseña?<br>
+          <span style="color:#d4af37;font-weight:700;font-size:0.9rem;">Recupérala aquí →</span>
+        </a>
       </div>
     </form>
 
