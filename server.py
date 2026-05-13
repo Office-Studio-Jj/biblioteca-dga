@@ -606,6 +606,10 @@ def registro():
         if find_user_by_email(correo):
             return render_template("registro.html", error="Este correo ya está registrado. Inicia sesión.")
 
+        pwd_raw = d.get("password", "").strip()
+        if len(pwd_raw) < 6:
+            return render_template("registro.html", error="La contraseña debe tener al menos 6 caracteres.")
+
         nuevo = {
             "id": str(uuid.uuid4()),
             "nombre":     d.get("nombre", "").strip(),
@@ -620,7 +624,8 @@ def registro():
             "numero":     d.get("numero", "").strip(),
             "fecha_registro":   datetime.now().strftime("%Y-%m-%d %H:%M"),
             "bloqueado":        False,
-            "password_changed": False
+            "password_changed": True,
+            "password_hash":    _pw_hash(pwd_raw)
         }
         data = load_users()
         data["usuarios"].append(nuevo)
