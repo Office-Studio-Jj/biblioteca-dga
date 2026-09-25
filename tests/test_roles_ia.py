@@ -111,3 +111,59 @@ def test_clopas_inactivo_sin_clave():
             mock.patch.object(clopas_auto, "_en_segundo_plano") as bg:
         clopas_auto.registrar_consulta_vucerd({"estado": "NO_VERIFICADO"})
     bg.assert_not_called()
+
+
+class _Bloque:
+    def __init__(self, tipo, texto=""):
+        self.type, self.text = tipo, texto
+
+
+class _Resp:
+    def __init__(self, stop, bloques):
+        self.stop_reason, self.content = stop, bloques
+
+
+def _cliente_simulado(respuestas, llamadas):
+    class _Msgs:
+        def create(self, **kw):
+            llamadas.append(kw)
+            return respuestas.pop(0)
+
+    class _Beta:
+        messages = _Msgs()
+
+    class _C:
+        beta = _Beta()
+
+        def with_options(self, **kw):
+            return self
+    return _C()
+
+
+def test_web_solo_dominios_oficiales_y_reanuda_pausa():
+    llamadas = []
+    respuestas = [_Resp("pause_turn", [_Bloque("server_tool_use")]),
+                  _Resp("end_turn", [_Bloque("server_tool_use"), _Bloque("text", "Respuesta con fuente")])]
+    with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "x"}), \
+            mock.patch.object(arbitro_claude, "_cliente", return_value=_cliente_simulado(respuestas, llamadas)):
+        texto = arbitro_claude.llamar_claude("sys", "pregunta", web=True)
+    assert texto == "Respuesta con fuente" and len(llamadas) == 2
+    for h in llamadas[0]["tools"]:
+        assert h["allowed_domains"] == arbitro_claude.DOMINIOS_OFICIALES_RD and h["max_uses"] <= 2
+    assert all(d.endswith((".gob.do", ".gov.do")) for d in arbitro_claude.DOMINIOS_OFICIALES_RD)
+    assert llamadas[1]["messages"][-1]["role"] == "assistant"
+
+
+def test_sin_web_no_hay_herramientas():
+    llamadas = []
+    with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "x"}), \
+            mock.patch.object(arbitro_claude, "_cliente",
+                              return_value=_cliente_simulado([_Resp("end_turn", [_Bloque("text", "ok")])], llamadas)):
+        assert arbitro_claude.llamar_claude("sys", "p") == "ok"
+    assert "tools" not in llamadas[0]
+
+
+def test_contexto_legal_incluye_rgi_notas_partidas_y_aperturas():
+    from sub_agentes.contexto_legal import construir
+    b = construir(["83"], ["83.06"])
+    assert "RGI 1" in b and "CAPÍTULO 83" in b and "83.06 Campanas" in b and "8306.29.00" in b

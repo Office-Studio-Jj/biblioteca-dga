@@ -214,8 +214,9 @@ def _gemini_identificar_capitulo(consulta: str) -> Dict[str, Any]:
         out.update(ok=False, error="sin arbitraje Claude: no se determina capitulo")
         return out
     out.update(capitulo=arbitro["capitulo"],
+               partida_candidata=arbitro.get("partida", ""),
                capitulos_alt=", ".join(arbitro.get("alternativos", [])),
-               razon=f"Claude (RGI 1): {arbitro.get('fundamento', '')}"[:300])
+               razon=f"Claude (RGI): {arbitro.get('fundamento', '')}"[:400])
     return out
 
 

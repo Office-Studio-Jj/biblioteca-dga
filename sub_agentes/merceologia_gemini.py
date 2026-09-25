@@ -9,12 +9,12 @@ import json
 import os
 import re
 import sqlite3
-import sys
-from collections import defaultdict
+import time
+import urllib.request
+from collections import OrderedDict, defaultdict
 
 _RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _DB = os.path.join(_RAIZ, "capa1_sqlite", "arancel_rd.db")
-_SCRIPTS = os.path.join(_RAIZ, "notebooklm_skill", "scripts")
 
 CRITERIOS = ("materia", "funcion", "uso", "parte_accesorio", "conjunto_o_juego", "estado_presentacion")
 
@@ -65,34 +65,56 @@ def _limpiar(valor):
     return valor
 
 
-def investigar_merceologia(producto, timeout=20):
-    """Ficha merceológica del producto según Gemini. {} si Gemini no está disponible."""
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key or not (producto or "").strip():
+_MODELO = os.environ.get("MERCEOLOGIA_GEMINI_MODEL", "gemini-2.5-flash")
+_TIMEOUT = float(os.environ.get("MERCEOLOGIA_TIMEOUT_S", "8"))
+_cache_fichas = OrderedDict()
+
+
+def _gemini_json(prompt, timeout):
+    """Llamada REST mínima: sin razonamiento, salida JSON acotada. Texto o None."""
+    url = (f"https://generativelanguage.googleapis.com/v1beta/models/{_MODELO}:generateContent"
+           f"?key={os.environ['GEMINI_API_KEY']}")
+    cuerpo = {
+        "system_instruction": {"parts": [{"text": _SYSTEM}]},
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"thinkingConfig": {"thinkingBudget": 0}, "maxOutputTokens": 700,
+                             "temperature": 0.2, "responseMimeType": "application/json"},
+    }
+    req = urllib.request.Request(url, data=json.dumps(cuerpo).encode(), method="POST",
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        datos = json.loads(r.read().decode("utf-8", errors="replace"))
+    partes = ((datos.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+    return "".join(p.get("text", "") for p in partes) or None
+
+
+def investigar_merceologia(producto, timeout=None):
+    """Ficha merceológica según Gemini (solo informativa). {} si Gemini falla o tarda más del límite."""
+    producto = (producto or "").strip()
+    if not os.environ.get("GEMINI_API_KEY") or not producto:
         return {}
-    if _SCRIPTS not in sys.path:
-        sys.path.insert(0, _SCRIPTS)
+    clave = " ".join(producto.lower().split())[:300]
+    if clave in _cache_fichas:
+        _cache_fichas.move_to_end(clave)
+        return _cache_fichas[clave]
+    t0 = time.time()
     try:
-        from ask_gemini import _gemini_rest_call
-        texto, err = _gemini_rest_call(
-            api_key, "gemini-2.5-flash", _SYSTEM,
+        texto = _gemini_json(
             _PROMPT.format(producto=producto.replace('"', "'")[:600], criterios=" | ".join(CRITERIOS)),
-            timeout=int(timeout))
-    except Exception as e:
-        print(f"[MERCEOLOGIA] Gemini no disponible: {e}")
-        return {}
-    if err or not texto:
-        print(f"[MERCEOLOGIA] Gemini sin respuesta: {err}")
-        return {}
-    m = re.search(r"\{[\s\S]*\}", texto)
-    try:
+            timeout or _TIMEOUT)
+        m = re.search(r"\{[\s\S]*\}", texto or "")
         ficha = json.loads(m.group(0)) if m else {}
-    except ValueError:
+    except Exception as e:
+        print(f"[MERCEOLOGIA] Sin ficha en {time.time() - t0:.1f}s ({type(e).__name__}); se continúa sin ella")
         return {}
     ficha = {k: _limpiar(v) for k, v in ficha.items()}
     if ficha.get("criterio_prevalente") not in CRITERIOS:
         ficha["criterio_prevalente"] = ""
     ficha["fuente"] = "gemini_merceologia"
+    _cache_fichas[clave] = ficha
+    if len(_cache_fichas) > 500:
+        _cache_fichas.popitem(last=False)
+    print(f"[MERCEOLOGIA] Ficha en {time.time() - t0:.1f}s")
     return ficha
 
 
@@ -135,6 +157,11 @@ def capitulos_desde_biblioteca(terminos, maximo=3):
     Los primeros términos (consulta del usuario, nombre técnico) pesan más.
     """
     votos, ejemplos = defaultdict(float), defaultdict(list)
+    # El texto de las partidas pesa más: es lo que manda la RGI 1.
+    from sub_agentes.contexto_legal import partidas_por_texto
+    for partida, puntaje in partidas_por_texto(terminos[:8]):
+        votos[partida[:2]] += 1.5 * puntaje
+        ejemplos[partida[:2]].insert(0, f"{partida} (partida)")
     for i, termino in enumerate(terminos[:8]):
         peso = 1.0 / (1 + i * 0.5)
         for pos, (son, desc, _rank) in enumerate(_fts(termino)):

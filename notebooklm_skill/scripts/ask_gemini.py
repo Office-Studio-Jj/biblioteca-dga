@@ -1413,15 +1413,25 @@ def ask_gemini(question, notebook_id, _intento=1):
     try:
         t0 = time.time()
         _merc = ""
+        _system = system_prompt
         if notebook_id == "biblioteca-de-nomenclaturas":
+            from sub_agentes.arbitro_claude import SYSTEM_LEGAL
+            from sub_agentes.contexto_legal import construir, partidas_por_texto
+            from sub_agentes.merceologia_gemini import terminos_de_ficha, capitulos_desde_biblioteca
             _ficha = investigar_merceologia(question_actual)
+            _terms = terminos_de_ficha(_ficha, question_actual)
+            _caps = [c["capitulo"] for c in capitulos_desde_biblioteca(_terms, maximo=3)]
+            _dest = [p for p, _ in partidas_por_texto(_terms)]
             if _ficha:
-                _merc = ("\n\nFICHA MERCEOLOGICA (Gemini, solo informativa: describe el producto, "
-                         "no lo clasifica):\n" + json.dumps(_ficha, ensure_ascii=False))
+                _merc += ("\n\nFICHA MERCEOLOGICA (Gemini, solo informativa: describe el producto, "
+                          "no lo clasifica):\n" + json.dumps(_ficha, ensure_ascii=False))
+            if _caps:
+                _merc += "\n\nCONTEXTO LEGAL DE LA BIBLIOTECA-DGA:\n" + construir(_caps, _dest)
+            _system = SYSTEM_LEGAL + "\n\n" + system_prompt
         answer = llamar_claude(
-            system_prompt + "\n\nToda partida, SON, tasa o base legal debe salir de la biblioteca-dga "
+            _system + "\n\nToda partida, SON, tasa o base legal debe salir de la biblioteca-dga "
             "incluida en este mensaje; si no esta, dilo en lugar de suponer.",
-            full_prompt + _merc, max_tokens=8000, effort="medium", timeout=50.0) or ""
+            full_prompt + _merc, max_tokens=8000, effort="medium", timeout=50.0, web=True) or ""
         t1 = time.time()
         print(f"[CLAUDE] Borrador recibido ({len(answer)} chars) en {t1-t0:.1f}s")
 

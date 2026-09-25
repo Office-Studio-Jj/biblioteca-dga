@@ -21,7 +21,7 @@ if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
 
-def traducir_consulta(texto_usuario: str, timeout: float = 15.0) -> dict:
+def traducir_consulta(texto_usuario: str, timeout: float = None) -> dict:
     """Ficha merceologica de Gemini en el formato que espera el orquestador.
     Si falla, devuelve consulta_traducida = texto_usuario (sin cambio)."""
     fallback = {
@@ -52,7 +52,7 @@ def traducir_consulta(texto_usuario: str, timeout: float = 15.0) -> dict:
     }
 
 
-def enriquecer_consulta(texto_usuario: str, timeout: float = 15.0) -> str:
+def enriquecer_consulta(texto_usuario: str, timeout: float = None) -> str:
     """
     Funcion simplificada para orquestador_v2.
     Devuelve texto enriquecido = traduccion + terminos arancelarios.
