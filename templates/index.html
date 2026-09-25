@@ -3998,7 +3998,7 @@
           hermHtml = '<div style="margin-top:6px;"><div style="color:#64748b;font-size:0.68rem;margin-bottom:4px;">Hermanas evaluadas:</div>';
           data.hermanas.forEach(h => {
             const marker = h.es_corregido ? ' style="color:#86efac;font-weight:700;"' : (h.es_sugerido ? ' style="color:#f87171;"' : '');
-            const badge = h.es_corregido ? '<span style="color:#86efac;font-size:0.6rem;margin-left:4px;">RECOMENDADA</span>' : (h.es_sugerido ? '<span style="color:#f87171;font-size:0.6rem;margin-left:4px;">RECHAZADA</span>' : '');
+            const badge = h.es_corregido ? '<span style="color:#fde68a;font-size:0.6rem;margin-left:4px;">A EVALUAR</span>' : (h.es_sugerido ? '<span style="color:#f87171;font-size:0.6rem;margin-left:4px;">OBSERVADA</span>' : '');
             hermHtml += '<div style="padding:3px 0;border-bottom:1px solid rgba(100,116,139,0.15);"><span' + marker + '>' + _esc(h.codigo) + '</span>' + badge + '<div style="color:#94a3b8;font-size:0.66rem;">' + _esc(h.descripcion) + '</div></div>';
           });
           hermHtml += '</div>';
@@ -4012,9 +4012,9 @@
         resultDiv.innerHTML = `
           <div style="background:rgba(248,113,113,0.12);border:1px solid rgba(248,113,113,0.3);
                border-radius:6px;padding:8px 10px;">
-            <div style="color:#f87171;font-weight:700;margin-bottom:4px;">RECHAZADA</div>
+            <div style="color:#fde68a;font-weight:700;margin-bottom:4px;">OBSERVADA — verificar con Notas Legales y RGI</div>
             <div style="color:#cbd5e1;font-size:0.72rem;">${_esc(data.razon||'')}</div>
-            ${data.codigo_corregido ? '<div style="margin-top:6px;color:#86efac;font-size:0.74rem;"><strong>Codigo recomendado:</strong> ' + _esc(data.codigo_corregido) + ' <span style="color:#64748b;">(' + _esc((data.descripcion_corregido||'').substring(0,80)) + ')</span> Grav. ' + _esc(data.gravamen_corregido||'?') + '%</div>' : ''}
+            ${data.codigo_corregido ? '<div style="margin-top:6px;color:#fde68a;font-size:0.74rem;"><strong>Alternativa a evaluar (no aplicada):</strong> ' + _esc(data.codigo_corregido) + ' <span style="color:#64748b;">(' + _esc((data.descripcion_corregido||'').substring(0,80)) + ')</span> Grav. ' + _esc(data.gravamen_corregido||'?') + '%</div>' : ''}
             ${notasHtml}
             ${hermHtml}
           </div>`;

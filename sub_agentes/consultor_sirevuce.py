@@ -193,7 +193,8 @@ def _buscar(q, tramite):
     intentos = []
     if son:
         digitos = son.replace(".", "")
-        intentos += [{"TagIdSelect": digitos, "Trades": trades}, {"TagIdSelect2": digitos, "Trades": trades}]
+        # Formulario oficial "Por Arancel": GET /Home/Report?inputArancel=<4-8 digitos>&Trades=N
+        intentos += [{"inputArancel": digitos, "Trades": trades}, {"TagIdSelect2": digitos, "Trades": trades}]
     intentos.append({"TagIdSelect2": q, "Trades": trades})
     ultimo_url = None
     for params in intentos:

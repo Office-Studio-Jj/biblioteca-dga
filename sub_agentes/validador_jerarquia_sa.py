@@ -591,7 +591,7 @@ def _enriquecer_con_mapa_rgi(consulta: str, son: str) -> Dict[str, Any]:
     }
 
 
-def validar_y_corregir(consulta: str, son_propuesto: str) -> Tuple[str, Dict[str, Any]]:
+def _analizar_jerarquia(consulta: str, son_propuesto: str) -> Tuple[str, Dict[str, Any]]:
     """
     Valida jerarquia y retorna (son_final, informe).
     Aplica 3 capas de defensa con fundamento normativo:
@@ -707,4 +707,21 @@ def validar_y_corregir(consulta: str, son_propuesto: str) -> Tuple[str, Dict[str
         )
         return corregido, informe
 
+    return son_propuesto, informe
+
+
+def validar_y_corregir(consulta: str, son_propuesto: str) -> Tuple[str, Dict[str, Any]]:
+    """Advierte, no sustituye: devuelve siempre son_propuesto.
+
+    Si el analisis jerarquico/semantico encuentra una hermana mas coherente, se informa como
+    "alternativa_sugerida" para el arbitro legal (Claude). La biblioteca y los puntajes de
+    texto no determinan la partida (decision del usuario 25-09-2026).
+    """
+    alternativa, informe = _analizar_jerarquia(consulta, son_propuesto)
+    informe = dict(informe or {})
+    if alternativa and alternativa != son_propuesto:
+        informe["valido"] = False
+        informe["alternativa_sugerida"] = alternativa
+        informe.pop("son_corregido", None)
+        informe["sustitucion"] = "no aplicada: la partida la decide el arbitro legal"
     return son_propuesto, informe

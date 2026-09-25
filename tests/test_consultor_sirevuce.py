@@ -126,3 +126,35 @@ def test_portal_caido_no_verificado():
     assert r["estado"] == "NO_VERIFICADO"
     assert "NO VERIFICADO" in cs.formatear_bloque(r)
     assert cs._cache == {}
+
+
+_FIX = os.path.join(os.path.dirname(__file__), "fixtures")
+
+
+def _html_real(nombre):
+    with open(os.path.join(_FIX, nombre), encoding="utf-8") as f:
+        return f.read()
+
+
+def test_html_real_del_portal_por_codigo():
+    """Páginas reales de sirevuce.aduanas.gob.do capturadas el 25-09-2026."""
+    cs._cache.clear()
+    pag = {"reporte": _html_real("sirevuce_reporte_90229010.html"),
+           "/Home/Details/7268?Trades=1": _html_real("sirevuce_detalle_7268.html")}
+    llamadas = []
+
+    def _g(path, params=None):
+        llamadas.append(params)
+        return _fake_get(pag)(path, params)
+
+    with mock.patch.object(cs, "_get", side_effect=_g):
+        r = cs.consultar_sirevuce("9022.90.10")
+    assert llamadas[0] == {"inputArancel": "90229010", "Trades": "1"}
+    assert r["estado"] == "VERIFICADO"
+    res = r["resultados"][0]
+    assert res["son"] == "9022.90.10" and res["requiere_vuce"] is True
+    assert res["gravamen"] == "0%" and res["itbis"] == "18%"
+    f = res["formularios"][0]
+    assert f["nombre"] == "Importación de Productos Sanitarios y Equipos Médicos"
+    assert f["campos"]["Organismos externos"] == ["MINISTERIO DE SALUD PUBLICA Y ASISTENCIA SOCIAL"]
+    assert f["campos"]["Costo"] == ["DOP 1,000.00"]

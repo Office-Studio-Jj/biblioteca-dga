@@ -1440,16 +1440,18 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
                 pass
 
     # GATE JERARQUIA SA: valida que el codigo propuesto respeta el recorrido
-    # jerarquico del Arancel. Si "Las demas" fue propuesto pero existe hermana
-    # especifica que aplica, corrige ANTES de enviar a Capa 1.
+    # jerarquico del Arancel. Solo observa: la alternativa se informa a Capa 1 (Claude),
+    # nunca se sustituye el codigo por puntaje de texto.
     if _gate_jerarquia_sa is not None and codigo_propuesto:
         _son_validado, _informe_jer = _gate_jerarquia_sa(consulta, codigo_propuesto)
         trazabilidad["gate_jerarquia_sa"] = _informe_jer
-        if _son_validado != codigo_propuesto:
-            print(f"[PIPELINE] Gate Jerarquia SA corrigio: {codigo_propuesto} -> {_son_validado}")
-            codigo_propuesto = _son_validado
-            c2["codigo"] = _son_validado
-            c2["correccion_jerarquica"] = _informe_jer.get("razon", "")
+        if _informe_jer.get("valido") is False:
+            c2["observacion_jerarquica"] = {
+                "razon": _informe_jer.get("razon", ""),
+                "alternativa_sugerida": _informe_jer.get("alternativa_sugerida", ""),
+            }
+            print(f"[PIPELINE] Gate Jerarquia SA observa {codigo_propuesto} "
+                  f"(alternativa sin aplicar: {_informe_jer.get('alternativa_sugerida', '-')})")
 
     # CAPA 1: Claude/SQLite verificador (recibe caracteristicas detectadas en Capa 3)
     caracs = c3.get("caracteristicas_detectadas", {})
