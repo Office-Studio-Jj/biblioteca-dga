@@ -1721,9 +1721,13 @@ def health_claude():
         "prefijo": clave[:10],
         "ultimos_4": clave[-4:] if len(clave) >= 8 else "",
         "espacios_o_comillas": clave != clave.strip().strip('"').strip("'"),
+        # p. ej. "sk-ant-a••••": clave copiada enmascarada desde la consola
+        "caracteres_no_ascii": sum(1 for c in clave if not (33 <= ord(c) <= 126)),
     }
-    if not clave:
+    if not clave or info["caracteres_no_ascii"]:
         info["status"] = "FAIL"
+        if clave:
+            info["error"] = "Clave enmascarada o con caracteres invalidos: pegar la clave real completa"
         return jsonify(info), 503
     import urllib.request as _ur
     import urllib.error as _ue

@@ -21,6 +21,12 @@ if ($clave.Length -lt 50 -or -not $clave.StartsWith("sk-ant-")) {
     Write-Host "ERROR: ANTHROPIC_API_KEY del .env no parece valida." -ForegroundColor Red
     exit 1
 }
+if ($clave -match '[^\x21-\x7E]') {
+    Write-Host "ERROR: la clave del .env esta ENMASCARADA (tiene puntos o simbolos, no es la clave real)." -ForegroundColor Red
+    Write-Host "Crea una clave nueva en console.anthropic.com > API Keys > Create Key, copiala con el boton Copy"
+    Write-Host "y pegala completa en el .env (ANTHROPIC_API_KEY=sk-ant-api03-...). Luego vuelve a ejecutar este script."
+    exit 1
+}
 Write-Host ("OK: clave leida del .env (" + $clave.Length + " caracteres)") -ForegroundColor Green
 
 Write-Host "[1/4] Verificando Railway CLI..." -ForegroundColor Yellow
