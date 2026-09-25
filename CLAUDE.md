@@ -18,6 +18,11 @@
 8. Gravamen: tipo Decimal, nunca float
 9. Seguridad datos: cumplir Ley 172-13 (datos personales) y Ley 168-21 Art. 10 (confidencialidad aduanera)
 
+## Continuidad (CLOPAS)
+- CLOPAS = BD Notion "📚 Biblioteca online" (collection://028b7767-c309-47ba-aaeb-2bd89a1c22eb): correcciones, creaciones y errores de app-movil y biblioteca-dga
+- Informe "último": el registro CLOPAS con título `[INFORME] AAAA-MM-DD — ...` de fecha más reciente; retomar desde su sección "Próximas tareas". Cada sesión de trabajo cierra con un informe nuevo con ese formato
+- Verificación de producción: workflow "Verificar produccion" (espera el commit en `/health/version`)
+
 ## Arquitectura (Opción B CEO 03-MAY-2026)
 - Capa 1: SQLite (arancel_rd.db, 7,616 SON) — verdad exacta DAI/ITBIS/ISC
 - Capa 2: Notion (3 BDs activas + 4 pendientes) — conocimiento estructurado

@@ -22,3 +22,6 @@ jobs:
         run: bash scripts/diagnostico_sirevuce.sh
       - name: Esperar despliegue y verificar endpoints
         run: bash scripts/verificar_produccion.sh
+        env:
+          # En push a main se espera ese commit; en PR o ejecucion manual, lo que este desplegado.
+          EXPECTED_SHA: ${{ github.event_name == 'push' && github.sha || '' }}

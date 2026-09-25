@@ -1703,6 +1703,13 @@ def health_sirevuce():
     }), (200 if ok else 503)
 
 
+# Commit desplegado (Railway lo expone al desplegar desde GitHub); lo usa la
+# verificacion de produccion para no probar el despliegue anterior.
+@app.route("/health/version")
+def health_version():
+    return jsonify({"commit": os.environ.get("RAILWAY_GIT_COMMIT_SHA", "")})
+
+
 # ── Health public sin auth: diagnostica Gemini desde cualquier dispositivo ──
 @app.route("/health/gemini")
 def health_gemini():
