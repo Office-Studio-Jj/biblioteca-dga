@@ -73,7 +73,10 @@ def _cache_get(consulta: str, notebook_id: str) -> Optional[Dict[str, Any]]:
             return None
         if time.time() - entry.get("ts", 0) > _CACHE_TTL_SEG:
             return None
-        return entry.get("payload")
+        payload = entry.get("payload") or {}
+        if _claude_fallo(payload):  # entradas viejas guardadas con Claude caido
+            return None
+        return payload or None
     except Exception:
         return None
 
@@ -93,6 +96,15 @@ def _cache_put(consulta: str, notebook_id: str, payload: Dict[str, Any]) -> None
             json.dump(data, f, ensure_ascii=False)
     except Exception as e:
         print(f"[CACHE] No se pudo guardar consulta: {e}")
+
+
+def _claude_fallo(trazabilidad: Dict[str, Any]) -> bool:
+    """True si alguna capa intento validar con Claude y la llamada fallo (sin veredicto)."""
+    for capa in trazabilidad.get("capas", []):
+        conf = capa.get("claude_confirmacion") if isinstance(capa, dict) else None
+        if isinstance(conf, dict) and (conf.get("error") or conf.get("valido") is None):
+            return True
+    return False
 
 
 def capa_3_gemini_orquestador(consulta: str, notebook_id: str) -> Dict[str, Any]:
@@ -1614,8 +1626,10 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     trazabilidad["tiempo_total_ms"] = int((time.time() - t0) * 1000)
 
     # CACHE-PUT: solo respuestas validas (patron intacto + codigo final + gate salida ok)
+    # y nunca si Claude fallo (401, timeout): se reintentaria recien a los 7 dias.
     if (trazabilidad.get("patron_intacto") and trazabilidad.get("codigo_final")
-            and trazabilidad.get("gate_salida", {}).get("nivel_valido", True)):
+            and trazabilidad.get("gate_salida", {}).get("nivel_valido", True)
+            and not _claude_fallo(trazabilidad)):
         _cache_put(consulta, notebook_id, trazabilidad)
 
     return trazabilidad
