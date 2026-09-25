@@ -15,13 +15,6 @@ import re
 import json
 import time
 
-try:
-    from google import genai
-    from google.genai import types
-except ImportError:
-    print("[GEMINI] ERROR: google-genai no está instalado. Ejecuta: pip install google-genai")
-    sys.exit(1)
-
 # ── Contextos especializados por cuaderno ──────────────────────────────────
 DGA_CONTEXT = {
 
@@ -1260,68 +1253,6 @@ def _bloquear_sensor_8512(answer: str, question: str) -> str:
     return answer
 
 
-# ── Arancel PDF: contexto real para consultas de nomenclatura ─────────────
-_ARANCEL_PDF = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "arancel_7ma_enmienda.pdf")
-_ARANCEL_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "arancel_gemini_cache.json")
-
-
-def _obtener_arancel_gemini(api_key):
-    """
-    Obtiene referencia al Arancel PDF en Gemini File API.
-    Primer uso: sube el PDF (~5.8MB, toma ~10s). Usos siguientes: cache 48h.
-    """
-    client = genai.Client(api_key=api_key)
-
-    # 1. Intentar cache local (evita re-subir)
-    if os.path.exists(_ARANCEL_CACHE):
-        try:
-            with open(_ARANCEL_CACHE, "r", encoding="utf-8") as f:
-                cached = json.load(f)
-            file_ref = client.files.get(name=cached["name"])
-            if file_ref.state == "ACTIVE":
-                print(f"[ARANCEL] PDF en cache Gemini: {file_ref.name}")
-                return file_ref
-            print("[ARANCEL] Cache expirado, re-subiendo...")
-        except Exception as e:
-            print(f"[ARANCEL] Cache invalido ({e}), re-subiendo...")
-
-    # 2. Verificar que el PDF existe localmente
-    if not os.path.exists(_ARANCEL_PDF):
-        print(f"[ARANCEL] PDF no encontrado en {_ARANCEL_PDF}")
-        return None
-
-    # 3. Subir a Gemini File API
-    print("[ARANCEL] Subiendo Arancel 7ma Enmienda a Gemini File API...")
-    try:
-        file_ref = client.files.upload(
-            file=_ARANCEL_PDF,
-            config=types.UploadFileConfig(display_name="Arancel 7ma Enmienda RD")
-        )
-
-        # Esperar procesamiento del PDF (max ~30s)
-        intentos = 0
-        while file_ref.state == "PROCESSING" and intentos < 15:
-            print(f"[ARANCEL] Procesando PDF... ({intentos * 2}s)")
-            time.sleep(2)
-            file_ref = client.files.get(name=file_ref.name)
-            intentos += 1
-
-        if file_ref.state != "ACTIVE":
-            print(f"[ARANCEL] Error: estado final = {file_ref.state}")
-            return None
-
-        # Guardar cache para proximas consultas
-        with open(_ARANCEL_CACHE, "w", encoding="utf-8") as f:
-            json.dump({"name": file_ref.name, "uri": file_ref.uri}, f)
-
-        print(f"[ARANCEL] PDF listo en Gemini: {file_ref.name}")
-        return file_ref
-
-    except Exception as e:
-        print(f"[ARANCEL] Error subiendo PDF: {e}")
-        return None
-
-
 def _reformular_pregunta(question: str, notebook_id: str, intento: int) -> str:
     """Reformula la pregunta para reintentos cuando Gemini no responde.
     Cada intento usa una estrategia diferente para maximizar exito.
@@ -1416,23 +1347,16 @@ def _gemini_rest_call(api_key, model, system_prompt, full_prompt, timeout=45):
 
 
 def ask_gemini(question, notebook_id, _intento=1):
-    """Consulta Gemini API. Borrador pasa por Supervisor General Interno (Python)."""
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key:
-        print("[GEMINI] ERROR: GEMINI_API_KEY no esta configurada")
-        return None
+    """Redacta la respuesta del cuaderno con Claude + biblioteca-dga.
 
-    # Bypass del SDK google-genai en Railway por bug de ReadTimeout con httpx.
-    # REST directo via urllib funciona consistentemente y es mas robusto.
-    _USE_REST = os.environ.get("GEMINI_USE_REST", "1") == "1"
-
-    try:
-        # timeout=30s: si Gemini no responde en 30s, TimeoutError propaga hacia
-        # server.py que lo captura como error 500 y reintenta con pregunta reformulada.
-        client = genai.Client(api_key=api_key, http_options={"timeout": 30})
-    except Exception as _ce:
-        print(f"[GEMINI] ERROR al crear cliente: {_ce}")
-        return None
+    Gemini no redacta ni decide: en Nomenclaturas solo aporta una ficha merceologica
+    informativa. El borrador pasa por el Supervisor General Interno (Python).
+    """
+    _raiz = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if _raiz not in sys.path:
+        sys.path.insert(0, _raiz)
+    from sub_agentes.arbitro_claude import llamar_claude
+    from sub_agentes.merceologia_gemini import investigar_merceologia
 
     system_prompt = DGA_CONTEXT.get(notebook_id, DEFAULT_CONTEXT)
     notebook_name = notebook_id.replace("-", " ").title()
@@ -1462,8 +1386,10 @@ def ask_gemini(question, notebook_id, _intento=1):
             "\n8. INDOTEL: SOLO si el producto contiene Bluetooth/Wi-Fi/LTE/NFC/ZigBee/RF. Verificar ficha técnica."
             "\n9. DAI Cap.90 = 0%. NO asumir 14% para instrumentos de medida/verificación."
             "\n10. 8512.30.00 es SOLO bocinas/alarmas acústicas. NUNCA para sensores vehiculares."
-            "\n11. PANTALLA/DISPLAY para celular = 8517.79.00 (Las demas partes de telefonos). "
-            "NUNCA 8517.11 (eso es el telefono completo). Pantalla sola es PARTE, va en 8517.79."
+            "\n11. PANTALLA/DISPLAY (modulo de pantalla plana) para celular = partida 85.24 por Nota 7 "
+            "del Cap. 85 (prioridad sobre cualquier otra partida): LCD con controladores 8524.91.11, "
+            "OLED con controladores 8524.92.11. Solo si el modulo trae procesador de aplicacion, "
+            "escalador o decodificador de video va a 8517.79.00. NUNCA 8517.11 (telefono completo)."
             "\n12. LIOFILIZADOR/FREEZE DRYER = 8419.33 (subpartida especifica). "
             "NUNCA 8419.89 (residual). Agricola=8419.33.10, demas=8419.33.90."
             "\n13. Robot/modulo robotico de libreria de cintas magneticas (tape library) = 8473.30 "
@@ -1485,90 +1411,29 @@ def ask_gemini(question, notebook_id, _intento=1):
     )
 
     try:
-        # ── Estrategia: modelo rapido primero, fallback a pensante ──
         t0 = time.time()
-        answer = None
-
-        # Intentar con thinking_budget=0 primero; si falla 400, reintentar sin thinking_config
-        # gemini-2.0-flash deprecado 2025-04, fallback a 2.5-pro si 2.5-flash falla
-        _MODELS = ["gemini-2.5-flash", "gemini-2.5-pro"]
-        _model_used = _MODELS[0]
-
-        # Bypass SDK con REST directo (SDK da ReadTimeout consistente en Railway)
-        if _USE_REST:
-            print(f"[GEMINI-REST] Consultando {_model_used} via REST directo...")
-            answer, err = _gemini_rest_call(api_key, _model_used, system_prompt, full_prompt, timeout=45)
-            if not answer and _MODELS[1] != _model_used:
-                print(f"[GEMINI-REST] Falla con {_model_used}: {err}. Probando {_MODELS[1]}...")
-                _model_used = _MODELS[1]
-                answer, err = _gemini_rest_call(api_key, _model_used, system_prompt, full_prompt, timeout=60)
-            if not answer:
-                print(f"[GEMINI-REST] Sin respuesta tras 2 modelos: {err}")
-                return None
-            t1 = time.time()
-            print(f"[GEMINI-REST] Borrador recibido ({len(answer)} chars) en {t1-t0:.1f}s con {_model_used}")
-            response = None  # Skip el bloque SDK posterior
-        else:
-            response = "USE_SDK"
-
-        if response == "USE_SDK":
-            print(f"[GEMINI] Consultando {_model_used} (thinking OFF, SDK)...")
-            try:
-                response = client.models.generate_content(
-                    model=_model_used,
-                    contents=full_prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_prompt,
-                        thinking_config=types.ThinkingConfig(thinking_budget=0),
-                    )
-                )
-            except Exception as _think_err:
-                _err_str = str(_think_err).lower()
-                if "400" in _err_str or "invalid" in _err_str or "thinking" in _err_str:
-                    print(f"[GEMINI] thinking_budget=0 falló ({_think_err}) — reintentando sin thinking_config")
-                    try:
-                        response = client.models.generate_content(
-                            model=_model_used,
-                            contents=full_prompt,
-                            config=types.GenerateContentConfig(
-                                system_instruction=system_prompt,
-                            )
-                        )
-                    except Exception as _fallback_err:
-                        print(f"[GEMINI] Fallback sin thinking también falló: {_fallback_err}")
-                        # Último recurso: modelo más estable
-                        _model_used = _MODELS[1]
-                        print(f"[GEMINI] Último recurso: {_model_used}")
-                        response = client.models.generate_content(
-                            model=_model_used,
-                            contents=full_prompt,
-                            config=types.GenerateContentConfig(
-                                system_instruction=system_prompt,
-                            )
-                        )
-                else:
-                    raise  # Re-raise si no es error de thinking_config
-
-        # Si REST ya tiene answer, saltar extraccion SDK
-        if _USE_REST and answer:
-            pass  # answer ya esta seteado por _gemini_rest_call
-        elif response is not None:
-            # response.text puede fallar si hay thinking tokens — usar parts como fallback
-            try:
-                answer = response.text.strip()
-            except Exception as _txt_err:
-                print(f"[GEMINI] response.text falló ({_txt_err}) — extrayendo desde parts")
-                try:
-                    answer = "".join(
-                        p.text for p in response.candidates[0].content.parts
-                        if hasattr(p, "text") and p.text
-                    ).strip()
-                except Exception as _parts_err:
-                    print(f"[GEMINI] Extracción de parts también falló: {_parts_err}")
-                    answer = ""
-
+        _merc = ""
+        _system = system_prompt
+        if notebook_id == "biblioteca-de-nomenclaturas":
+            from sub_agentes.arbitro_claude import SYSTEM_LEGAL
+            from sub_agentes.contexto_legal import construir, partidas_por_texto
+            from sub_agentes.merceologia_gemini import terminos_de_ficha, capitulos_desde_biblioteca
+            _ficha = investigar_merceologia(question_actual)
+            _terms = terminos_de_ficha(_ficha, question_actual)
+            _caps = [c["capitulo"] for c in capitulos_desde_biblioteca(_terms, maximo=3)]
+            _dest = [p for p, _ in partidas_por_texto(_terms)]
+            if _ficha:
+                _merc += ("\n\nFICHA MERCEOLOGICA (Gemini, solo informativa: describe el producto, "
+                          "no lo clasifica):\n" + json.dumps(_ficha, ensure_ascii=False))
+            if _caps:
+                _merc += "\n\nCONTEXTO LEGAL DE LA BIBLIOTECA-DGA:\n" + construir(_caps, _dest)
+            _system = SYSTEM_LEGAL + "\n\n" + system_prompt
+        answer = llamar_claude(
+            _system + "\n\nToda partida, SON, tasa o base legal debe salir de la biblioteca-dga "
+            "incluida en este mensaje; si no esta, dilo en lugar de suponer.",
+            full_prompt + _merc, max_tokens=8000, effort="medium", timeout=50.0, web=True) or ""
         t1 = time.time()
-        print(f"[GEMINI] Borrador recibido ({len(answer)} chars) en {t1-t0:.1f}s")
+        print(f"[CLAUDE] Borrador recibido ({len(answer)} chars) en {t1-t0:.1f}s")
 
         # Gate 1: Validar longitud minima para nomenclaturas
         # Respuestas muy cortas son refusals o respuestas vacias — marcar como invalidas
@@ -1637,12 +1502,10 @@ def ask_gemini(question, notebook_id, _intento=1):
                 print(f"[GEMINI] Verificacion cache completada ({time.time()-t0:.1f}s total)")
             elif _cod_borrador:
                 # Codigo no en cache — verificar con Gemini + Arancel PDF (mas lento pero necesario)
-                print(f"[GEMINI] Codigo {_cod_borrador} NO en cache — verificando con Arancel PDF...")
-                arancel_file = _obtener_arancel_gemini(api_key)
-                if arancel_file:
-                    answer, _corregido = _pre_verificar(answer, question, api_key, arancel_file=arancel_file)
-                    if _corregido:
-                        print("[GEMINI] Verificador corrigio codigo y/o cargos")
+                print(f"[CLAUDE] Codigo {_cod_borrador} NO en cache — verificando en biblioteca-dga...")
+                answer, _corregido = _pre_verificar(answer, question, "")
+                if _corregido:
+                    print("[CLAUDE] Verificador marco o corrigio codigo y/o cargos")
                 print(f"[GEMINI] Verificacion completada ({time.time()-t0:.1f}s total)")
 
         # ── Consolidar consultor paralelo de Notas Arancel ─────────────────

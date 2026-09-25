@@ -241,7 +241,7 @@ def _consultar_dgii(codigo: str) -> dict | None:
 
 # ── Orquestador principal ──────────────────────────────────────────────────
 
-def consultar_isc(codigo: str, descripcion: str = "", usar_gemini: bool = True) -> dict:
+def consultar_isc(codigo: str, descripcion: str = "", usar_gemini: bool = False) -> dict:
     """
     Consulta ISC para un codigo arancelario RD.
 

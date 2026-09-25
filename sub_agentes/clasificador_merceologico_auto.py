@@ -170,24 +170,16 @@ _TECH_QUALIFIERS = {
 }
 
 
-# ── Utilidades Gemini ─────────────────────────────────────────────────────
+# ── Arbitro legal (Claude) ─────────────────────────────────────────────────
 
-def _llamar_gemini(prompt: str, timeout: int = 25) -> Optional[str]:
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key:
-        print("[CLASIF-AUTO] GEMINI_API_KEY no configurada")
-        return None
-    try:
-        from google import genai
-        client = genai.Client(api_key=api_key, http_options={"timeout": timeout})
-        resp = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-        return getattr(resp, "text", None) or str(resp)
-    except Exception as e:
-        print(f"[CLASIF-AUTO] Error Gemini: {e}")
-        return None
+def _llamar_arbitro(prompt: str) -> Optional[str]:
+    """Fiscal y Juez RGI son decisiones legales: las toma Claude, no Gemini."""
+    from sub_agentes.arbitro_claude import llamar_claude
+    return llamar_claude(
+        "Eres el arbitro legal de clasificacion arancelaria de la Republica Dominicana. "
+        "Solo usas las candidatas y descripciones oficiales que se te entregan (biblioteca-dga). "
+        "Responde solo con el JSON pedido.",
+        prompt, max_tokens=4000, effort="medium")
 
 
 def _parsear_json_gemini(texto: str) -> Optional[dict]:
@@ -281,76 +273,39 @@ def validar_salida(son: str, rgi: str = "", fuente_db: dict | None = None) -> di
 # CEO 04-MAY-2026: Entender QUÉ es el producto ANTES de buscar en la BD.
 # ══════════════════════════════════════════════════════════════════════════
 
-_PROMPT_GUARDIAN = """Eres el Guardian de Entrada del clasificador arancelario RD (Decreto 755-22).
-Tu trabajo es analizar la consulta del usuario ANTES de buscar en la base de datos.
-
-INSTRUCCIONES:
-1. Identificar: FUNCION del producto, MATERIA principal, USO destinado
-2. Determinar si es un producto completo o una PARTE de otro producto
-3. Si es PARTE, identificar el producto principal (ej: pantalla -> parte de telefono celular = partida 8517)
-4. Retornar los capitulos arancelarios mas probables (maximo 3)
-5. Construir ficha merceologica basica con 8 atributos
-
-REGLA CRITICA: Si el producto es una PARTE, buscar primero en subpartidas de PARTES
-del producto principal (Nota Legal Seccion XVI, Nota 2).
-
-Devuelve SOLO JSON:
-{{
-  "criterio_0": "A|B|C",
-  "justificacion_0": "<1 frase>",
-  "que_es": "<descripcion breve>",
-  "materia": "<material principal>",
-  "funcion": "<funcion tecnica principal>",
-  "mecanismo_operativo": "<como opera>",
-  "especificaciones": "<potencia, tamaño, etc si es relevante>",
-  "uso": "<uso tipico>",
-  "usuarios": "<quienes lo usan>",
-  "caracteristicas_fisicas": "<forma, componentes visibles>",
-  "presentacion": "<estado de importacion>",
-  "clasificacion": "<uso | naturaleza | funcion>",
-  "es_parte": true|false,
-  "producto_principal": "<si es parte, de que producto>",
-  "partida_producto_principal": "<si es parte, partida del producto principal>",
-  "capitulos_probables": ["85","84"],
-  "keywords": ["kw1","kw2","kw3","kw4","kw5"],
-  "son_sugerido": "<formato XXXX.XX.XX si hay certeza, vacio si no>"
-}}
-
-CRITERIO 0 — IDENTIDAD FUNCIONAL:
-  [A] adorno personal -> Cap. 71
-  [B] distincion/trofeo -> Cap. 83
-  [C] uso tecnico/comercial/domestico -> especificar
-
-Producto: {producto}
-Responde SOLO con el JSON.
-"""
-
-
 def agente_1_guardian(descripcion: str) -> dict:
     t0 = time.time()
 
-    # Consultar tabla partes_de_productos ANTES de Gemini
+    # Consultar tabla partes_de_productos ANTES de la ficha merceologica
     partes_info = buscar_partes_producto(descripcion)
     sinonimos_info = buscar_sinonimos(descripcion)
 
-    prompt = _PROMPT_GUARDIAN.format(producto=descripcion[:500])
-    if partes_info:
-        prompt += f"\n\nINFO TABLA PARTES: {json.dumps(partes_info, ensure_ascii=False)}"
-    if sinonimos_info:
-        prompt += f"\n\nINFO SINONIMOS: {json.dumps(sinonimos_info, ensure_ascii=False)}"
-
-    raw = _llamar_gemini(prompt)
-    ficha = _parsear_json_gemini(raw) or {}
-
-    for k in ["criterio_0", "justificacion_0", "que_es", "materia", "funcion",
-              "mecanismo_operativo", "especificaciones", "uso", "usuarios",
-              "caracteristicas_fisicas", "presentacion", "clasificacion", "son_sugerido"]:
-        ficha.setdefault(k, "")
-    ficha.setdefault("es_parte", False)
-    ficha.setdefault("producto_principal", "")
-    ficha.setdefault("partida_producto_principal", "")
-    ficha.setdefault("keywords", [])
-    ficha.setdefault("capitulos_probables", [])
+    # Gemini solo aporta merceologia; capitulos y partidas salen de la biblioteca-dga.
+    from sub_agentes.merceologia_gemini import (
+        investigar_merceologia, terminos_de_ficha, capitulos_desde_biblioteca)
+    merc = investigar_merceologia(descripcion[:500])
+    ficha = {
+        "criterio_0": "", "justificacion_0": "",
+        "que_es": merc.get("que_es", ""),
+        "materia": merc.get("composicion", ""),
+        "funcion": merc.get("funcion", ""),
+        "mecanismo_operativo": merc.get("mecanismo", ""),
+        "especificaciones": "",
+        "uso": merc.get("uso", ""),
+        "usuarios": merc.get("usuarios", ""),
+        "caracteristicas_fisicas": "",
+        "presentacion": merc.get("presentacion", ""),
+        "clasificacion": merc.get("criterio_prevalente", ""),
+        "son_sugerido": "",
+        "es_parte": bool(merc.get("es_parte_o_accesorio")),
+        "producto_principal": merc.get("producto_al_que_pertenece", ""),
+        "partida_producto_principal": "",
+        "keywords": merc.get("terminos_busqueda", []),
+        "origen": merc.get("origen", ""),
+        "datos_faltantes": merc.get("datos_faltantes", []),
+    }
+    ficha["capitulos_probables"] = [
+        c["capitulo"] for c in capitulos_desde_biblioteca(terminos_de_ficha(merc, descripcion))]
 
     # Enriquecer con info de tablas SQLite
     if partes_info and not ficha.get("es_parte"):
@@ -531,7 +486,7 @@ def agente_3_fiscal(ficha: dict, cazador: dict, notas: dict, descripcion: str) -
         candidatas=candidatas_texto,
         notas=formatear_notas_gemini(notas)[:2000],
     )
-    raw = _llamar_gemini(prompt, timeout=30)
+    raw = _llamar_arbitro(prompt)
     resultado = _parsear_json_gemini(raw) or {}
 
     evaluaciones = resultado.get("evaluaciones", [])
@@ -550,7 +505,7 @@ def agente_3_fiscal(ficha: dict, cazador: dict, notas: dict, descripcion: str) -
         else:
             supervivientes.append(ev)
 
-    # Fallback: si Gemini no devolvio evaluaciones, evaluar por texto
+    # Fallback: si el arbitro no devolvio evaluaciones, evaluar por texto
     if not evaluaciones and candidatas:
         desc_lower = descripcion.lower()
         for c in candidatas[:10]:
@@ -651,7 +606,7 @@ def agente_4_juez_rgi(ficha: dict, fiscal: dict, notas: dict, descripcion: str) 
             "_agente": "JUEZ_RGI",
         }
 
-    # Multiples candidatas: usar Gemini para aplicar RGI en secuencia
+    # Multiples candidatas: Claude aplica las RGI en secuencia
     candidatas_texto = "\n".join(
         f"- {s.get('son','')}: {s.get('descripcion','')[:80]} (score: {s.get('score_coherencia',0)}, especificidad: {s.get('especificidad','')})"
         for s in supervivientes[:8]
@@ -664,7 +619,7 @@ def agente_4_juez_rgi(ficha: dict, fiscal: dict, notas: dict, descripcion: str) 
         candidatas=candidatas_texto,
         notas=formatear_notas_gemini(notas)[:2000],
     )
-    raw = _llamar_gemini(prompt, timeout=30)
+    raw = _llamar_arbitro(prompt)
     resultado = _parsear_json_gemini(raw) or {}
 
     for k in ["candidata_ganadora", "rgi_aplicada", "justificacion", "confianza"]:

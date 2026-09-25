@@ -483,6 +483,17 @@
     }
 
     /* ── Conformidad y ficha técnica ── */
+    /* ── Verificación SIREVUCE (Cuaderno 6) ── */
+    .sirevuce-item {
+      padding: 8px 10px; border-radius: 8px; margin-top: 6px;
+      border: 1px solid var(--border, #e2e8f0); background: var(--card-bg, #f8fafc);
+      font-size: 0.78rem;
+    }
+    .sirevuce-si { border-left: 4px solid #d97706; }
+    .sirevuce-no { border-left: 4px solid #16a34a; }
+    .sirevuce-nv { border-left: 4px solid #dc2626; }
+    .sirevuce-veredicto { font-weight: 700; }
+    .sirevuce-form { font-size: 0.72rem; opacity: 0.85; margin-top: 2px; }
     /* ── Fuentes Notion ── */
     .fuentes-notion-header {
       font-size: 0.78rem;
@@ -918,6 +929,7 @@
 
         <!-- ── Fuentes Notion (segunda fuente automática) ── -->
         <div id="fuentesNotionBox" style="display:none;margin-top:12px;"></div>
+        <div id="sirevuceBox" style="display:none;margin-top:12px;"></div>
 
         <!-- ── Conformidad ── -->
         <div id="conformitySection" class="conformity-section" style="display:none;">
@@ -2139,6 +2151,28 @@
     box.style.display = 'block';
   }
 
+  /* ── Verificación oficial SIREVUCE (Cuaderno 6 VUCERD) ── */
+  function _renderSirevuce(sv) {
+    const box = document.getElementById('sirevuceBox');
+    if (!box) return;
+    if (!sv || !sv.estado) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    let items;
+    if (sv.estado === 'NO_VERIFICADO') {
+      items = `<div class="sirevuce-item sirevuce-nv"><span class="sirevuce-veredicto">NO VERIFICADO</span>
+        — SIREVUCE no respondió. Confirme en sirevuce.aduanas.gob.do antes de declarar.</div>`;
+    } else if (!sv.resultados || sv.resultados.length === 0) {
+      items = `<div class="sirevuce-item">Sin coincidencias en SIREVUCE. Indique el código SON de 8 dígitos.</div>`;
+    } else {
+      items = sv.resultados.map(r => `
+        <div class="sirevuce-item ${r.requiere_vuce ? 'sirevuce-si' : 'sirevuce-no'}">
+          <span class="sirevuce-veredicto">${_esc(r.son)} — ${r.requiere_vuce ? 'Sí requiere VUCE' : 'No requiere formulario VUCE'}</span>
+          ${(r.formularios || []).map(f => `<div class="sirevuce-form">Formulario: ${_esc(f)}</div>`).join('')}
+        </div>`).join('');
+    }
+    box.innerHTML = `<div class="fuentes-notion-header">🪟 Verificación oficial SIREVUCE (DGA)</div>${items}`;
+    box.style.display = 'block';
+  }
+
   /* ── Tarjeta compacta de Nomenclatura — solo lo esencial técnico ── */
   function _renderNomenclaturaCard(nd, supData, fullAnalysis, bodyEl) {
     // 1. Extraer impuestos: primero de DATOS_CLASIFICACION, fallback a supervisor checks
@@ -2495,6 +2529,7 @@
 
         // 5. Fuentes Notion automáticas (segunda fuente)
         _renderFuentesNotion(data.fuentes_notion || []);
+        _renderSirevuce(data.sirevuce);
       }
     } catch(e) {
       clearTimeout(_tid);
@@ -2794,6 +2829,7 @@
         document.getElementById('fichaSection').style.display = 'none';
         document.getElementById('conformitySection').style.display = 'block';
         _renderFuentesNotion(data.fuentes_notion || []);
+        _renderSirevuce(data.sirevuce);
       }
     } catch(e) {
       clearTimeout(_tidR);

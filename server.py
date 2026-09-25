@@ -892,6 +892,8 @@ def index():
                            public_url=_get_public_url())
 
 # ── ROUTER MULTI-CUADERNO: detecta cuadernos complementarios por keywords ──
+_NB_VUCERD = "biblioteca-procedimiento-vucerd"
+
 _ROUTER_CUADERNOS = [
     {
         "id": "biblioteca-legal-y-procedimiento-dga",
@@ -1361,6 +1363,16 @@ def consultar():
     except Exception as _ne:
         print(f"[NOTION_SEARCH] No disponible: {_ne}")
 
+    _sirevuce_future = None
+    if notebook_id == _NB_VUCERD and question:
+        try:
+            from concurrent.futures import ThreadPoolExecutor as _TPE_sv
+            from sub_agentes.consultor_sirevuce import consultar_pregunta as _cp_sv
+            _sirevuce_executor = _TPE_sv(max_workers=1)
+            _sirevuce_future = _sirevuce_executor.submit(_cp_sv, producto_identificado or question)
+        except Exception as _e_sv:
+            print(f"[SIREVUCE] No disponible: {_e_sv}")
+
     try:
         answer = ask_notebooklm(question, notebook_id, timeout=timeout_consulta)
         # Guardar en cache solo consultas de texto (no imágenes, no errores)
@@ -1393,6 +1405,27 @@ def consultar():
                     resp["answer"], _comps)
                 resp["cuadernos_complementarios"] = [c["cuaderno"] for c in _comps]
             _complementarios_futures = []
+
+        if _sirevuce_future is not None:
+            try:
+                from sub_agentes.consultor_sirevuce import formatear_bloque as _fb_sv
+                _res_sv = _sirevuce_future.result(timeout=20)
+                from sub_agentes.clopas_auto import registrar_consulta_vucerd as _clopas_sv
+                _clopas_sv(_res_sv)
+                resp["answer"] = _fb_sv(_res_sv) + "\n---\n" + resp["answer"]
+                resp["sirevuce"] = {
+                    "estado": _res_sv["estado"],
+                    "resultados": [{"son": r["son"], "requiere_vuce": r["requiere_vuce"],
+                                    "formularios": [f["nombre"] for f in r["formularios"]]}
+                                   for r in _res_sv["resultados"]],
+                }
+                if _res_sv["estado"] != "NO_VERIFICADO" and not archivo and not answer.startswith("[ERROR"):
+                    _set_cached(question, notebook_id, resp["answer"])
+                print(f"[SIREVUCE] {_res_sv['estado']} consulta='{_res_sv.get('consulta', '')[:40]}'")
+            except Exception as _e_sv:
+                print(f"[SIREVUCE] Error: {_e_sv}")
+            finally:
+                _sirevuce_executor.shutdown(wait=False)
 
         return jsonify(resp)
     except subprocess.TimeoutExpired:
@@ -1632,6 +1665,44 @@ def health_arquitectura():
             "error": f"{type(e).__name__}: {str(e)[:300]}",
             "traceback": _tb.format_exc()[-1500:],
         }), 503
+
+@app.route("/api/sirevuce")
+@login_required
+def api_sirevuce():
+    from sub_agentes.consultor_sirevuce import consultar_pregunta, formatear_bloque
+    q = (request.args.get("q") or "").strip()[:120]
+    if not q:
+        return jsonify({"error": "Indique un código SON (XXXX.XX.XX) o una descripción"}), 400
+    if _rate_limited(f"sirevuce:{_get_client_ip()}", 'consulta'):
+        return jsonify({"error": "Demasiadas consultas. Espera un momento."}), 429
+    res = consultar_pregunta(q)
+    from sub_agentes.clopas_auto import registrar_consulta_vucerd
+    registrar_consulta_vucerd(res)
+    res["texto"] = formatear_bloque(res)
+    return jsonify(res), (200 if res["estado"] != "NO_VERIFICADO" else 502)
+
+
+# Codigo fijo: diagnostico sin aceptar entrada del usuario (no es un proxy abierto)
+@app.route("/health/sirevuce")
+def health_sirevuce():
+    from sub_agentes.consultor_sirevuce import consultar_sirevuce
+    res = consultar_sirevuce("9022.90.10")
+    r0 = (res.get("resultados") or [{}])[0]
+    ok = res["estado"] == "VERIFICADO" and r0.get("son") == "9022.90.10" and r0.get("requiere_vuce") is True
+    status = "OK" if ok else "REVISAR_PARSER" if res["estado"] != "NO_VERIFICADO" else "SIN_CONEXION"
+    from sub_agentes.clopas_auto import registrar_salud_sirevuce
+    registrar_salud_sirevuce(status, res.get("error") or {"son": r0.get("son"),
+                             "requiere_vuce": r0.get("requiere_vuce"), "url": r0.get("url")})
+    return jsonify({
+        "status": status,
+        "estado": res["estado"],
+        "esperado": "9022.90.10 requiere formulario de Productos Sanitarios (MISPAS)",
+        "obtenido": {"son": r0.get("son"), "requiere_vuce": r0.get("requiere_vuce"),
+                     "formularios": [f["nombre"] for f in r0.get("formularios", [])],
+                     "gravamen": r0.get("gravamen"), "url": r0.get("url")},
+        "error": res.get("error"),
+    }), (200 if ok else 503)
+
 
 # ── Health public sin auth: diagnostica Gemini desde cualquier dispositivo ──
 @app.route("/health/gemini")
@@ -3326,7 +3397,7 @@ def api_consultar_isc_partida():
     d = request.json or {}
     codigo = d.get("codigo", "").strip()
     descripcion = d.get("descripcion", "").strip()[:120]
-    usar_gemini = d.get("usar_gemini", False)  # Por defecto rapido (sin Gemini) en UI
+    usar_gemini = False  # ISC solo desde biblioteca-dga; Gemini no decide tributos
 
     if not codigo or not _re.match(r'^\d{4}\.\d{2}\.\d{2}$', codigo):
         return jsonify({"error": "Codigo invalido"}), 400
@@ -3931,9 +4002,9 @@ def ask_notebooklm(question, notebook_id, timeout=60):
 
 
 def _ask_notebooklm_internal(question, notebook_id, timeout=60):
-    # ── Ruta 1: Gemini API con retry automático + backoff exponencial ──
-    gemini_key = os.environ.get("GEMINI_API_KEY", "")
-    if gemini_key:
+    # ── Ruta 1: Claude + biblioteca-dga (ask_gemini.py) con retry + backoff ──
+    # Gemini solo aporta ficha merceologica informativa; no es requisito para responder.
+    if os.environ.get("ANTHROPIC_API_KEY", ""):
         import time as _time
         import random as _random
         max_intentos = 3

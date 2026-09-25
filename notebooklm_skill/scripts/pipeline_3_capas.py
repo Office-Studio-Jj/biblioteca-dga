@@ -186,65 +186,37 @@ def capa_3_gemini_orquestador(consulta: str, notebook_id: str) -> Dict[str, Any]
 
 def _gemini_identificar_capitulo(consulta: str) -> Dict[str, Any]:
     """
-    PRE-FILTRO Gemini — CEO Decision 03-May-2026 (Opcion B).
+    Capitulo candidato (Opcion B CEO 03-May-2026, rol de Gemini restringido 25-09-2026).
 
-    Gemini YA NO clasifica SON. Su unico rol: identificar el Capitulo SA
-    candidato (2 digitos) usando lenguaje natural. Claude API (Capa 1)
-    es el arbitro legal final con RGI 1-6 + Notas Legales + cache 7616.
+    Gemini solo investiga la merceologia (origen, composicion, funcion, uso, criterio
+    prevalente). Los capitulos candidatos salen de arancel_rd.db y Claude elige con RGI 1.
 
-    Devuelve: capitulo (str 2 digitos), criterio_0, justificacion, candidatos_alt
+    Devuelve: capitulo, capitulos_alt, razon, ficha_merceologica, candidatos_biblioteca
     """
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key:
-        return {"ok": False, "error": "GEMINI_API_KEY no configurada"}
+    _raiz = os.path.dirname(os.path.dirname(_HERE))
+    if _raiz not in sys.path:
+        sys.path.insert(0, _raiz)
+    from sub_agentes.merceologia_gemini import (
+        investigar_merceologia, terminos_de_ficha, capitulos_desde_biblioteca)
+    from sub_agentes.arbitro_claude import elegir_capitulo
 
-    try:
-        if _HERE not in sys.path:
-            sys.path.insert(0, _HERE)
-        from ask_gemini import _gemini_rest_call
-    except Exception as e:
-        return {"ok": False, "error": f"import _gemini_rest_call: {e}"}
+    # Gemini: solo merceologia. Capitulos candidatos: biblioteca-dga. Eleccion: Claude (RGI 1).
+    ficha = investigar_merceologia(consulta)
+    candidatos = capitulos_desde_biblioteca(terminos_de_ficha(ficha, consulta), maximo=5)
+    if not candidatos:
+        return {"ok": False, "error": "sin coincidencias en biblioteca-dga", "ficha_merceologica": ficha}
 
-    system = (
-        "Eres un pre-filtro arancelario del Sistema Armonizado SA (7ma Enmienda 2022). "
-        "Tu UNICO trabajo es identificar el Capitulo SA de 2 digitos mas probable para "
-        "el producto descrito. NO clasificas a nivel de Partida ni Subpartida. "
-        "NO devuelves codigos de 8 digitos. Solo el Capitulo y la razon. "
-        "Claude API se encargara de la clasificacion SON final con las Notas Legales."
-    )
-    prompt = (
-        f"Identifica el Capitulo SA (2 digitos) para: {consulta}\n\n"
-        "CRITERIO 0 — IDENTIDAD FUNCIONAL (determina el Capitulo):\n"
-        "  [A] adorno personal portatil -> Cap. 71\n"
-        "  [B] distincion/trofeo/reconocimiento deportivo -> Cap. 83\n"
-        "  [C] aparato electronico/telecomunicacion -> Cap. 84-85\n"
-        "  [D] vehiculo/aeronave -> Cap. 86-89\n"
-        "  [E] uso industrial/tecnico/agricola/farmaceutico -> especificar\n\n"
-        "PRINCIPIO ELEMENTO vs APARATO: si el producto es consumible/repuesto, "
-        "NO va en el capitulo del aparato. Ejemplo: bombillo -> Cap.85, no Cap.94.\n\n"
-        "FORMATO DE RESPUESTA:\n"
-        "CRITERIO_0: [A|B|C|D|E]\n"
-        "CAPITULO: [NN]\n"
-        "CAPITULOS_ALT: [NN, NN] (hasta 2 alternativas si hay duda)\n"
-        "RAZON: [1 frase explicando por que ese capitulo]"
-    )
-    answer, err = _gemini_rest_call(api_key, "gemini-2.5-flash", system, prompt, timeout=30)
-    if err or not answer:
-        return {"ok": False, "error": err or "respuesta vacia"}
-
-    out = {"ok": True, "raw": answer[:400], "rol": "pre_filtro_capitulo"}
-    for campo, regex in [
-        ("criterio_0",    r'CRITERIO_0:\s*([A-E])'),
-        ("capitulo",      r'CAPITULO:\s*(\d{1,2})'),
-        ("capitulos_alt", r'CAPITULOS_ALT:\s*(.+)'),
-        ("razon",         r'RAZON:\s*(.+)'),
-    ]:
-        m = re.search(regex, answer, re.IGNORECASE)
-        if m:
-            out[campo] = m.group(1).strip().split('\n')[0][:200]
-    if out.get("capitulo"):
-        out["capitulo"] = out["capitulo"].zfill(2)
-    out["ok"] = bool(out.get("capitulo"))
+    out = {"ok": True, "rol": "merceologia_gemini+capitulo_biblioteca",
+           "ficha_merceologica": ficha, "candidatos_biblioteca": candidatos}
+    # Las coincidencias de la biblioteca solo son candidatas; el capitulo lo decide Claude.
+    arbitro = elegir_capitulo(consulta, ficha, candidatos)
+    if not arbitro:
+        out.update(ok=False, error="sin arbitraje Claude: no se determina capitulo")
+        return out
+    out.update(capitulo=arbitro["capitulo"],
+               partida_candidata=arbitro.get("partida", ""),
+               capitulos_alt=", ".join(arbitro.get("alternativos", [])),
+               razon=f"Claude (RGI): {arbitro.get('fundamento', '')}"[:400])
     return out
 
 
