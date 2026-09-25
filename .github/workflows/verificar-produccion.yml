@@ -5,7 +5,8 @@ on:
   push:
     branches: [main]
   pull_request:
-    paths: [".github/workflows/verificar-produccion.yml", "scripts/verificar_produccion.sh"]
+    paths: [".github/workflows/verificar-produccion.yml", "scripts/verificar_produccion.sh",
+            "scripts/diagnostico_sirevuce.sh"]
   workflow_dispatch:
 
 permissions:
@@ -17,5 +18,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Diagnostico del HTML de SIREVUCE
+        run: bash scripts/diagnostico_sirevuce.sh
       - name: Esperar despliegue y verificar endpoints
         run: bash scripts/verificar_produccion.sh
