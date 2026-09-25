@@ -52,8 +52,6 @@ def crear_propiedad(db_id, nombre, tipo, opciones=None):
         propiedad = {"type": "date"}
     elif tipo == "url":
         propiedad = {"type": "url"}
-    elif tipo == "code":
-        propiedad = {"type": "code"}
     else:
         return False
 
@@ -64,7 +62,7 @@ def crear_propiedad(db_id, nombre, tipo, opciones=None):
     }
 
     try:
-        response = requests.patch(url, json=payload, headers=HEADERS)
+        response = requests.patch(url, json=payload, headers=HEADERS, timeout=30)
         if response.status_code in [200, 201]:
             print(f"✅ Propiedad '{nombre}' creada")
             return True
@@ -76,129 +74,67 @@ def crear_propiedad(db_id, nombre, tipo, opciones=None):
         print(f"❌ Error al crear '{nombre}': {e}")
         return False
 
+def renombrar_titulo(db_id):
+    """gestor_clopas.py escribe en 'Title'; una BD nueva trae 'Name' o 'Nombre'."""
+    try:
+        r = requests.get(f"{BASE_URL}/databases/{db_id}", headers=HEADERS, timeout=30)
+        if r.status_code != 200:
+            print(f"ERROR leyendo la BD: {r.status_code} {r.text[:200]}")
+            return False
+        actual = next(k for k, v in r.json()["properties"].items() if v["type"] == "title")
+        if actual == "Title":
+            return True
+        r = requests.patch(f"{BASE_URL}/databases/{db_id}", headers=HEADERS, timeout=30,
+                           json={"properties": {actual: {"name": "Title"}}})
+        print(f"Columna de título '{actual}' -> 'Title': {r.status_code}")
+        return r.status_code == 200
+    except Exception as e:
+        print(f"ERROR renombrando título: {e}")
+        return False
+
+
+PROPIEDADES = [
+    ("Tipo", "select", ["Corrección", "Creación", "Error", "Feature", "Bug"]),
+    ("Proyecto", "select", ["app-movil", "biblioteca-dga"]),
+    ("Categoría", "select", ["Código", "Documentación", "BD", "UI/UX", "Seguridad", "Otra"]),
+    ("Descripción", "text", None),
+    ("Solución", "text", None),
+    ("Código", "text", None),
+    ("Fecha", "date", None),
+    ("Estado", "select", ["Nuevo", "En Revisión", "Resuelto", "Descartado"]),
+    ("Prioridad", "select", ["Crítica", "Alta", "Media", "Baja"]),
+    ("Autor", "text", None),
+    ("Impacto", "multi_select", ["Performance", "Seguridad", "Usabilidad", "BD", "API"]),
+    ("Tags", "multi_select", None),
+    ("Enlace GitHub", "url", None),
+]
+
+
 def main():
-    """Configura CLOPAS con todas las propiedades"""
-
     if not NOTION_TOKEN:
-        print("❌ Error: NOTION_API_KEY no configurada en .env")
-        return
-
+        print("ERROR: NOTION_API_KEY no configurada en .env")
+        return 1
     if not CLOPAS_DB_ID:
-        print("❌ Error: NOTION_DB_CLOPAS no configurada en .env")
-        return
+        print("ERROR: NOTION_DB_CLOPAS no configurada en .env")
+        return 1
 
-    print("🚀 Configurando CLOPAS en Notion...")
-    print(f"   Base de datos: {CLOPAS_DB_ID}")
-    print()
-
-    # Propiedad 1: Tipo
-    print("1️⃣ Creando propiedad 'Tipo'...")
-    crear_propiedad(
-        CLOPAS_DB_ID,
-        "Tipo",
-        "select",
-        ["Corrección", "Creación", "Error", "Feature", "Bug"]
-    )
-
-    # Propiedad 2: Proyecto
-    print("2️⃣ Creando propiedad 'Proyecto'...")
-    crear_propiedad(
-        CLOPAS_DB_ID,
-        "Proyecto",
-        "select",
-        ["app-movil", "biblioteca-dga"]
-    )
-
-    # Propiedad 3: Categoría
-    print("3️⃣ Creando propiedad 'Categoría'...")
-    crear_propiedad(
-        CLOPAS_DB_ID,
-        "Categoría",
-        "select",
-        ["Código", "Documentación", "BD", "UI/UX", "Seguridad", "Otra"]
-    )
-
-    # Propiedad 4: Descripción
-    print("4️⃣ Creando propiedad 'Descripción'...")
-    crear_propiedad(CLOPAS_DB_ID, "Descripción", "text")
-
-    # Propiedad 5: Solución
-    print("5️⃣ Creando propiedad 'Solución'...")
-    crear_propiedad(CLOPAS_DB_ID, "Solución", "text")
-
-    # Propiedad 6: Código
-    print("6️⃣ Creando propiedad 'Código'...")
-    crear_propiedad(CLOPAS_DB_ID, "Código", "code")
-
-    # Propiedad 7: Fecha
-    print("7️⃣ Creando propiedad 'Fecha'...")
-    crear_propiedad(CLOPAS_DB_ID, "Fecha", "date")
-
-    # Propiedad 8: Estado
-    print("8️⃣ Creando propiedad 'Estado'...")
-    crear_propiedad(
-        CLOPAS_DB_ID,
-        "Estado",
-        "select",
-        ["Nuevo", "En Revisión", "Resuelto", "Descartado"]
-    )
-
-    # Propiedad 9: Prioridad
-    print("9️⃣ Creando propiedad 'Prioridad'...")
-    crear_propiedad(
-        CLOPAS_DB_ID,
-        "Prioridad",
-        "select",
-        ["Crítica", "Alta", "Media", "Baja"]
-    )
-
-    # Propiedad 10: Autor
-    print("🔟 Creando propiedad 'Autor'...")
-    crear_propiedad(CLOPAS_DB_ID, "Autor", "text")
-
-    # Propiedad 11: Impacto
-    print("1️⃣1️⃣ Creando propiedad 'Impacto'...")
-    crear_propiedad(
-        CLOPAS_DB_ID,
-        "Impacto",
-        "multi_select",
-        ["Performance", "Seguridad", "Usabilidad", "BD", "API"]
-    )
-
-    # Propiedad 12: Tags
-    print("1️⃣2️⃣ Creando propiedad 'Tags'...")
-    crear_propiedad(CLOPAS_DB_ID, "Tags", "multi_select")
-
-    # Propiedad 13: Enlace GitHub
-    print("1️⃣3️⃣ Creando propiedad 'Enlace GitHub'...")
-    crear_propiedad(CLOPAS_DB_ID, "Enlace GitHub", "url")
+    print(f"Configurando CLOPAS en Notion (BD {CLOPAS_DB_ID})...")
+    fallidas = [] if renombrar_titulo(CLOPAS_DB_ID) else ["Title"]
+    for n, (nombre, tipo, opciones) in enumerate(PROPIEDADES, 1):
+        print(f"[{n}/{len(PROPIEDADES)}] {nombre}")
+        if not crear_propiedad(CLOPAS_DB_ID, nombre, tipo, opciones):
+            fallidas.append(nombre)
 
     print()
-    print("=" * 60)
-    print("✅ CLOPAS Configurada Correctamente")
-    print("=" * 60)
-    print()
-    print("Propiedades creadas:")
-    print("  ✅ Tipo (Select)")
-    print("  ✅ Proyecto (Select)")
-    print("  ✅ Categoría (Select)")
-    print("  ✅ Descripción (Text)")
-    print("  ✅ Solución (Text)")
-    print("  ✅ Código (Code)")
-    print("  ✅ Fecha (Date)")
-    print("  ✅ Estado (Select)")
-    print("  ✅ Prioridad (Select)")
-    print("  ✅ Autor (Text)")
-    print("  ✅ Impacto (Multi-select)")
-    print("  ✅ Tags (Multi-select)")
-    print("  ✅ Enlace GitHub (URL)")
-    print()
-    print("🎉 ¡CLOPAS está lista para usar!")
-    print()
-    print("Próximos pasos:")
-    print("  1. Abre CLOPAS en Notion")
-    print("  2. Crea un nuevo registro")
-    print("  3. Usa: python3 scripts/gestor_clopas.py")
+    if fallidas:
+        print(f"ERROR: {len(fallidas)} propiedades no se crearon: {', '.join(fallidas)}")
+        print("Verificar que la integración de Notion tenga acceso a la BD CLOPAS")
+        print("(en Notion: ... > Conexiones > agregar la integración).")
+        return 1
+
+    print(f"OK: CLOPAS configurada con {len(PROPIEDADES)} propiedades.")
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
