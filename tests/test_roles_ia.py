@@ -167,3 +167,14 @@ def test_contexto_legal_incluye_rgi_notas_partidas_y_aperturas():
     from sub_agentes.contexto_legal import construir
     b = construir(["83"], ["83.06"])
     assert "RGI 1" in b and "CAPÍTULO 83" in b and "83.06 Campanas" in b and "8306.29.00" in b
+
+
+def test_validador_jerarquia_advierte_sin_sustituir():
+    from sub_agentes.validador_jerarquia_sa import validar_y_corregir
+    for consulta, son in (("Dron aereo para agricultura", "8806.23.19"),
+                          ("pantalla para celular", "8501.10.10")):
+        final, informe = validar_y_corregir(consulta, son)
+        assert final == son
+        assert "son_corregido" not in informe
+        if informe.get("valido") is False:
+            assert informe.get("sustitucion", "").startswith("no aplicada")

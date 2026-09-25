@@ -1222,14 +1222,13 @@ def consultar():
                 try:
                     from sub_agentes.validador_jerarquia_sa import validar_y_corregir as _vyc
                     _son_final, _inf_vyc = _vyc(question, _cod_post)
-                    if _son_final != _cod_post:
-                        print(f"[SERVER] Gate coherencia post-pipeline: "
-                              f"{_cod_post} -> {_son_final} "
-                              f"({_inf_vyc.get('defensa', 'jerarquia')})")
-                        traz["codigo_final"] = _son_final
-                        _old_resp = traz.get("respuesta_final", "")
-                        traz["respuesta_final"] = _old_resp.replace(
-                            _cod_post, _son_final)
+                    if _inf_vyc.get("valido") is False and _inf_vyc.get("alternativa_sugerida"):
+                        print(f"[SERVER] Gate coherencia post-pipeline observa {_cod_post} "
+                              f"(alternativa sin aplicar: {_inf_vyc['alternativa_sugerida']})")
+                        traz["respuesta_final"] = traz.get("respuesta_final", "") + (
+                            f"\n\n> OBSERVACION DE JERARQUIA: {_inf_vyc.get('razon', '')} "
+                            f"Alternativa a evaluar: {_inf_vyc['alternativa_sugerida']}. "
+                            "No se sustituyo el codigo; verifiquelo con las Notas Legales y la RGI.")
                         traz["gate_coherencia_post"] = _inf_vyc
                 except Exception as _e_vyc:
                     print(f"[SERVER] Gate coherencia error: {_e_vyc}")
@@ -3273,7 +3272,7 @@ def api_validar_sugerida():
         notas_lista = (notas_c.get("notas_cap", []) + notas_c.get("notas_sec", [])
                        + notas_c.get("notas_subpartida", []))[:5]
 
-        if son_final == codigo_sugerido:
+        if info.get("valido") is not False:
             return jsonify({
                 "valido": True, "codigo": codigo_sugerido,
                 "descripcion": desc_sugerido, "gravamen": grav_sugerido,
@@ -3283,6 +3282,7 @@ def api_validar_sugerida():
                 "notas_aplicadas": notas_lista,
             })
         else:
+            son_final = info.get("alternativa_sugerida") or ""
             desc_corregido = codigos.get(son_final, "")
             _m2 = _re.search(r'\s+(\d+)\s*$', desc_corregido.strip())
             grav_corregido = _m2.group(1) if _m2 else "?"
@@ -3303,7 +3303,7 @@ def api_validar_sugerida():
                 "codigo_corregido": son_final,
                 "descripcion_corregido": desc_corregido,
                 "gravamen_corregido": grav_corregido,
-                "accion": "RECHAZADA",
+                "accion": "OBSERVADA",
                 "razon": info.get("razon", "La partida no coincide con la descripcion del producto."),
                 "razonamiento_legal": info.get("razonamiento_legal", ""),
                 "defensa": info.get("defensa", "jerarquia"),
