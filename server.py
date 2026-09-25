@@ -1710,6 +1710,38 @@ def health_version():
     return jsonify({"commit": os.environ.get("RAILWAY_GIT_COMMIT_SHA", "")})
 
 
+# Diagnostico de la clave de Claude sin exponerla: solo huella (largo, prefijo,
+# ultimos 4) y la respuesta de GET /v1/models, que no consume tokens.
+@app.route("/health/claude")
+def health_claude():
+    clave = os.environ.get("ANTHROPIC_API_KEY", "")
+    info = {
+        "clave_configurada": bool(clave),
+        "largo": len(clave),
+        "prefijo": clave[:10],
+        "ultimos_4": clave[-4:] if len(clave) >= 8 else "",
+        "espacios_o_comillas": clave != clave.strip().strip('"').strip("'"),
+    }
+    if not clave:
+        info["status"] = "FAIL"
+        return jsonify(info), 503
+    import urllib.request as _ur
+    import urllib.error as _ue
+    req = _ur.Request("https://api.anthropic.com/v1/models?limit=1", headers={
+        "x-api-key": clave.strip(), "anthropic-version": "2023-06-01"})
+    try:
+        with _ur.urlopen(req, timeout=15) as r:
+            info["http"] = r.status
+    except _ue.HTTPError as he:
+        info["http"] = he.code
+        info["error"] = he.read(300).decode("utf-8", errors="replace")
+    except Exception as e:
+        info["http"] = None
+        info["error"] = f"{type(e).__name__}: {str(e)[:150]}"
+    info["status"] = "OK" if info.get("http") == 200 else "FAIL"
+    return jsonify(info), (200 if info["status"] == "OK" else 503)
+
+
 # ── Health public sin auth: diagnostica Gemini desde cualquier dispositivo ──
 @app.route("/health/gemini")
 def health_gemini():

@@ -33,6 +33,7 @@ chequear() {
   [ "$code" = "200" ] || fallos=$((fallos + 1))
 }
 
+chequear "Claude (clave, sin exponerla)" "$BASE/health/claude" 30
 chequear "Gemini (merceologia)" "$BASE/health/gemini" 60
 chequear "SIREVUCE (Cuaderno 6)" "$BASE/health/sirevuce" 90
 chequear "Arquitectura (dron agricola)" "$BASE/health/arquitectura" 180
