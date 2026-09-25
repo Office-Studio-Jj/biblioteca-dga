@@ -1810,7 +1810,8 @@ def health_gemini():
     last_err = None
     for intento in range(1, 4):
         try:
-            client = _genai_global.Client(api_key=gemini_key, http_options={"timeout": 45})
+            # google-genai: timeout en MILISEGUNDOS (45 = 45 ms causaba ReadTimeout, ERR-023)
+            client = _genai_global.Client(api_key=gemini_key, http_options={"timeout": 45000})
             resp = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents="Responde unicamente con la palabra OK",
