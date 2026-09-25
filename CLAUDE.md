@@ -21,7 +21,9 @@
 ## Arquitectura (Opción B CEO 03-MAY-2026)
 - Capa 1: SQLite (arancel_rd.db, 7,616 SON) — verdad exacta DAI/ITBIS/ISC
 - Capa 2: Notion (3 BDs activas + 4 pendientes) — conocimiento estructurado
-- Capa 3: Gemini pre-filtro (Cap. 2 dígitos) + Claude API árbitro legal (SON final)
+- Capa 3: Gemini SOLO informativo (ficha merceológica: origen, composición, función, uso, criterio prevalente; sin capítulos, partidas, SON ni tasas) + Claude API árbitro legal que decide capítulo y SON con la biblioteca-dga (25-09-2026)
+- La existencia de un código en la biblioteca solo informa: nunca elige ni sustituye capítulo o partida (código inexistente → "NO DETERMINADA")
+- Cuaderno 6 VUCERD: verificación oficial SIREVUCE (`sub_agentes/consultor_sirevuce.py`) con registro automático en CLOPAS (`sub_agentes/clopas_auto.py`)
 - Flujo docs: RECIBIDO → CLASIFICADO → EN PROCESAMIENTO (Notion) → CURADO → PUBLICADO
 - NotebookLM eliminado como paso intermedio
 

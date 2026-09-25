@@ -782,48 +782,21 @@ def _check_codigo_arancelario(respuesta: str) -> Tuple[str, str, str]:
         desc = validas[ext_nac]
         return respuesta, "OK", f"{codigo} VERIFICADO — {desc}"
 
-    # ── CODIGO INVALIDO — CORRECCION AUTOMATICA ──
-    ext_fallback = None
-    for e, d in validas.items():
-        if "los demas" in d.lower() or "las demas" in d.lower():
-            ext_fallback = e
-            break
-
+    # ── CODIGO INVALIDO — se marca, no se sustituye (la partida la decide el arbitro legal) ──
     disponibles = "; ".join(f"{sub_sa}.{e} = {d}" for e, d in validas.items())
-
-    if ext_fallback:
-        nuevo = f"{sub_sa}.{ext_fallback}"
-        desc_nuevo = validas[ext_fallback]
-        nota = (f"{nuevo} — {desc_nuevo} "
-                f"[CORREGIDO: {codigo} NO EXISTE en Arancel RD. "
-                f"Validos bajo {sub_sa}: {disponibles}]")
-    else:
-        nota = (f"{sub_sa}.[verificar en Arancel RD] "
-                f"[CORREGIDO: {codigo} NO EXISTE. "
-                f"Validos bajo {sub_sa}: {disponibles}]")
-
-    # Reemplazar linea SUBPARTIDA_NAC en la respuesta
+    nota = (f"NO DETERMINADA — {codigo} NO EXISTE en el Arancel RD. "
+            f"Validos bajo {sub_sa}, sin seleccionar: {disponibles}")
     old_line_match = re.search(r'SUBPARTIDA_NAC:.*', block)
     if old_line_match:
-        respuesta = respuesta.replace(old_line_match.group(0),
-                                       f"SUBPARTIDA_NAC: {nota}")
-    # Degradar auditoria
+        respuesta = respuesta.replace(old_line_match.group(0), f"SUBPARTIDA_NAC: {nota}")
     respuesta = re.sub(
         r'AUDITORIA:\s*APROBADA\b',
-        'AUDITORIA: CONDICIONADA — codigo corregido por Supervisor Interno',
+        'AUDITORIA: CONDICIONADA — codigo inexistente; requiere clasificacion por el arbitro legal',
         respuesta
     )
 
-    # Registrar en biblioteca de errores resueltos
-    _registrar_error_resuelto(
-        codigo_original=codigo,
-        codigo_corregido=nuevo if ext_fallback else f"{sub_sa}.XX",
-        motivo=f"NO existe bajo {sub_sa}. Corregido por CODIGOS_VERIFICADOS_RD",
-        fuente="CHECK_Codigo"
-    )
-
     return (respuesta, "ERROR",
-            f"{codigo} NO EXISTE bajo {sub_sa} — corregido. "
+            f"{codigo} NO EXISTE bajo {sub_sa} — no se sustituye. "
             f"Validos: {disponibles}")
 
 
@@ -1074,9 +1047,8 @@ def _check_fuentes_pdf(respuesta: str, pregunta: str, notebook_id: str) -> Tuple
     Solo aplica al cuaderno de nomenclaturas.
     100% Python — busca coincidencias textuales en los PDFs extraidos.
 
-    CORRECCION AUTOMATICA: Si el codigo NO existe en fuentes PDF pero la
-    subpartida SI tiene extensiones validas, auto-promueve la extension
-    correcta como resultado principal.
+    Si el codigo NO existe, NO lo sustituye: marca SUBPARTIDA_NAC como NO DETERMINADA
+    y lista las alternativas vigentes para el arbitro legal.
 
     Returns:
         (respuesta_modificada, estado, mensaje)
@@ -1114,38 +1086,23 @@ def _check_fuentes_pdf(respuesta: str, pregunta: str, notebook_id: str) -> Tuple
                     _elegir_codigo_corregido(codigo, _CODIGOS_PDF)
 
                 if mejor_codigo:
-                    nota = (f"{mejor_codigo} — {mejor_desc} "
-                            f"[CORREGIDO por FuentesPDF: {codigo_raw} NO EXISTE "
-                            f"en Arancel RD ({nivel_correccion}). "
-                            f"Codigos vigentes: {disponibles}]")
-
-                    # Reemplazar SUBPARTIDA_NAC en la respuesta
+                    # La existencia en la biblioteca no decide la partida: se listan las
+                    # alternativas, pero la clasificacion queda para el arbitro legal (Claude).
+                    nota = (f"NO DETERMINADA — {codigo_raw} NO EXISTE en el Arancel RD "
+                            f"({nivel_correccion}). Alternativas vigentes en la biblioteca-dga, "
+                            f"sin seleccionar: {disponibles}")
                     old_line = re.search(r'SUBPARTIDA_NAC:.*', bloque)
                     if old_line:
-                        respuesta = respuesta.replace(
-                            old_line.group(0),
-                            f"SUBPARTIDA_NAC: {nota}")
-
-                    # Degradar auditoria
+                        respuesta = respuesta.replace(old_line.group(0), f"SUBPARTIDA_NAC: {nota}")
                     respuesta = re.sub(
                         r'AUDITORIA:\s*APROBADA\b',
-                        'AUDITORIA: CONDICIONADA — codigo corregido por FuentesPDF',
+                        'AUDITORIA: CONDICIONADA — codigo inexistente; requiere clasificacion por el arbitro legal',
                         respuesta)
-
-                    # Registrar en biblioteca de errores resueltos
-                    _registrar_error_resuelto(
-                        codigo_original=codigo_raw,
-                        codigo_corregido=mejor_codigo,
-                        motivo=f"NO encontrado en fuentes PDF ({nivel_correccion}). "
-                               f"Corregido a {mejor_codigo}",
-                        fuente="CHECK_FuentesPDF"
-                    )
-
-                    print(f"[SUPERVISOR_INTERNO] FuentesPDF AUTO-CORRECCION "
-                          f"[{nivel_correccion}]: {codigo_raw} -> {mejor_codigo}")
+                    print(f"[SUPERVISOR_INTERNO] FuentesPDF: {codigo_raw} no existe "
+                          f"[{nivel_correccion}] — marcado NO DETERMINADA, sin sustituir")
                     return (respuesta, "ERROR",
-                            f"OBSERVACION: Fuentes PDF: {codigo_raw} NO encontrado "
-                            f"({nivel_correccion}). CORREGIDO a {mejor_codigo} — {mejor_desc}")
+                            f"Fuentes PDF: {codigo_raw} NO encontrado ({nivel_correccion}). "
+                            f"No se sustituye; alternativas: {disponibles}")
 
                 # Sin candidatos para corregir — degradar auditoria y observar
                 respuesta = re.sub(
@@ -1299,7 +1256,7 @@ def supervisar(pregunta: str, notebook_id: str, respuesta_gemini: str) -> Tuple[
     errores = [c for c in checks if c[1] == "ERROR"]
     observaciones = [c for c in checks if c[1] == "OBSERVACION"]
     hay_correccion_codigo = any(
-        c[0] in ("Codigo", "FuentesPDF") and c[1] == "ERROR" for c in checks
+        c[0] == "Codigo" and c[1] == "ERROR" for c in checks
     )
 
     if errores:

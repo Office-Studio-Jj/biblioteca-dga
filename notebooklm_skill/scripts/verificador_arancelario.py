@@ -21,13 +21,7 @@ ARQUITECTURA:
 import re
 import json
 import os
-
-try:
-    from google import genai
-    from google.genai import types
-    _GENAI_DISPONIBLE = True
-except ImportError:
-    _GENAI_DISPONIBLE = False
+import sys
 
 # ══════════════════════════════════════════════════════════════════════════
 # CACHE DEL ARANCEL — verificacion rapida de existencia de codigos
@@ -288,114 +282,40 @@ def _validar_gravamen_python(resultado: dict, codigo: str) -> dict:
     return resultado
 
 
-def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str, arancel_file=None) -> dict | None:
+def verificar_codigo_y_cargos(codigo: str, producto: str, api_key: str = "", arancel_file=None) -> dict | None:
     """
-    Verifica codigo arancelario Y cargos fiscales contra el Arancel RD.
-    Si arancel_file esta disponible, Gemini lee el PDF real.
-    Una sola consulta dirigida cubre: existencia, gravamen, ITBIS, selectivo, otros.
-
-    Args:
-        codigo:       Codigo de 8 digitos a verificar (ej: "4818.90.90")
-        producto:     Descripcion del producto para contexto (ej: "papel camilla")
-        api_key:      GEMINI_API_KEY de Railway
-        arancel_file: Referencia al Arancel PDF en Gemini File API (opcional)
-
-    Returns:
-        dict completo con codigo + cargos verificados, o None si falla
+    Verifica codigo y cargos fiscales SOLO contra la biblioteca-dga (capa1_sqlite/arancel_rd.db,
+    extraida del Arancel 7ma Enmienda con pdfplumber, 0% IA). Gemini no interviene.
+    api_key y arancel_file se conservan por compatibilidad con los llamadores.
     """
-    if not _GENAI_DISPONIBLE:
-        print("[VERIFICADOR] google-genai no disponible — saltando verificacion")
-        return None
+    _raiz = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if _raiz not in sys.path:
+        sys.path.insert(0, _raiz)
+    from sub_agentes.merceologia_gemini import son_en_biblioteca
 
-    if not api_key:
-        print("[VERIFICADOR] Sin GEMINI_API_KEY — saltando verificacion")
-        return None
+    fila = son_en_biblioteca(codigo)
+    fuente = "biblioteca-dga arancel_rd.db (Arancel 7ma Enmienda, Decreto 36-22)"
+    if not fila:
+        print(f"[VERIFICADOR] {codigo} NO existe en biblioteca-dga")
+        return {"existe": False, "codigo_correcto": "", "descripcion_oficial": "",
+                "razon": f"{codigo} no existe en la biblioteca-dga (Arancel 7ma Enmienda)"}
 
-    # ── CACHE-FIRST: verificar existencia rapida en cache del Arancel ──
-    _cargar_cache_arancel()
-    existe_en_cache = codigo in _CACHE_CODIGOS
-    desc_cache = _CACHE_CODIGOS.get(codigo, "")
-    if existe_en_cache:
-        print(f"[VERIFICADOR] Cache-first: {codigo} EXISTE en Arancel ({desc_cache[:50]})")
-    else:
-        print(f"[VERIFICADOR] Cache-first: {codigo} NO encontrado en cache — Gemini verificara")
-
-    try:
-        client = genai.Client(api_key=api_key)
-        _config = types.GenerateContentConfig(
-            system_instruction=_SYSTEM_VERIFICACION,
-            thinking_config=types.ThinkingConfig(thinking_budget=0),
-        )
-
-        # Incluir dato de cache para ayudar a Gemini
-        cache_hint = ""
-        if existe_en_cache:
-            cache_hint = (f"\nNOTA: El codigo {codigo} fue encontrado en el indice del Arancel "
-                         f"con descripcion: '{desc_cache}'. Confirma y busca su gravamen.\n")
-
-        pregunta = (
-            f"Verifica el codigo arancelario {codigo} en el Arancel de la Republica Dominicana.\n"
-            f"Producto: {producto}\n{cache_hint}\n"
-            f"INSTRUCCIONES ESPECIFICAS:\n"
-            f"1. ¿Existe el codigo {codigo} con esa extension nacional exacta?\n"
-            f"2. Lee la columna GRAV. del Arancel junto a este codigo. "
-            f"¿Que NUMERO aparece en esa columna? Ese numero es el gravamen ad-valorem en porcentaje. "
-            f"Si el numero es 0, responde 0%. Si es otro numero, responde ese porcentaje exacto.\n"
-            f"3. Lee la columna EX. ITBIS. ¿Esta en blanco (ITBIS 18% aplica) o tiene marca (EXENTO)?\n"
-            f"4. ¿Aplica selectivo al consumo u otros cargos?\n"
-        )
-
-        print(f"[VERIFICADOR] Verificando codigo + cargos: {codigo} para: {producto[:60]}")
-        if arancel_file:
-            print("[VERIFICADOR] Verificando contra Arancel PDF real")
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=[arancel_file, pregunta],
-                config=_config
-            )
-        else:
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=pregunta,
-                config=_config
-            )
-        texto = response.text.strip()
-
-        # Extraer JSON — puede venir con backticks o texto adicional
-        texto_limpio = re.sub(r'```(?:json)?', '', texto).strip()
-        # Buscar JSON con campos anidados (permitir llaves internas)
-        m = re.search(r'\{[^{}]*"existe"[^{}]*\}', texto_limpio, re.DOTALL)
-        if not m:
-            # Intentar con formato mas flexible (JSON multilinea)
-            m = re.search(r'\{[\s\S]*?"existe"[\s\S]*?\}', texto_limpio)
-        if m:
-            resultado = json.loads(m.group(0))
-
-            existe = resultado.get("existe", True)
-            codigo_c = resultado.get("codigo_correcto", codigo)
-            desc = resultado.get("descripcion_oficial", "")
-            grav = resultado.get("gravamen_ad_valorem", "?")
-            itbis = resultado.get("itbis", "?")
-            selec = resultado.get("selectivo", "?")
-
-            # ── VALIDACION PYTHON: detectar gravamen 0% sospechoso ──
-            # Si Gemini dice 0% pero el capitulo normalmente tiene gravamen,
-            # marcar como no confiable y forzar "VERIFICAR EN ARANCEL VIGENTE"
-            resultado = _validar_gravamen_python(resultado, codigo_c or codigo)
-
-            grav = resultado.get("gravamen_ad_valorem", "?")
-            estado = "CONFIRMADO" if existe else "NO EXISTE"
-            print(f"[VERIFICADOR] Codigo: {codigo} -> {estado} (correcto: {codigo_c})")
-            print(f"[VERIFICADOR] Gravamen: {grav} | ITBIS: {itbis} | Selectivo: {selec}")
-
-            return resultado
-
-        print(f"[VERIFICADOR] No se pudo parsear JSON de: {texto[:300]}")
-        return None
-
-    except Exception as e:
-        print(f"[VERIFICADOR] Error en verificacion de {codigo}: {e}")
-        return None
+    pct = lambda v: v if not v or not str(v).strip().isdigit() else f"{str(v).strip()}%"
+    resultado = {
+        "existe": True,
+        "codigo_correcto": codigo,
+        "descripcion_oficial": fila["descripcion"],
+        "gravamen_ad_valorem": pct(fila["gravamen"]),
+        "gravamen_fuente": fuente,
+        "itbis": pct(fila["itbis"]),
+        "itbis_fuente": fuente,
+        "selectivo": fila["isc"] or "",
+        "selectivo_fuente": fuente,
+        "otros_cargos": "",
+    }
+    print(f"[VERIFICADOR] {codigo} confirmado en biblioteca-dga | DAI {resultado['gravamen_ad_valorem']} "
+          f"| ITBIS {resultado['itbis']} | ISC {resultado['selectivo']}")
+    return resultado
 
 
 def _corregir_cargos_en_respuesta(respuesta: str, resultado: dict, codigo_final: str) -> str:
@@ -563,8 +483,15 @@ def pre_verificar_codigo_en_respuesta(respuesta: str, pregunta: str, api_key: st
         razon = resultado.get("razon", f"{codigo} no existe en el Arancel RD")
 
         if not codigo_correcto or not re.match(r'\d{4}\.\d{2}\.\d{2}$', codigo_correcto):
-            print(f"[VERIFICADOR] Codigo correcto invalido: '{codigo_correcto}' — no se corrige")
-            return respuesta, False
+            old_line = re.search(r'SUBPARTIDA_NAC:\s*' + re.escape(codigo) + r'[^\n]*', respuesta)
+            if old_line:
+                respuesta = respuesta.replace(
+                    old_line.group(0), f"SUBPARTIDA_NAC: {codigo} [NO VERIFICADO: {razon}]")
+            respuesta = re.sub(
+                r'AUDITORIA:\s*APROBADA\b',
+                'AUDITORIA: CONDICIONADA — codigo no encontrado en biblioteca-dga', respuesta)
+            print(f"[VERIFICADOR] {codigo} sin respaldo en biblioteca-dga — marcado NO VERIFICADO")
+            return respuesta, True
 
         codigo_final = codigo_correcto
 

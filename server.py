@@ -1410,6 +1410,8 @@ def consultar():
             try:
                 from sub_agentes.consultor_sirevuce import formatear_bloque as _fb_sv
                 _res_sv = _sirevuce_future.result(timeout=20)
+                from sub_agentes.clopas_auto import registrar_consulta_vucerd as _clopas_sv
+                _clopas_sv(_res_sv)
                 resp["answer"] = _fb_sv(_res_sv) + "\n---\n" + resp["answer"]
                 resp["sirevuce"] = {
                     "estado": _res_sv["estado"],
@@ -1674,6 +1676,8 @@ def api_sirevuce():
     if _rate_limited(f"sirevuce:{_get_client_ip()}", 'consulta'):
         return jsonify({"error": "Demasiadas consultas. Espera un momento."}), 429
     res = consultar_pregunta(q)
+    from sub_agentes.clopas_auto import registrar_consulta_vucerd
+    registrar_consulta_vucerd(res)
     res["texto"] = formatear_bloque(res)
     return jsonify(res), (200 if res["estado"] != "NO_VERIFICADO" else 502)
 
@@ -1685,8 +1689,12 @@ def health_sirevuce():
     res = consultar_sirevuce("9022.90.10")
     r0 = (res.get("resultados") or [{}])[0]
     ok = res["estado"] == "VERIFICADO" and r0.get("son") == "9022.90.10" and r0.get("requiere_vuce") is True
+    status = "OK" if ok else "REVISAR_PARSER" if res["estado"] != "NO_VERIFICADO" else "SIN_CONEXION"
+    from sub_agentes.clopas_auto import registrar_salud_sirevuce
+    registrar_salud_sirevuce(status, res.get("error") or {"son": r0.get("son"),
+                             "requiere_vuce": r0.get("requiere_vuce"), "url": r0.get("url")})
     return jsonify({
-        "status": "OK" if ok else "REVISAR_PARSER" if res["estado"] != "NO_VERIFICADO" else "SIN_CONEXION",
+        "status": status,
         "estado": res["estado"],
         "esperado": "9022.90.10 requiere formulario de Productos Sanitarios (MISPAS)",
         "obtenido": {"son": r0.get("son"), "requiere_vuce": r0.get("requiere_vuce"),
@@ -3389,7 +3397,7 @@ def api_consultar_isc_partida():
     d = request.json or {}
     codigo = d.get("codigo", "").strip()
     descripcion = d.get("descripcion", "").strip()[:120]
-    usar_gemini = d.get("usar_gemini", False)  # Por defecto rapido (sin Gemini) en UI
+    usar_gemini = False  # ISC solo desde biblioteca-dga; Gemini no decide tributos
 
     if not codigo or not _re.match(r'^\d{4}\.\d{2}\.\d{2}$', codigo):
         return jsonify({"error": "Codigo invalido"}), 400
@@ -3994,9 +4002,9 @@ def ask_notebooklm(question, notebook_id, timeout=60):
 
 
 def _ask_notebooklm_internal(question, notebook_id, timeout=60):
-    # ── Ruta 1: Gemini API con retry automático + backoff exponencial ──
-    gemini_key = os.environ.get("GEMINI_API_KEY", "")
-    if gemini_key:
+    # ── Ruta 1: Claude + biblioteca-dga (ask_gemini.py) con retry + backoff ──
+    # Gemini solo aporta ficha merceologica informativa; no es requisito para responder.
+    if os.environ.get("ANTHROPIC_API_KEY", ""):
         import time as _time
         import random as _random
         max_intentos = 3

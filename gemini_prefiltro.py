@@ -1,11 +1,11 @@
 """
-GEMINI PRE-FILTRO DE SINONIMOS
+GEMINI PRE-FILTRO MERCEOLOGICO
 ================================
-Traduce lenguaje comercial/coloquial → lenguaje arancelario SA.
-Se ejecuta ANTES del orquestador_v2. No modifica el flujo posterior.
+Gemini investiga solo la merceologia del producto (sub_agentes/merceologia_gemini.py)
+y con ella enriquece la busqueda en la biblioteca-dga. Se ejecuta ANTES del orquestador_v2.
 
 Regla de oro:
-  - Gemini SOLO traduce. No clasifica. No asigna SON. No toca la DB.
+  - Gemini no clasifica: no emite capitulo, partida, SON, tasas ni leyes.
   - Si Gemini falla o no esta disponible, devuelve texto_original sin cambio.
   - El patron R1-R7 sigue IDENTICO despues de esta capa.
 
@@ -13,44 +13,17 @@ Creado por Orden 10 del CEO — 4 mayo 2026
 Base legal: Convenio SA (OMA) RGI 1, Decreto 755-22 Art. 64, Ley 168-21 Art. 75
 """
 
-import json
 import os
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_SCRIPTS = os.path.join(_HERE, "notebooklm_skill", "scripts")
-if _SCRIPTS not in sys.path:
-    sys.path.insert(0, _SCRIPTS)
-
-_SYSTEM = (
-    "Eres un traductor de nomenclatura arancelaria del Sistema Armonizado (SA) de la OMA. "
-    "Tu UNICA funcion es traducir el nombre comercial, marca o termino coloquial de un producto "
-    "al lenguaje tecnico del SA. NO clasificas. NO asignas codigos SON. Solo traduces. "
-    "Responde UNICAMENTE con el JSON solicitado, sin texto adicional, sin bloques de codigo."
-)
-
-_PROMPT_TPL = """Producto del usuario: "{consulta}"
-
-Traduce al lenguaje tecnico del Sistema Armonizado (SA) de la OMA.
-
-Responde SOLO con este JSON (sin bloques de codigo, sin comentarios):
-{{
-  "consulta_original": "{consulta}",
-  "consulta_traducida": "[descripcion tecnica SA del producto]",
-  "sinonimos": ["[sinonimo1]", "[sinonimo2]"],
-  "identidad": "[que ES: su naturaleza tecnica en 1 frase]",
-  "parentesco_sa": "[familia SA a la que pertenece]",
-  "capitulo_probable": "[2 digitos, ej: 87]",
-  "terminos_arancelarios": ["[termino SA 1]", "[termino SA 2]", "[termino SA 3]"]
-}}"""
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
 
 
-def traducir_consulta(texto_usuario: str, timeout: float = 8.0) -> dict:
-    """
-    Llama a Gemini para traducir texto_usuario al lenguaje del SA.
-    Devuelve dict con consulta_traducida, sinonimos, terminos_arancelarios, etc.
-    Si falla, devuelve dict con consulta_traducida = texto_usuario (sin cambio).
-    """
+def traducir_consulta(texto_usuario: str, timeout: float = 15.0) -> dict:
+    """Ficha merceologica de Gemini en el formato que espera el orquestador.
+    Si falla, devuelve consulta_traducida = texto_usuario (sin cambio)."""
     fallback = {
         "consulta_original":    texto_usuario,
         "consulta_traducida":   texto_usuario,
@@ -61,51 +34,25 @@ def traducir_consulta(texto_usuario: str, timeout: float = 8.0) -> dict:
         "terminos_arancelarios": [],
     }
 
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key or not texto_usuario or not texto_usuario.strip():
+    if not texto_usuario or not texto_usuario.strip():
         return fallback
-
-    try:
-        from ask_gemini import _gemini_rest_call
-    except Exception:
+    from sub_agentes.merceologia_gemini import investigar_merceologia
+    ficha = investigar_merceologia(texto_usuario, timeout=timeout)
+    if not ficha:
         return fallback
-
-    prompt = _PROMPT_TPL.format(consulta=texto_usuario.replace('"', "'"))
-    try:
-        text, err = _gemini_rest_call(
-            api_key,
-            "gemini-2.5-flash",
-            _SYSTEM,
-            prompt,
-            timeout=int(timeout),
-        )
-    except Exception:
-        return fallback
-
-    if err or not text:
-        return fallback
-
-    # Extraer JSON de la respuesta (puede venir con backticks o sin ellos)
-    raw = text.strip()
-    # Quitar bloques de codigo si los hay
-    if "```" in raw:
-        import re
-        m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL)
-        raw = m.group(1) if m else raw.split("```")[1].lstrip("json").strip()
-
-    try:
-        resultado = json.loads(raw)
-        # Asegurar que consulta_original siempre este presente
-        resultado.setdefault("consulta_original", texto_usuario)
-        resultado.setdefault("consulta_traducida", texto_usuario)
-        resultado.setdefault("sinonimos", [])
-        resultado.setdefault("terminos_arancelarios", [])
-        return resultado
-    except (json.JSONDecodeError, ValueError):
-        return fallback
+    return {
+        "consulta_original":     texto_usuario,
+        "consulta_traducida":    ficha.get("nombre_tecnico") or texto_usuario,
+        "sinonimos":             ficha.get("sinonimos", []),
+        "identidad":             ficha.get("que_es", ""),
+        "parentesco_sa":         "",
+        "capitulo_probable":     "",
+        "terminos_arancelarios": ficha.get("terminos_busqueda", []),
+        "ficha_merceologica":    ficha,
+    }
 
 
-def enriquecer_consulta(texto_usuario: str, timeout: float = 8.0) -> str:
+def enriquecer_consulta(texto_usuario: str, timeout: float = 15.0) -> str:
     """
     Funcion simplificada para orquestador_v2.
     Devuelve texto enriquecido = traduccion + terminos arancelarios.
