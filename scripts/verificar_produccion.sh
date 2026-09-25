@@ -1,17 +1,23 @@
 #!/usr/bin/env bash
-# Verifica produccion tras un despliegue: espera a que exista /health/sirevuce (codigo nuevo)
-# y reporta el estado de Gemini, SIREVUCE y la arquitectura de clasificacion.
+# Verifica produccion tras un despliegue: espera a que /health/version muestre el commit
+# esperado (EXPECTED_SHA) y reporta el estado de Gemini, SIREVUCE y la arquitectura.
 set -u
 BASE="${BASE_URL:-https://biblioteca-dga-production.up.railway.app}"
+ESPERADO="${EXPECTED_SHA:-}"
 fallos=0
 
-echo "== Esperando el despliegue nuevo en $BASE =="
+echo "== Esperando el commit ${ESPERADO:-(cualquiera)} en $BASE =="
 for i in $(seq 1 40); do
-  code=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "$BASE/health/sirevuce")
-  if [ "$code" != "404" ] && [ "$code" != "000" ] && [ "$code" != "502" ]; then
-    echo "Despliegue nuevo activo (HTTP $code) tras $((i * 15)) s"; break
+  version=$(curl -s -m 30 "$BASE/health/version")
+  commit=$(echo "$version" | sed -n 's/.*"commit": *"\([0-9a-f]*\)".*/\1/p')
+  if [ -z "$ESPERADO" ] && [ -n "$version" ]; then
+    echo "Servicio activo (commit ${commit:-desconocido})"; break
   fi
-  echo "  intento $i: HTTP $code"; sleep 15
+  if [ -n "$ESPERADO" ] && [ "$commit" = "$ESPERADO" ]; then
+    echo "Despliegue del commit $commit activo tras $((i * 15)) s"; break
+  fi
+  echo "  intento $i: commit desplegado '${commit:-?}'"; sleep 15
+  [ "$i" = 40 ] && echo "AVISO: no se vio el commit esperado; se prueba lo que haya desplegado."
 done
 
 chequear() {
