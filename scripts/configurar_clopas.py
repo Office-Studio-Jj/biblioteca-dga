@@ -47,11 +47,11 @@ def crear_propiedad(db_id, nombre, tipo, opciones=None):
             }
         }
     elif tipo == "text":
-        propiedad = {"type": "rich_text"}
+        propiedad = {"rich_text": {}}
     elif tipo == "date":
-        propiedad = {"type": "date"}
+        propiedad = {"date": {}}
     elif tipo == "url":
-        propiedad = {"type": "url"}
+        propiedad = {"url": {}}
     else:
         return False
 
@@ -128,7 +128,7 @@ def main():
     print()
     if fallidas:
         print(f"ERROR: {len(fallidas)} propiedades no se crearon: {', '.join(fallidas)}")
-        print("Verificar que la integración de Notion tenga acceso a la BD CLOPAS")
+        print("Si el error fue 401/403/404: dar acceso a la integración en la BD CLOPAS")
         print("(en Notion: ... > Conexiones > agregar la integración).")
         return 1
 
