@@ -6,7 +6,8 @@ Usa claude-haiku-4-5 (rapido, economico ~$0.001/consulta).
 import os
 import re
 
-def validar_clasificacion(query: str, codigo_gemini: str, desc_cache: str, contexto_legal: str = "") -> dict:
+def validar_clasificacion(query: str, codigo_gemini: str, desc_cache: str, contexto_legal: str = "",
+                          ficha: str = "") -> dict:
     """
     Valida si el codigo retornado por Gemini es correcto para la consulta.
 
@@ -36,6 +37,17 @@ def validar_clasificacion(query: str, codigo_gemini: str, desc_cache: str, conte
                 "cabe en esa subpartida, aunque la descripcion no nombre el producto.\n"
             )
 
+        if ficha:
+            bloque_legal += (
+                "\nFICHA MERCEOLOGICA DEL PRODUCTO (datos reales: composicion, uso, especificaciones):\n"
+                f"{ficha}\n"
+            )
+        bloque_legal += (
+            "\nSi la subpartida depende de un dato (peso, potencia, material, dimensiones...) que no esta "
+            "en la consulta ni en la ficha, NO lo supongas: responde VALIDO: FALTAN DATOS y en RAZON "
+            "indica el dato que falta.\n"
+        )
+
         prompt = f"""Eres un experto en clasificacion arancelaria del Arancel de Aduanas de la Republica Dominicana (7ma Enmienda, Sistema Armonizado).
 
 CONSULTA DEL USUARIO: {query}
@@ -46,21 +58,26 @@ DESCRIPCION OFICIAL DEL CODIGO: {desc_cache or "(no disponible en cache)"}
 Determina si este codigo es correcto para la consulta.
 
 Responde SOLO en este formato exacto:
-VALIDO: SI o NO
+VALIDO: SI, NO o FALTAN DATOS
 CONFIANZA: ALTA, MEDIA o BAJA
 RAZON: (una sola linea explicando por que es correcto o incorrecto)"""
 
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=150,
+            max_tokens=250,
             messages=[{"role": "user", "content": prompt}]
         )
         texto = msg.content[0].text.strip()
 
-        valido = "VALIDO: SI" in texto.upper()
+        faltan = "FALTAN DATOS" in texto.upper()
+        valido = None if faltan else "VALIDO: SI" in texto.upper()
         m_conf = re.search(r'CONFIANZA:\s*(ALTA|MEDIA|BAJA)', texto, re.IGNORECASE)
         m_razon = re.search(r'RAZON:\s*(.+)', texto, re.IGNORECASE)
 
+        razon = m_razon.group(1).strip() if m_razon else texto[:100]
+        if faltan:
+            return {"valido": None, "codigo_confirmado": None, "requiere_ficha_tecnica": True,
+                     "dato_faltante": razon, "confianza": "BAJA", "razon": razon}
         return {
             "valido": valido,
             "codigo_confirmado": codigo_gemini if valido else None,

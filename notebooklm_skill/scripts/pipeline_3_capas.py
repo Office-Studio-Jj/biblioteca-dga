@@ -1060,8 +1060,13 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
         if esta_disponible():
             desc_oficial = resultado.get("descripcion_oficial", "")
             valid = validar_clasificacion(consulta, codigo_propuesto, desc_oficial,
-                                          _contexto_legal_partida(codigo_propuesto))
+                                          _contexto_legal_partida(codigo_propuesto),
+                                          (caracteristicas_capa3 or {}).get("ficha_texto", ""))
             resultado["claude_confirmacion"] = valid
+            if valid.get("requiere_ficha_tecnica"):
+                # Paso 6.5: sin el dato decisivo no se confirma la subpartida; se pide la ficha
+                resultado["requiere_ficha_tecnica"] = True
+                resultado["dato_faltante"] = valid.get("dato_faltante", "")
     except Exception as e:
         resultado["claude_confirmacion"] = {"error": f"{type(e).__name__}: {str(e)[:150]}"}
 
@@ -1072,6 +1077,21 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
     resultado["ok"] = bool(resultado["codigo_existe"]) and claude_ok and no_generico
     resultado["elapsed_ms"] = int((time.time() - t0) * 1000)
     return resultado
+
+
+def _texto_ficha_merceologica(c2: dict) -> str:
+    """Datos reales del producto: ficha merceologica local (md) o la de Gemini en Capa 2."""
+    slug = (c2 or {}).get("slug")
+    if slug:
+        try:
+            with open(os.path.join(_DATA, "merceologia", f"{slug}.md"), "r", encoding="utf-8") as f:
+                return f.read()[:6000]
+        except Exception:
+            pass
+    ficha = (c2 or {}).get("ficha_merceologica") or (c2 or {}).get("merceologia")
+    if isinstance(ficha, dict):
+        return json.dumps(ficha, ensure_ascii=False)[:6000]
+    return str(ficha or "")[:6000]
 
 
 def _contexto_legal_partida(codigo: str) -> str:
@@ -1235,6 +1255,9 @@ def _componer_respuesta_ground_truth(consulta: str, c2: dict, c1: dict) -> str:
     out.append(f"- **Codigo nacional RD:** {codigo}")
     if c1.get("criterio_subpartida"):
         out.append(f"- **Criterio de subpartida:** {c1['criterio_subpartida']}")
+    if c1.get("requiere_ficha_tecnica"):
+        out.append(f"- **Subpartida pendiente de ficha tecnica:** falta {c1.get('dato_faltante') or 'el dato que decide la subpartida'} "
+                   "(RGI 6, Decreto 755-22). Suministre la ficha tecnica del fabricante para confirmar el codigo.")
     if son_sugerencias:
         out.append("- **SON sugerida(s) por caracteristicas detectadas:**")
         for s in son_sugerencias:
@@ -1507,6 +1530,7 @@ def ejecutar_pipeline(consulta: str, notebook_id: str = "biblioteca-de-nomenclat
     if capitulo_gemini:
         caracs["capitulo_candidato_gemini"] = capitulo_gemini
         caracs["criterio_0_gemini"] = c2.get("criterio_0_gemini", "")
+    caracs["ficha_texto"] = _texto_ficha_merceologica(c2)
     c1 = capa_1_claude_validador(consulta, codigo_propuesto, caracteristicas_capa3=caracs)
     trazabilidad["capas"].append(c1)
 
