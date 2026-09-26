@@ -11,3 +11,6 @@ capa1_sqlite/arancel_rd.db
 
 # code-review-graph (grafo local)
 .code-review-graph/
+
+# snapshots del .env (contienen claves)
+backups/env_*
