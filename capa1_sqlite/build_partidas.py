@@ -16,9 +16,14 @@ _PDF = os.path.join(_RAIZ, "notebooklm_skill", "data", "fuentes_nomenclatura",
                     "Arancel 7ma enmienda de la republica dominicana.pdf")
 _SALIDA = os.path.join(_RAIZ, "notebooklm_skill", "data", "fuentes_nomenclatura", "partidas_arancel.json")
 
-_PARTIDA = re.compile(r"^(\d{2}\.\d{2})\s+(\S.*)$")
-_PARTIDA_UNICA = re.compile(r"^(\d{2})(\d{2})\.00\.00\s+(\S.*)$")
+_PARTIDA = re.compile(r"^(\d{2}\.\d{2})\.?\s+(\S.*)$")  # "10.03. Cebada." lleva punto
+_PARTIDA_UNICA = re.compile(r"^(\d{2})(\d{2})\.00(?:\.00)?\s+(\S.*)$")  # NNNN.00.00 o NNNN.00 (sin subpartidas SA)
 _CORTE = re.compile(r"^(\d{4}\.\d{2}(\.\d{2})?\s|-|CÓDIGO|ARANCEL DE ADUANAS|GRAV\.|ITBIS|\d{1,3}$|Notas?\b|Capítulo \d)")
+
+
+def _es_inicio_texto(texto):
+    """Texto de partida: empieza en mayúscula o entre comillas («Tall oil», «T-shirts»)."""
+    return texto[0].isupper() or (texto[0] == "«" and texto[1:2].isalpha())
 
 
 def _deshacer_duplicado(linea):
@@ -44,10 +49,10 @@ def main():
                 m = _PARTIDA.match(lineas[i])
                 u = None if m else _PARTIDA_UNICA.match(re.sub(r"^(\d)\1(\d)\2(\d)\3(\d)\4\.\.0000\.\.0000",
                                                              r"\1\2\3\4.00.00", lineas[i]))
-                if u and u.group(3)[0].isupper():
+                if u and _es_inicio_texto(u.group(3)):
                     # Partida sin subdivisión: el texto está en la línea NNNN.00.00
                     codigo, texto = f"{u.group(1)}.{u.group(2)}", [u.group(3)]
-                elif not m or not m.group(2)[0].isupper():
+                elif not m or not _es_inicio_texto(m.group(2)):
                     i += 1
                     continue
                 else:
