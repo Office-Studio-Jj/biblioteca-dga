@@ -1081,12 +1081,16 @@ def _contexto_legal_partida(codigo: str) -> str:
         return ""
     partida = f"{codigo[:2]}.{codigo[2:4]}"
     lineas = []
+    subpartidas = []
     try:
         with open(os.path.join(_DATA, "fuentes_nomenclatura", "partidas_arancel.json"),
                   "r", encoding="utf-8") as f:
-            texto = json.load(f).get("partidas", {}).get(partida, "")
+            datos = json.load(f)
+        texto = datos.get("partidas", {}).get(partida, "")
         if texto:
             lineas.append(f"Partida {partida}: {texto}")
+        subpartidas = [(k, f"{k} (subpartida SA) {v}") for k, v in datos.get("subpartidas", {}).items()
+                       if k.startswith(codigo[:4])]
     except Exception:
         pass
     try:
@@ -1095,9 +1099,10 @@ def _contexto_legal_partida(codigo: str) -> str:
         filas = con.execute("SELECT son, descripcion FROM codigos WHERE son LIKE ? ORDER BY son",
                             (codigo[:4] + "%",)).fetchall()
         con.close()
-        lineas += [f"{son} {desc}" for son, desc in filas[:60]]
+        filas = [(son, f"{son} {desc}") for son, desc in filas[:60]]
     except Exception:
-        pass
+        filas = []
+    lineas += [texto for _, texto in sorted(subpartidas + filas)]
     return "\n".join(lineas)
 
 

@@ -18,6 +18,8 @@ _SALIDA = os.path.join(_RAIZ, "notebooklm_skill", "data", "fuentes_nomenclatura"
 
 _PARTIDA = re.compile(r"^(\d{2}\.\d{2})\.?\s+(\S.*)$")  # "10.03. Cebada." lleva punto
 _PARTIDA_UNICA = re.compile(r"^(\d{2})(\d{2})\.00(?:\.00)?\s+(\S.*)$")  # NNNN.00.00 o NNNN.00 (sin subpartidas SA)
+_SUBPARTIDA = re.compile(r"^(\d{4}\.\d{2})\s+(-.*)$")  # 8806.23 - - Con un peso ... (sin 8 digitos)
+_GRUPO = re.compile(r"^-[^-\s].*:$")  # "-Las demás, únicamente diseñadas para ser teledirigidas:"
 _CORTE = re.compile(r"^(\d{4}\.\d{2}(\.\d{2})?\s|-|CÓDIGO|ARANCEL DE ADUANAS|GRAV\.|ITBIS|\d{1,3}$|Notas?\b|Capítulo \d)")
 
 
@@ -39,11 +41,40 @@ def _deshacer_duplicado(linea):
     return re.sub(r"^(\d)\1(\d)\2\.\.(\d)\3(\d)\4(?=\s)", r"\1\2.\3\4", linea)
 
 
+def _extraer_subpartidas(lineas, subpartidas, estado):
+    """Texto de las subpartidas SA de 6 dígitos (NNNN.NN) y de los grupos de un guion sin
+    código que las encabezan. RGI 6: la subpartida se decide comparando textos de este nivel."""
+    i = 0
+    while i < len(lineas):
+        linea = lineas[i]
+        if _PARTIDA.match(linea):
+            estado["grupo"] = ""
+        elif _GRUPO.match(linea):
+            estado["grupo"] = linea
+        m = _SUBPARTIDA.match(linea)
+        if m:
+            codigo, texto = m.group(1), [m.group(2)]
+            while (i + 1 < len(lineas) and not texto[-1].rstrip().endswith(":")
+                   and not _CORTE.match(lineas[i + 1]) and not _PARTIDA.match(lineas[i + 1])):
+                i += 1
+                texto.append(lineas[i])
+            limpio = " ".join(" ".join(texto).split())
+            if not limpio.startswith("- -"):
+                estado["grupo"] = ""  # subpartida de un guion: cierra el grupo anterior
+            elif estado["grupo"]:
+                limpio = f"{estado['grupo']} {limpio}"
+            subpartidas.setdefault(codigo, limpio)
+        i += 1
+
+
 def main():
     partidas = {}
+    subpartidas = {}
+    estado = {"grupo": ""}
     with pdfplumber.open(_PDF) as pdf:
         for pagina in pdf.pages:
             lineas = [_deshacer_duplicado(l.strip()) for l in (pagina.extract_text() or "").splitlines()]
+            _extraer_subpartidas(lineas, subpartidas, estado)
             i = 0
             while i < len(lineas):
                 m = _PARTIDA.match(lineas[i])
@@ -69,8 +100,9 @@ def main():
                 if codigo not in partidas or len(limpio) > len(partidas[codigo]):
                     partidas[codigo] = limpio
     datos = {"_meta": {"fuente": os.path.basename(_PDF), "metodo": "pdfplumber (0% IA)",
-                       "total_partidas": len(partidas)},
-             "partidas": dict(sorted(partidas.items()))}
+                       "total_partidas": len(partidas), "total_subpartidas": len(subpartidas)},
+             "partidas": dict(sorted(partidas.items())),
+             "subpartidas": dict(sorted(subpartidas.items()))}
     with open(_SALIDA, "w", encoding="utf-8") as f:
         json.dump(datos, f, ensure_ascii=False, indent=1)
     print(f"{len(partidas)} partidas -> {_SALIDA}")
