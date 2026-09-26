@@ -1637,6 +1637,8 @@ def health_arquitectura():
             "capa_2_ok": capas_ok[1] if len(capas_ok) > 1 else False,
             "capa_1_ok": capas_ok[2] if len(capas_ok) > 2 else False,
             "patron_intacto": traz.get("patron_intacto", False),
+            # Paso 6.5: si falta el dato que decide la subpartida, pedir ficha es el resultado correcto
+            "requiere_ficha_tecnica": any(c.get("requiere_ficha_tecnica") for c in traz.get("capas", [])),
         }
         anti_regresion["status"] = "OK" if (
             anti_regresion["match_codigo"] and
