@@ -8,3 +8,6 @@ notebooklm_skill/data/browser_state/
 mapa_arquitectura.html
 notebooklm_skill/data/arancel_gemini_cache.json
 capa1_sqlite/arancel_rd.db
+
+# code-review-graph (grafo local)
+.code-review-graph/
