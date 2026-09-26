@@ -6,7 +6,7 @@ Usa claude-haiku-4-5 (rapido, economico ~$0.001/consulta).
 import os
 import re
 
-def validar_clasificacion(query: str, codigo_gemini: str, desc_cache: str) -> dict:
+def validar_clasificacion(query: str, codigo_gemini: str, desc_cache: str, contexto_legal: str = "") -> dict:
     """
     Valida si el codigo retornado por Gemini es correcto para la consulta.
 
@@ -26,13 +26,23 @@ def validar_clasificacion(query: str, codigo_gemini: str, desc_cache: str) -> di
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)
 
+        bloque_legal = ""
+        if contexto_legal:
+            bloque_legal = (
+                "\nTEXTO OFICIAL DE LA PARTIDA Y SUS CODIGOS (Arancel 7ma Enmienda, Decreto 36-22):\n"
+                f"{contexto_legal}\n"
+                "Razona solo con este texto y las RGI. No cites partidas ni codigos que no aparezcan aqui.\n"
+                "Un codigo 'Los/Las demas' es la residual de su subpartida (RGI 6): valida si el producto "
+                "cabe en esa subpartida, aunque la descripcion no nombre el producto.\n"
+            )
+
         prompt = f"""Eres un experto en clasificacion arancelaria del Arancel de Aduanas de la Republica Dominicana (7ma Enmienda, Sistema Armonizado).
 
 CONSULTA DEL USUARIO: {query}
 
 CODIGO PROPUESTO: {codigo_gemini}
 DESCRIPCION OFICIAL DEL CODIGO: {desc_cache or "(no disponible en cache)"}
-
+{bloque_legal}
 Determina si este codigo es correcto para la consulta.
 
 Responde SOLO en este formato exacto:

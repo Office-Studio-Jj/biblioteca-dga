@@ -823,7 +823,11 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
     # Principio SA: todo producto tiene codigo — si ninguno especifico aplica,
     # cae en "Los demas" que siempre es el ULTIMO codigo de la jerarquia.
     _desc_propuesta = (resultado.get("descripcion_oficial") or "").lower()
-    if _desc_propuesta and codigo_propuesto:
+    # Un codigo "Los/Las demas" ya es la residual de su subpartida (RGI 6): su texto
+    # nunca describe el producto, asi que no se puede saltar a la residual de otra
+    # subpartida (p. ej. 8806.23.19 -> 8806.99.19 ignora el peso de despegue).
+    _ya_residual = bool(re.search(r'\b(los|las) dem[aá]s\b', _desc_propuesta))
+    if _desc_propuesta and codigo_propuesto and not _ya_residual:
         _palabras_prod = [w.lower() for w in consulta.split() if len(w) >= 4 and w.isalpha()]
         _match_count = sum(1 for p in _palabras_prod if p in _desc_propuesta)
         _match_ratio = _match_count / max(len(_palabras_prod), 1)
@@ -1055,7 +1059,8 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
         from claude_validator import validar_clasificacion, esta_disponible
         if esta_disponible():
             desc_oficial = resultado.get("descripcion_oficial", "")
-            valid = validar_clasificacion(consulta, codigo_propuesto, desc_oficial)
+            valid = validar_clasificacion(consulta, codigo_propuesto, desc_oficial,
+                                          _contexto_legal_partida(codigo_propuesto))
             resultado["claude_confirmacion"] = valid
     except Exception as e:
         resultado["claude_confirmacion"] = {"error": f"{type(e).__name__}: {str(e)[:150]}"}
@@ -1067,6 +1072,33 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
     resultado["ok"] = bool(resultado["codigo_existe"]) and claude_ok and no_generico
     resultado["elapsed_ms"] = int((time.time() - t0) * 1000)
     return resultado
+
+
+def _contexto_legal_partida(codigo: str) -> str:
+    """Texto oficial de la partida y todos sus codigos (Arancel 7ma Enmienda, Decreto 36-22),
+    para que el validador de Claude razone sobre el texto legal y no de memoria."""
+    if not codigo or len(codigo) < 4:
+        return ""
+    partida = f"{codigo[:2]}.{codigo[2:4]}"
+    lineas = []
+    try:
+        with open(os.path.join(_DATA, "fuentes_nomenclatura", "partidas_arancel.json"),
+                  "r", encoding="utf-8") as f:
+            texto = json.load(f).get("partidas", {}).get(partida, "")
+        if texto:
+            lineas.append(f"Partida {partida}: {texto}")
+    except Exception:
+        pass
+    try:
+        import sqlite3
+        con = sqlite3.connect(os.path.join(_PROJECT_ROOT, "capa1_sqlite", "arancel_rd.db"))
+        filas = con.execute("SELECT son, descripcion FROM codigos WHERE son LIKE ? ORDER BY son",
+                            (codigo[:4] + "%",)).fetchall()
+        con.close()
+        lineas += [f"{son} {desc}" for son, desc in filas[:60]]
+    except Exception:
+        pass
+    return "\n".join(lineas)
 
 
 def _auto_generar_ficha(consulta: str, codigo: str, datos_capa2: dict, datos_capa1: dict) -> Optional[str]:
