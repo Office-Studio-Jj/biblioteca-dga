@@ -8,7 +8,7 @@
 - **markdownify-mcp**: Conversion de PDFs/web a Markdown
 
 ## Reglas del Proyecto
-1. SDK: Usar `google-genai>=1.0.0` con `thinking_budget=0`
+1. Gemini: la merceología (`sub_agentes/merceologia_gemini.py`) llama la API REST directa (más rápida). El SDK `google-genai>=1.0.0` con `thinking_budget=0` queda solo en `server.py` (`/health/gemini`); su timeout se mide en milisegundos (ERR-023)
 2. Cache Arancel: 7,616 codigos en `arancel_cache.json` - verificacion cache-first
 3. Codigos RD: EXACTAMENTE 8 digitos (XXXX.XX.XX), NUNCA 10
 4. Deploy: Push a main = auto-deploy en Railway
