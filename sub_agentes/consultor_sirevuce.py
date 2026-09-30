@@ -287,6 +287,27 @@ def consultar_sirevuce(consulta, tramite="importacion", max_detalles=3):
     return out
 
 
+def resumen_ui(res):
+    """Datos para el recuadro SIREVUCE de la web y la app móvil (misma plantilla)."""
+    resultados = []
+    for r in res.get("resultados", []):
+        formularios = []
+        for f in r.get("formularios", []):
+            c = f.get("campos", {})
+            formularios.append({
+                "nombre": f.get("nombre", ""),
+                "organismo": "; ".join(c.get("Organismos externos", [])),
+                "costo": "; ".join(c.get("Costo", [])),
+                "documentos": [d for d in c.get("Documentos", []) if d],
+                "revision": "; ".join(c.get("Última fecha de revisión", [])),
+            })
+        resultados.append({"son": r.get("son"), "descripcion": r.get("descripcion", ""),
+                           "requiere_vuce": r.get("requiere_vuce"), "url": r.get("url", ""),
+                           "formularios": formularios})
+    return {"estado": res.get("estado"), "fuente": res.get("fuente", BASE_URL),
+            "consultado": res.get("consultado", ""), "resultados": resultados}
+
+
 def formatear_bloque(res):
     """Bloque markdown para anteponer a la respuesta del Cuaderno 6 (VUCERD)."""
     cab = "### Verificación oficial SIREVUCE (DGA)\n"
