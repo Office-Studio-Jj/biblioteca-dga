@@ -39,5 +39,9 @@ chequear "SIREVUCE (Cuaderno 6)" "$BASE/health/sirevuce" 90
 chequear "Arquitectura (dron agricola)" "$BASE/health/arquitectura" 180
 
 echo
+echo "== Latencia de consultas reales (informativo) =="
+curl -s -m 20 "$BASE/health/latencia" | head -c 3000
+echo
+echo
 echo "Endpoints con falla: $fallos"
 exit $fallos

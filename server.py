@@ -148,6 +148,38 @@ def _redirect_json_to_app_when_browser():
             return redirect(url_for("index"))
         return redirect(url_for("login"))
 
+# ── Latencia real de /consultar (sin texto de la pregunta: Ley 172-13, Ley 168-21 Art. 10) ──
+from collections import deque as _deque
+_LATENCIAS = _deque(maxlen=500)
+
+
+@app.before_request
+def _latencia_inicio():
+    if request.path == "/consultar":
+        _flask_g.t0_consulta = time.time()
+
+
+@app.after_request
+def _latencia_fin(response):
+    t0 = getattr(_flask_g, "t0_consulta", None)
+    if t0 is not None and response.status_code == 200:
+        try:
+            cuerpo = response.get_json(silent=True) or {}
+            if request.is_json:
+                cuaderno = (request.get_json(silent=True) or {}).get("notebook_id", "")
+            else:
+                cuaderno = request.form.get("notebook_id", "")
+            _LATENCIAS.append({
+                "ms": int((time.time() - t0) * 1000),
+                "cuaderno": str(cuaderno)[:40],
+                "ruta": cuerpo.get("cache_via") or ("cache" if cuerpo.get("from_cache") else "general"),
+                "ts": int(time.time()),
+            })
+        except Exception:
+            pass
+    return response
+
+
 @app.context_processor
 def _inject_csp_nonce():
     return {"csp_nonce": getattr(_flask_g, "csp_nonce", "")}
@@ -1703,6 +1735,36 @@ def health_sirevuce():
                      "gravamen": r0.get("gravamen"), "url": r0.get("url")},
         "error": res.get("error"),
     }), (200 if ok else 503)
+
+
+def _resumen_ms(valores):
+    v = sorted(valores)
+    if not v:
+        return {"n": 0}
+    pct = lambda p: v[min(len(v) - 1, int(p * len(v)))]
+    return {"n": len(v), "p50_ms": pct(0.5), "p95_ms": pct(0.95), "max_ms": v[-1]}
+
+
+# Tiempos de las ultimas consultas reales (desde el ultimo despliegue) por cuaderno y
+# por ruta de respuesta. Meta: p95 < 15 s en consultas nuevas (sin cache).
+@app.route("/health/latencia")
+def health_latencia():
+    datos = list(_LATENCIAS)
+    por_cuaderno, por_ruta = defaultdict(list), defaultdict(list)
+    for d in datos:
+        por_cuaderno[d["cuaderno"]].append(d["ms"])
+        por_ruta[d["ruta"]].append(d["ms"])
+    sin_cache = [d["ms"] for d in datos if d["ruta"] != "cache"]
+    resumen = _resumen_ms(sin_cache)
+    return jsonify({
+        "meta_p95_ms": 15000,
+        "cumple_meta": (resumen.get("p95_ms", 0) <= 15000) if resumen["n"] else None,
+        "sin_cache": resumen,
+        "total": _resumen_ms([d["ms"] for d in datos]),
+        "por_cuaderno": {k: _resumen_ms(v) for k, v in por_cuaderno.items()},
+        "por_ruta": {k: _resumen_ms(v) for k, v in por_ruta.items()},
+        "desde": datos[0]["ts"] if datos else None,
+    })
 
 
 # Commit desplegado (Railway lo expone al desplegar desde GitHub); lo usa la
