@@ -20,12 +20,24 @@ _PARTIDA = re.compile(r"^(\d{2}\.\d{2})\.?\s+(\S.*)$")  # "10.03. Cebada." lleva
 _PARTIDA_UNICA = re.compile(r"^(\d{2})(\d{2})\.00(?:\.00)?\s+(\S.*)$")  # NNNN.00.00 o NNNN.00 (sin subpartidas SA)
 _SUBPARTIDA = re.compile(r"^(\d{4}\.\d{2})\s+(-.*)$")  # 8806.23 - - Con un peso ... (sin 8 digitos)
 _GRUPO = re.compile(r"^-[^-\s].*:$")  # "-Las demás, únicamente diseñadas para ser teledirigidas:"
-_CORTE = re.compile(r"^(\d{4}\.\d{2}(\.\d{2})?\s|-|CÓDIGO|ARANCEL DE ADUANAS|GRAV\.|ITBIS|\d{1,3}$|Notas?\b|Capítulo \d)")
+_CORTE = re.compile(r"^(\d{4}\.\d{2}(\.\d{2})?\s|-|CÓDIGO|ARANCEL DE ADUANAS|GRAV\.|ITBIS|\d{1,3}$|Notas?\b(?!\s+\d)|Capítulo \d)")  # "Nota 4 de este Capítulo" sigue el texto
 
 
 def _es_inicio_texto(texto):
     """Texto de partida: empieza en mayúscula o entre comillas («Tall oil», «T-shirts»)."""
     return texto[0].isupper() or (texto[0] == "«" and texto[1:2].isalpha())
+
+
+def _nueva_partida(linea):
+    """Línea que abre otra partida. "84.56 a 84.65) para preparar..." o "87.01 a 87.05."
+    continúan el texto anterior: el código va seguido de minúscula, no de un texto nuevo."""
+    m = _PARTIDA.match(linea)
+    return bool(m) and _es_inicio_texto(m.group(2))
+
+
+# Cola que arrastra la línea NNNN.00.00: tasa DAI y a veces una partida suprimida
+# ("0 [05.09]") o el título de un subcapítulo ("0 V.- COMPUESTOS CON FUNCIÓN ALDEHÍDO").
+_COLA = re.compile(r"\s+\d{1,2}\s+(\[\d{2}\.\d{2}\]|[IVXL]+\.-.*)$")
 
 
 def _deshacer_duplicado(linea):
@@ -55,7 +67,7 @@ def _extraer_subpartidas(lineas, subpartidas, estado):
         if m:
             codigo, texto = m.group(1), [m.group(2)]
             while (i + 1 < len(lineas) and not texto[-1].rstrip().endswith(":")
-                   and not _CORTE.match(lineas[i + 1]) and not _PARTIDA.match(lineas[i + 1])):
+                   and not _CORTE.match(lineas[i + 1]) and not _nueva_partida(lineas[i + 1])):
                 i += 1
                 texto.append(lineas[i])
             limpio = " ".join(" ".join(texto).split())
@@ -89,11 +101,17 @@ def main():
                 else:
                     codigo, texto = m.group(1), [m.group(2)]
                 i += 1
-                while i < len(lineas) and not _CORTE.match(lineas[i]) and not _PARTIDA.match(lineas[i]) \
-                        and not texto[-1].rstrip().endswith("."):
+                while i < len(lineas) and not texto[-1].rstrip().endswith("."):
+                    # Tasa suelta en medio del texto ("...mezclar ni" / "8" / "preparar de otro modo.")
+                    if re.fullmatch(r"\d{1,3}", lineas[i]) and i + 1 < len(lineas) and lineas[i + 1][:1].islower():
+                        i += 1
+                        continue
+                    if _CORTE.match(lineas[i]) or _nueva_partida(lineas[i]):
+                        break
                     texto.append(lineas[i])
                     i += 1
                 limpio = " ".join(" ".join(texto).split())
+                limpio = _COLA.sub("", limpio)
                 limpio = re.sub(r"(\s+\d{1,2})+$", "", limpio)
                 if u and codigo in partidas:
                     continue
