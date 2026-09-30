@@ -158,3 +158,23 @@ def test_html_real_del_portal_por_codigo():
     assert f["nombre"] == "Importación de Productos Sanitarios y Equipos Médicos"
     assert f["campos"]["Organismos externos"] == ["MINISTERIO DE SALUD PUBLICA Y ASISTENCIA SOCIAL"]
     assert f["campos"]["Costo"] == ["DOP 1,000.00"]
+
+
+def test_resumen_ui_para_web_y_movil():
+    """El recuadro de la web y la app móvil recibe organismo, costo, documentos y enlace."""
+    cs._cache.clear()
+    pag = {"reporte": REPORTE, "/Home/Details?id=90229010&Trades=1": DETALLE_CON_VUCE}
+    with mock.patch.object(cs, "_get", side_effect=_fake_get(pag)):
+        ui = cs.resumen_ui(cs.consultar_sirevuce("9022.90.10"))
+    r = ui["resultados"][0]
+    assert ui["estado"] == "VERIFICADO" and r["son"] == "9022.90.10" and r["requiere_vuce"] is True
+    assert r["url"].startswith("https://sirevuce.aduanas.gob.do/")
+    f = r["formularios"][0]
+    assert f["organismo"] == "MINISTERIO DE SALUD PUBLICA Y ASISTENCIA SOCIAL"
+    assert f["costo"] == "DOP 1,000.00"
+    assert "Registro Sanitario." in f["documentos"] and "" not in f["documentos"]
+
+
+def test_resumen_ui_no_verificado():
+    ui = cs.resumen_ui({"estado": "NO_VERIFICADO", "resultados": []})
+    assert ui["estado"] == "NO_VERIFICADO" and ui["resultados"] == []

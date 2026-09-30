@@ -1439,17 +1439,12 @@ def consultar():
 
         if _sirevuce_future is not None:
             try:
-                from sub_agentes.consultor_sirevuce import formatear_bloque as _fb_sv
+                from sub_agentes.consultor_sirevuce import formatear_bloque as _fb_sv, resumen_ui as _ui_sv
                 _res_sv = _sirevuce_future.result(timeout=20)
                 from sub_agentes.clopas_auto import registrar_consulta_vucerd as _clopas_sv
                 _clopas_sv(_res_sv)
                 resp["answer"] = _fb_sv(_res_sv) + "\n---\n" + resp["answer"]
-                resp["sirevuce"] = {
-                    "estado": _res_sv["estado"],
-                    "resultados": [{"son": r["son"], "requiere_vuce": r["requiere_vuce"],
-                                    "formularios": [f["nombre"] for f in r["formularios"]]}
-                                   for r in _res_sv["resultados"]],
-                }
+                resp["sirevuce"] = _ui_sv(_res_sv)
                 if _res_sv["estado"] != "NO_VERIFICADO" and not archivo and not answer.startswith("[ERROR"):
                     _set_cached(question, notebook_id, resp["answer"])
                 print(f"[SIREVUCE] {_res_sv['estado']} consulta='{_res_sv.get('consulta', '')[:40]}'")

@@ -493,7 +493,10 @@
     .sirevuce-no { border-left: 4px solid #16a34a; }
     .sirevuce-nv { border-left: 4px solid #dc2626; }
     .sirevuce-veredicto { font-weight: 700; }
-    .sirevuce-form { font-size: 0.72rem; opacity: 0.85; margin-top: 2px; }
+    .sirevuce-form { font-size: 0.72rem; opacity: 0.85; margin-top: 4px; overflow-wrap: anywhere; }
+    .sirevuce-form ul { margin: 4px 0 0 16px; padding: 0; }
+    .sirevuce-form summary { cursor: pointer; padding: 4px 0; }  /* área táctil en móvil */
+    .sirevuce-link { display: inline-block; margin-top: 6px; font-size: 0.74rem; font-weight: 600; }
     /* ── Fuentes Notion ── */
     .fuentes-notion-header {
       font-size: 0.78rem;
@@ -2163,13 +2166,27 @@
     } else if (!sv.resultados || sv.resultados.length === 0) {
       items = `<div class="sirevuce-item">Sin coincidencias en SIREVUCE. Indique el código SON de 8 dígitos.</div>`;
     } else {
+      // f puede ser texto (respuestas anteriores) u objeto {nombre, organismo, costo, documentos}
+      const _form = f => {
+        if (typeof f === 'string') return `<div class="sirevuce-form">Formulario: ${_esc(f)}</div>`;
+        const docs = (f.documentos || []).map(d => `<li>${_esc(d)}</li>`).join('');
+        return `<div class="sirevuce-form"><b>${_esc(f.nombre)}</b>
+          ${f.organismo ? `<div>Organismo: ${_esc(f.organismo)}</div>` : ''}
+          ${f.costo ? `<div>Costo: ${_esc(f.costo)}</div>` : ''}
+          ${docs ? `<details><summary>Documentos (${(f.documentos || []).length})</summary><ul>${docs}</ul></details>` : ''}
+        </div>`;
+      };
+      const _enlace = u => /^https:\/\/sirevuce\.aduanas\.gob\.do\//.test(u || '')
+        ? `<a class="sirevuce-link" href="${_escAttr(u)}" target="_blank" rel="noopener">Ver en SIREVUCE</a>` : '';
       items = sv.resultados.map(r => `
         <div class="sirevuce-item ${r.requiere_vuce ? 'sirevuce-si' : 'sirevuce-no'}">
           <span class="sirevuce-veredicto">${_esc(r.son)} — ${r.requiere_vuce ? 'Sí requiere VUCE' : 'No requiere formulario VUCE'}</span>
-          ${(r.formularios || []).map(f => `<div class="sirevuce-form">Formulario: ${_esc(f)}</div>`).join('')}
+          ${(r.formularios || []).map(_form).join('')}
+          ${_enlace(r.url)}
         </div>`).join('');
     }
-    box.innerHTML = `<div class="fuentes-notion-header">🪟 Verificación oficial SIREVUCE (DGA)</div>${items}`;
+    box.innerHTML = `<div class="fuentes-notion-header">🪟 Verificación oficial SIREVUCE (DGA)</div>${items}
+      <div class="sirevuce-form">Informativo: no constituye decisión definitiva de la DGA.</div>`;
     box.style.display = 'block';
   }
 
