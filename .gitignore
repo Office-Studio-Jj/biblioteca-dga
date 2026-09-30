@@ -14,3 +14,6 @@ capa1_sqlite/arancel_rd.db
 
 # snapshots del .env (contienen claves)
 backups/env_*
+
+# Copia local que deja migrar_railway.ps1
+railway.toml.respaldo
