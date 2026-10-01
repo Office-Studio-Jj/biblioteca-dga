@@ -5,3 +5,6 @@ __pycache__/
 .env
 *.bat
 generar_iconos.py
+node_modules/
+package.json
+package-lock.json
