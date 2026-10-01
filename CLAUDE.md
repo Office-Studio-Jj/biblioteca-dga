@@ -63,12 +63,17 @@
 - Regla prelación: especialidad > temporalidad > escalar humano (`capa1_sqlite/consultar_decretos.py`)
 - Paso 6.5: Validación Suficiencia de Datos (`sub_agentes/validador_suficiencia.py`) — el sistema clasifica o pide ficha técnica, nunca adivina
 
-## BDs Notion Pendientes
-- BD-Valoración (Ley 168-21 Cap. VI, Acuerdo OMC Art. VII)
-- BD-Regímenes (Ley 168-21 Cap. V, Ley 8-90)
-- BD-VUCERD (Ley 126-02, Ley 168-21 Arts. 15-17)
-- BD-Origen (Ley 424-06, Res. 357-05)
+## BDs Notion de Capa 2 (creadas 05-05-2026, consultadas por `notion_service/buscar_notion.py`)
+- BD-Valoración Aduanera (Ley 168-21 Cap. VI, Acuerdo OMC Art. VII) — 6 métodos OMC cargados (01-10-2026)
+- BD-Regímenes Aduaneros (Ley 168-21 Cap. V, Ley 8-90) — pendiente curar registros por régimen desde las fuentes oficiales
+- BD-VUCERD Trámites Electrónicos (Ley 126-02, Ley 168-21 Arts. 15-17) — 16 registros
+- BD-Normas y Origen DR-CAFTA (Ley 424-06, Res. 357-05) — pendiente curar reglas por tratado
+- Duplicados en Valoración, Regímenes y Origen: depurar con autorización del usuario (no se borran solos)
 
-## Schema Fichas Merceológicas — Campos Faltantes
-Campos actuales: Producto, Clasificación, SON Sugerido, Materia, Función, Uso
-Campos por agregar: DAI%, ITBIS%, RGI Aplicable, Capítulo SA, Sección SA, Notas Legales, Base Legal, Estado, Fecha clasificación
+## Schema Fichas Merceológicas (completo en Notion, verificado 01-10-2026)
+Campos: Producto, Clasificación, SON Sugerido, Materia, Función, Uso, DAI %, ITBIS %, ISC %, RGI Aplicada, Capitulo SA, Seccion SA, Notas Legales, Base Legal, Permisos, Estado, Fecha Clasificacion, URL
+- Los borradores con SON de 6 dígitos rellenados con ".00" (8524.91.00, 8504.40.00, 8711.60.00, 4202.99.00) no existen en el Arancel: requieren validación del aforador (registro en CLOPAS)
+
+## Tasas de Capa 1 (01-10-2026)
+- DAI y EX. ITBIS se leen por posición de columna del PDF (`capa1_sqlite/extraer_tasas_pdf.py` → `tasas_arancel_pdf.json`); nunca del último número del texto del cache (es la marca EX. ITBIS)
+- Leer tasas con `capa1_sqlite/tasas.py` (`tasas_son`). Revisión humana pendiente: `docs/REVISION_TASAS_ARANCEL.md`
