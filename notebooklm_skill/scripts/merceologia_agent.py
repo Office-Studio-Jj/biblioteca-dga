@@ -320,7 +320,15 @@ def _nombre_capitulo(cap: str) -> str:
 
 
 def _gravamen_desde_cache(codigo: str) -> tuple:
-    """Consulta arancel_cache para obtener gravamen real. Returns (valor, fuente)."""
+    """Gravamen real: SQLite (columna GRAV. del Arancel) y, si falta, arancel_cache.
+    Returns (valor, fuente)."""
+    try:
+        from verificador_arancelario import _gravamen_capa1, _extraer_gravamen_de_cache
+        g = _gravamen_capa1(codigo)
+        if g is not None:
+            return g, "arancel_rd.db (columna GRAV. del Arancel)"
+    except Exception:
+        _extraer_gravamen_de_cache = None
     try:
         cache_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
@@ -330,6 +338,10 @@ def _gravamen_desde_cache(codigo: str) -> tuple:
             data = json.load(f)
         codigos = data.get("codigos", data) if isinstance(data, dict) else {}
         desc = codigos.get(codigo, "") if isinstance(codigos, dict) else ""
+        if _extraer_gravamen_de_cache:
+            g = _extraer_gravamen_de_cache(desc)
+            if g is not None:
+                return g, "arancel_cache.json"
         m = re.search(r'\s+(\d+)\s*$', (desc or "").strip())
         if m:
             return int(m.group(1)), "arancel_cache.json"

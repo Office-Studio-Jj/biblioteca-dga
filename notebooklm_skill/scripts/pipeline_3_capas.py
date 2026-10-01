@@ -729,12 +729,25 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
         if desc:
             resultado["codigo_existe"] = True
             resultado["descripcion_oficial"] = str(desc)[:200]
-            # Extraer gravamen del final de la descripcion (formato: "...descripcion N")
-            m_grav = re.search(r'\b(\d+)\s*$', str(desc).strip())
-            if m_grav:
-                resultado["gravamen"] = f"{m_grav.group(1)}%"
     except Exception as e:
         resultado["error_cache"] = f"{type(e).__name__}: {str(e)[:150]}"
+
+    # 1b. DAI e ITBIS desde SQLite (columnas GRAV. y EX. ITBIS del Arancel). El texto del
+    # cache termina en "40 0" y su ultimo numero es la marca de ITBIS, no el DAI.
+    _tasas = None
+    try:
+        _raiz = os.path.dirname(os.path.dirname(_HERE))
+        if os.path.join(_raiz, "capa1_sqlite") not in sys.path:
+            sys.path.insert(0, os.path.join(_raiz, "capa1_sqlite"))
+        from tasas import tasas_son
+        _tasas = tasas_son(codigo_propuesto)
+    except Exception as e:
+        resultado["error_tasas"] = f"{type(e).__name__}: {str(e)[:150]}"
+    if _tasas:
+        resultado["codigo_existe"] = True
+        resultado.setdefault("descripcion_oficial", (_tasas["descripcion"] or "")[:200])
+        if _tasas["dai"] != "":
+            resultado["gravamen"] = f"{_tasas['dai']}%"
 
     # 2. ISC desde lookup
     try:
@@ -755,8 +768,11 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
     except Exception as e:
         resultado["error_isc"] = f"{type(e).__name__}: {str(e)[:150]}"
 
-    # 3. ITBIS estandar 18%
-    resultado["itbis"] = "18% sobre (CIF + Gravamen)"
+    # 3. ITBIS: 18% (Ley 253-12) salvo que el Arancel marque el SON en la columna EX. ITBIS
+    if _tasas and _tasas["itbis"] == "EXENTO":
+        resultado["itbis"] = "EXENTO (columna EX. ITBIS del Arancel, Decreto 36-22)"
+    else:
+        resultado["itbis"] = "18% sobre (CIF + Gravamen)"
 
     # 3.5a DETECCION DE PARTES/REPUESTOS → subgrupo PARTES de la partida
     # Cuando la consulta indica "parte", "repuesto", "reemplazo", "pieza",

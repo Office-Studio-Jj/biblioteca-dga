@@ -224,10 +224,27 @@ def _extraer_gravamen_de_cache(desc_cache: str) -> int | None:
     """
     if not desc_cache:
         return None
+    # "...canales 40 0": GRAV. y luego la marca EX. ITBIS (0). El DAI es el penultimo numero.
+    m2 = re.search(r'\s(\d{1,2})\s+0\s*$', desc_cache.strip())
+    if m2 and m2.group(1) in ("0", "3", "8", "14", "20", "25", "40"):
+        return int(m2.group(1))
     m = re.search(r'\s+(\d+)\s*$', desc_cache.strip())
     if m:
         return int(m.group(1))
     return None
+
+
+def _gravamen_capa1(codigo: str) -> int | None:
+    """DAI desde arancel_rd.db (columna GRAV. del Arancel); None si no hay SQLite o tasa."""
+    try:
+        raiz = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        if os.path.join(raiz, "capa1_sqlite") not in sys.path:
+            sys.path.insert(0, os.path.join(raiz, "capa1_sqlite"))
+        from tasas import tasas_son
+        t = tasas_son(codigo)
+        return int(t["dai"]) if t and t["dai"] not in ("", None) else None
+    except Exception:
+        return None
 
 
 def _validar_gravamen_python(resultado: dict, codigo: str) -> dict:
@@ -249,9 +266,10 @@ def _validar_gravamen_python(resultado: dict, codigo: str) -> dict:
     capitulo = codigo[:2]
 
     # ── CACHE-FIRST: el cache tiene el gravamen real extraido del PDF ──
-    _cargar_cache_arancel()
-    desc_cache = _CACHE_CODIGOS.get(codigo, "")
-    grav_cache = _extraer_gravamen_de_cache(desc_cache)
+    grav_cache = _gravamen_capa1(codigo)
+    if grav_cache is None:
+        _cargar_cache_arancel()
+        grav_cache = _extraer_gravamen_de_cache(_CACHE_CODIGOS.get(codigo, ""))
 
     if grav_cache is not None and grav_gemini != grav_cache:
         print(f"[VERIFICADOR-PYTHON] CORRECCION: Gemini dijo {grav_gemini}% para {codigo} "
