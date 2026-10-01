@@ -17,3 +17,6 @@ backups/env_*
 
 # Copia local que deja migrar_railway.ps1
 railway.toml.respaldo
+
+# Paquete de Railway para railway config plan (npm install)
+node_modules/

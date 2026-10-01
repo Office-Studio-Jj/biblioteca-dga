@@ -1,0 +1,8 @@
+{
+  "name": "biblioteca-dga-railway-config",
+  "private": true,
+  "description": "Solo para `railway config plan/apply` (.railway/railway.ts). La app es Python y no usa Node.",
+  "devDependencies": {
+    "railway": "3.12.0"
+  }
+}
