@@ -11,7 +11,7 @@
 1. Gemini: la merceología (`sub_agentes/merceologia_gemini.py`) llama la API REST directa (más rápida). El SDK `google-genai>=1.0.0` con `thinking_budget=0` queda solo en `server.py` (`/health/gemini`); su timeout se mide en milisegundos (ERR-023)
 2. Cache Arancel: 7,616 codigos en `arancel_cache.json` - verificacion cache-first
 3. Codigos RD: EXACTAMENTE 8 digitos (XXXX.XX.XX), NUNCA 10
-4. Deploy: Push a main = auto-deploy en Railway
+4. Deploy: Push a main = auto-deploy en Railway. Configuración del servicio en `.railway/railway.ts` (Infrastructure as Code; railway.toml retirado 01-10-2026): cambios con `railway config plan` y luego `railway config apply`. Volumen biblioteca-dga-volume montado en /data (usuarios y contraseñas)
 5. Fuentes PDF: Extraer con pdfplumber (0% IA)
 6. Tests: Verificar consulta real en produccion despues de cada deploy
 7. Passwords: bcrypt rounds=12, rehash perezoso de legacy SHA-256
