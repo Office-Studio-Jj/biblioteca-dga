@@ -20,6 +20,8 @@ CACHE_PATH  = os.path.join(_DATA, "arancel_cache.json")
 ISC_PATH    = os.path.join(_DATA, "isc_lookup.json")
 PDF_PATH    = os.path.join(_DATA, "Arancel 7ma enmienda de la republica dominicana.pdf")
 MANUAL_PATH = os.path.join(_DATA, "correcciones_manuales.json")
+TASAS_PATH  = os.path.join(_DATA, "tasas_arancel_pdf.json")
+DAI_OFICIALES = {"0", "3", "8", "14", "20", "25", "40"}  # Ley 146-00
 
 # ITBIS estándar RD: 18% sobre la mayoría de bienes (Ley 253-12 Art. 335)
 # Exenciones por capítulo (lista no exhaustiva — los más comunes)
@@ -226,6 +228,8 @@ def main(con_pdf=False):
     if os.path.exists(MANUAL_PATH):
         with open(MANUAL_PATH, encoding="utf-8") as f:
             correcciones = json.load(f)
+        # El archivo es {"correcciones": {son: {...}}, "historial": [...]}
+        correcciones = correcciones.get("correcciones", correcciones)
         print(f"[BUILD]   {len(correcciones)} correcciones manuales")
 
     # 2. Extraccion adicional del PDF (opcional, lenta)
@@ -246,24 +250,39 @@ def main(con_pdf=False):
                             extras_pdf[k] = v
         print(f"[BUILD]   {len(extras_pdf)} codigos nuevos desde PDF")
 
+    # Tasas leídas por posición de columna del PDF (extraer_tasas_pdf.py). Son la fuente del
+    # DAI y de la marca EX. ITBIS: el texto del cache termina en "40 0" (GRAV. y EX. ITBIS) y
+    # tomar el último número daba DAI 0 (carne bovina 0201.10.00 = 40% en el Decreto 36-22).
+    tasas_pdf = {}
+    if os.path.exists(TASAS_PATH):
+        with open(TASAS_PATH, encoding="utf-8") as f:
+            tasas_pdf = {k: v for k, v in json.load(f)["tasas"].items() if v.get("dai") in DAI_OFICIALES}
+        print(f"[BUILD]   {len(tasas_pdf)} tasas por columna del PDF")
+
     # 3. Construir filas para SQLite
     todos = {**codigos_json, **extras_pdf}
+    for son, t in tasas_pdf.items():  # SON del PDF que faltaban en el cache (p. ej. 8524.91.xx)
+        todos.setdefault(son, t.get("descripcion", ""))
     filas = []
     for son in sorted(todos):
         if not re.match(r'^\d{4}\.\d{2}\.\d{2}$', son):
             continue
         desc_raw = todos[son] or ""
-        grav_dec  = _parse_grav(desc_raw)
+        t = tasas_pdf.get(son)
+        grav_dec  = Decimal(t["dai"]) if t else _parse_grav(desc_raw)
         # Correcciones manuales tienen máxima prioridad
         if son in correcciones:
             grav_dec = Decimal(str(correcciones[son].get("gravamen", grav_dec or 0)))
         gravamen  = str(int(grav_dec)) if grav_dec is not None and grav_dec == grav_dec.to_integral_value() \
                     else (format(grav_dec.normalize(), "f") if grav_dec is not None else "")
-        itbis     = _itbis_para(son, desc_raw)
+        itbis     = ("EXENTO" if t["ex_itbis"] else "18") if t else _itbis_para(son, desc_raw)
         isc       = _isc_para(son, isc_data)
-        fuente    = "manual" if son in correcciones else "pdfplumber"
-        # Descripcion sin el gravamen al final
-        desc_limpia = _GRAV_RE.sub("", desc_raw).strip() if desc_raw else ""
+        fuente    = "manual" if son in correcciones else ("pdf-columnas" if t else "pdfplumber")
+        # Descripcion sin el gravamen (ni la marca EX. ITBIS) al final
+        if t:  # solo la tasa conocida (+ "0" de EX. ITBIS): "del Capítulo 87 3" conserva el 87
+            desc_limpia = re.sub(rf"\s+{t['dai']}(\s+0)?\s*$", "", desc_raw).strip()
+        else:
+            desc_limpia = _GRAV_RE.sub("", desc_raw).strip() if desc_raw else ""
         filas.append((son, desc_limpia or desc_raw, gravamen, itbis, isc, fuente))
 
     # 4. Escribir SQLite
