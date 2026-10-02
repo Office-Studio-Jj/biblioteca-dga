@@ -1,0 +1,126 @@
+/* Pagina publica de CLOPAS (/clopas). Mismos colores que la portada de la app (login.html). */
+:root {
+  --fondo: #0f172a;
+  --fondo-2: #1e293b;
+  --borde: #334155;
+  --texto: #e2e8f0;
+  --texto-suave: #94a3b8;
+  --oro: #d4af37;
+  --oro-claro: #e6c65c;
+  --cian: #22d3ee;
+  --radio: 14px;
+  --ancho: 1080px;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--oro-claro); }
+a:focus-visible, .boton:focus-visible { outline: 3px solid var(--cian); outline-offset: 3px; }
+h1, h2, h3 { line-height: 1.2; margin: 0 0 .6em; }
+h2 { font-size: clamp(1.6rem, 4vw, 2.2rem); }
+h3 { font-size: 1.15rem; }
+p { margin: 0 0 1em; }
+
+.contenedor { width: 100%; max-width: var(--ancho); margin: 0 auto; padding: 0 16px; }
+
+.saltar {
+  position: absolute; left: 16px; top: -48px; z-index: 20;
+  background: var(--oro); color: var(--fondo); padding: 8px 14px; border-radius: 8px; font-weight: 700;
+}
+.saltar:focus { top: 12px; }
+
+/* Barra superior */
+.barra {
+  position: sticky; top: 0; z-index: 10;
+  background: rgba(15, 23, 42, .92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--borde);
+}
+.barra-interior { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 60px; }
+.marca { color: var(--oro); font-weight: 800; letter-spacing: .18em; text-decoration: none; font-size: 1.15rem; }
+.menu { display: none; list-style: none; margin: 0; padding: 0; gap: 24px; }
+.menu a { color: var(--texto-suave); text-decoration: none; font-size: .95rem; }
+.menu a:hover { color: var(--texto); }
+@media (min-width: 760px) { .menu { display: flex; } }
+
+/* Botones */
+.boton {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 48px; padding: 0 24px; border-radius: 999px;
+  font-weight: 700; text-decoration: none; transition: transform .15s, background .15s;
+}
+.boton:active { transform: scale(.97); }
+.boton-principal { background: var(--oro); color: var(--fondo); }
+.boton-principal:hover { background: var(--oro-claro); }
+.boton-secundario { border: 2px solid var(--oro); color: var(--oro-claro); }
+.boton-secundario:hover { background: rgba(212, 175, 55, .12); }
+.boton-chico { min-height: 40px; padding: 0 18px; border: 1px solid var(--oro); color: var(--oro-claro); font-size: .95rem; }
+
+/* Portada */
+.portada { position: relative; overflow: hidden; padding: 72px 0 80px; }
+.portada::before {
+  content: ""; position: absolute; inset: 0;
+  background: url('/static/img/fondo-portada.webp') center / cover no-repeat;
+}
+.portada::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(15,23,42,.78) 0%, rgba(15,23,42,.9) 70%, var(--fondo) 100%);
+}
+.portada-interior { position: relative; z-index: 1; }
+.portada-interior > * { max-width: 760px; }
+.sobretitulo { color: var(--oro); text-transform: uppercase; letter-spacing: .14em; font-size: .8rem; font-weight: 700; }
+.portada h1 { font-size: clamp(2rem, 6vw, 3.3rem); }
+.entrada { font-size: 1.15rem; color: var(--texto); max-width: 620px; }
+.acciones { display: flex; flex-wrap: wrap; gap: 12px; margin: 28px 0 16px; }
+.acciones .boton { flex: 1 1 200px; }
+@media (min-width: 560px) { .acciones .boton { flex: 0 0 auto; } }
+.acciones-centro { justify-content: center; }
+.nota-portada { color: var(--texto-suave); font-size: .9rem; }
+
+/* Secciones */
+.seccion { padding: 72px 0; }
+.seccion-alterna { background: var(--fondo-2); }
+.intro-seccion { color: var(--texto-suave); max-width: 680px; }
+
+.tarjetas { list-style: none; padding: 0; margin: 32px 0 0; display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 640px) { .tarjetas { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 980px) { .tarjetas { grid-template-columns: repeat(3, 1fr); } }
+.tarjeta { background: var(--fondo-2); border: 1px solid var(--borde); border-radius: var(--radio); padding: 24px; }
+.tarjeta svg { width: 36px; height: 36px; fill: none; stroke: var(--oro); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 12px; }
+.tarjeta p { color: var(--texto-suave); margin: 0; }
+
+.pasos { list-style: none; counter-reset: paso; padding: 0; margin: 32px 0 0; display: grid; gap: 16px; }
+@media (min-width: 820px) { .pasos { grid-template-columns: repeat(3, 1fr); } }
+.pasos li { counter-increment: paso; position: relative; padding: 24px 24px 24px 76px; background: var(--fondo); border: 1px solid var(--borde); border-radius: var(--radio); }
+.pasos li::before {
+  content: counter(paso); position: absolute; left: 22px; top: 22px;
+  width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--oro); color: var(--fondo); font-weight: 800;
+}
+.pasos p { color: var(--texto-suave); margin: 0; }
+
+.normas { padding-left: 1.2em; margin: 24px 0; max-width: 760px; }
+.normas li { margin-bottom: .6em; }
+.normas strong { color: var(--oro-claro); }
+.aviso { border-left: 4px solid var(--oro); background: var(--fondo-2); padding: 16px 18px; border-radius: 0 var(--radio) var(--radio) 0; max-width: 760px; color: var(--texto-suave); }
+.aviso strong { color: var(--texto); }
+
+.publico { list-style: none; padding: 0; margin: 24px 0 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.publico li { border: 1px solid var(--borde); border-radius: 999px; padding: 8px 18px; background: var(--fondo); }
+
+.cierre { padding: 80px 0; text-align: center; background: linear-gradient(180deg, var(--fondo) 0%, #172036 100%); }
+
+.pie { border-top: 1px solid var(--borde); padding: 24px 0; color: var(--texto-suave); font-size: .9rem; text-align: center; }
+.pie p { margin: 0; }

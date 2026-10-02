@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es-DO">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CLOPAS — Consultoría Logística de Puertos y Aduanas</title>
+  <meta name="description" content="CLOPAS es una app para consultar la clasificación arancelaria y los gravámenes de mercancías en la República Dominicana, con su base legal. Consulta por texto, foto o PDF desde el celular.">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="canonical" href="{{ url_for('clopas_web', _external=True) }}">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_DO">
+  <meta property="og:title" content="CLOPAS — Consultoría Logística de Puertos y Aduanas">
+  <meta property="og:description" content="Clasificación arancelaria y gravámenes de la República Dominicana, con su base legal, desde tu celular.">
+  <meta property="og:url" content="{{ url_for('clopas_web', _external=True) }}">
+  <meta property="og:image" content="{{ url_for('static', filename='icons/icon-512.png', _external=True) }}">
+  <link rel="icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='web/clopas.css') }}">
+</head>
+<body>
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+
+  <header class="barra">
+    <div class="contenedor barra-interior">
+      <a class="marca" href="#inicio" aria-label="CLOPAS, inicio">CLOPAS</a>
+      <nav aria-label="Secciones">
+        <ul class="menu">
+          <li><a href="#funciones">Funciones</a></li>
+          <li><a href="#como-funciona">Cómo funciona</a></li>
+          <li><a href="#base-legal">Base legal</a></li>
+        </ul>
+      </nav>
+      <a class="boton boton-chico" href="{{ url_for('login') }}">Entrar</a>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <section class="portada" id="inicio" aria-labelledby="titulo-portada">
+      <div class="contenedor portada-interior">
+        <p class="sobretitulo">Consultoría Logística de Puertos y Aduanas</p>
+        <h1 id="titulo-portada">Clasifica tu mercancía con la base legal a la vista</h1>
+        <p class="entrada">CLOPAS responde desde tu celular qué código arancelario corresponde a un producto, qué gravámenes paga al importarse en la República Dominicana y qué norma lo sustenta.</p>
+        <div class="acciones">
+          <a class="boton boton-principal" href="{{ url_for('instalar') }}">Instalar la app</a>
+          <a class="boton boton-secundario" href="{{ url_for('login') }}">Ya tengo cuenta</a>
+        </div>
+        <p class="nota-portada">Funciona en Android y iPhone desde el navegador. No ocupa espacio de tienda de aplicaciones.</p>
+      </div>
+    </section>
+
+    <section class="seccion" id="funciones" aria-labelledby="titulo-funciones">
+      <div class="contenedor">
+        <h2 id="titulo-funciones">Qué puedes hacer</h2>
+        <ul class="tarjetas">
+          <li class="tarjeta">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg>
+            <h3>Consultar como prefieras</h3>
+            <p>Describe el producto, toma una foto, elige una imagen de la galería o sube la ficha técnica en PDF.</p>
+          </li>
+          <li class="tarjeta">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+            <h3>Clasificación razonada</h3>
+            <p>Revisa las notas legales de sección y capítulo y aplica las Reglas Generales Interpretativas antes de proponer el código.</p>
+          </li>
+          <li class="tarjeta">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v18M7 7.5C7 5.6 9.2 5 12 5s5 .9 5 2.8-2 2.6-5 3.2-5 1.4-5 3.4S9.2 17 12 17s5-.8 5-2.7"/></svg>
+            <h3>Gravámenes</h3>
+            <p>Muestra el DAI, el ITBIS y, cuando aplica, el ISC de la subpartida, tomados del Arancel y no de memoria.</p>
+          </li>
+          <li class="tarjeta">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+            <h3>Ficha merceológica</h3>
+            <p>Describe qué es el producto, de qué está hecho, para qué sirve y quién lo usa: las preguntas que deciden la partida.</p>
+          </li>
+          <li class="tarjeta">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 13l2 2 4-4"/></svg>
+            <h3>Segunda opinión e informe</h3>
+            <p>Compara tu clasificación con la de CLOPAS y descarga un informe en PDF con el veredicto y las referencias.</p>
+          </li>
+          <li class="tarjeta">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10h16v10H4z"/><path d="M8 10V6a4 4 0 018 0v4"/></svg>
+            <h3>Permisos de otras instituciones</h3>
+            <p>Indica si la mercancía requiere permisos que se tramitan por la Ventanilla Única (VUCERD / SIREVUCE).</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="seccion seccion-alterna" id="como-funciona" aria-labelledby="titulo-como">
+      <div class="contenedor">
+        <h2 id="titulo-como">Cómo funciona</h2>
+        <ol class="pasos">
+          <li>
+            <h3>Instala la app</h3>
+            <p>Abre el enlace en Chrome, Samsung Internet o Safari y agrégala a la pantalla de inicio con un toque.</p>
+          </li>
+          <li>
+            <h3>Haz tu consulta</h3>
+            <p>Escribe o fotografía el producto. Si falta un dato que decide la subpartida, como el material o la potencia, CLOPAS te lo pide.</p>
+          </li>
+          <li>
+            <h3>Recibe la respuesta con su fuente</h3>
+            <p>Código arancelario, gravámenes y la norma o nota legal en la que se apoya cada dato.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="seccion" id="base-legal" aria-labelledby="titulo-legal">
+      <div class="contenedor">
+        <h2 id="titulo-legal">Base legal que consulta</h2>
+        <p class="intro-seccion">Las respuestas se apoyan en normativa vigente de la República Dominicana y en los acuerdos que el país aplica.</p>
+        <ul class="normas">
+          <li><strong>Ley 168-21</strong> de Aduanas y su reglamento de aplicación, el <strong>Decreto 755-22</strong>.</li>
+          <li><strong>Arancel de Aduanas</strong> de la República Dominicana, basado en el Sistema Armonizado, con sus notas de sección y capítulo.</li>
+          <li><strong>Ley 11-92</strong>, Código Tributario: ITBIS e Impuesto Selectivo al Consumo.</li>
+          <li><strong>Decreto 36-11</strong>, Reglamento de Valoración Aduanera, y el Acuerdo de Valoración de la OMC.</li>
+          <li><strong>DR-CAFTA</strong> y demás tratados comerciales vigentes para reglas de origen.</li>
+        </ul>
+        <p class="aviso"><strong>Aviso:</strong> CLOPAS es una consultoría privada y no es una entidad del Estado. Sus respuestas orientan; la clasificación oficial de una mercancía la determina la Dirección General de Aduanas.</p>
+      </div>
+    </section>
+
+    <section class="seccion seccion-alterna" aria-labelledby="titulo-quien">
+      <div class="contenedor">
+        <h2 id="titulo-quien">Para quién es</h2>
+        <ul class="publico">
+          <li>Agentes de aduanas</li>
+          <li>Importadores y exportadores</li>
+          <li>Consultores de comercio exterior</li>
+          <li>Estudiantes de logística y aduanas</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="cierre" aria-labelledby="titulo-cierre">
+      <div class="contenedor">
+        <h2 id="titulo-cierre">Empieza con tu próxima mercancía</h2>
+        <div class="acciones acciones-centro">
+          <a class="boton boton-principal" href="{{ url_for('instalar') }}">Instalar la app</a>
+          <a class="boton boton-secundario" href="mailto:consultoria.puertos.aduanas@gmail.com">Escríbenos</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">
+      <p>© {{ anio }} CLOPAS — Consultoría Logística de Puertos y Aduanas. República Dominicana.</p>
+    </div>
+  </footer>
+</body>
+</html>
