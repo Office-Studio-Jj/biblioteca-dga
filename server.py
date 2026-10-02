@@ -3773,6 +3773,11 @@ def api_generar_informe_pdf():
         return jsonify({"error": f"Error generando PDF: {str(e)[:100]}"}), 500
 
 
+@app.route("/clopas")
+def clopas_web():
+    """Pagina publica de presentacion de CLOPAS. No requiere sesion."""
+    return render_template("clopas_web.html", anio=time.localtime().tm_year)
+
 @app.route("/instalar")
 def instalar():
     server_url = _get_public_url()
