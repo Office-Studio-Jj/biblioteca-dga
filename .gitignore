@@ -20,3 +20,6 @@ railway.toml.respaldo
 
 # Paquete de Railway para railway config plan (npm install)
 node_modules/
+
+# Datos locales de server.py fuera de la PC original (usuarios, claves de sesion)
+.datos_locales/

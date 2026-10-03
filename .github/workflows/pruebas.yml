@@ -1,0 +1,30 @@
+name: Pruebas
+
+# pytest en cada PR y push a main. Sin claves: las pruebas no llaman a APIs externas.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+      - name: pytest
+        run: python -m pytest -q
+        env:
+          # server.py en Linux se cree en la nube y usaria /data (sin permisos en el runner).
+          CLOPAS_DATA_DIR: ${{ runner.temp }}/datos
