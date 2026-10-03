@@ -367,12 +367,12 @@ def _isc_desde_lookup(codigo: str) -> str:
         if codigo in verificados:
             isc_val = verificados[codigo].get("isc")
             if isc_val:
-                return f"{isc_val} — Ley 11-92 Art. 375, bienes suntuarios electronicos"
+                return f"{isc_val} — Ley 11-92 Art. 375 (mod. Ley 253-12)"
         partidas_af = cap_data.get("partidas_afectadas", [])
         if any(codigo.startswith(p) for p in partidas_af):
             default = cap_data.get("tasas", {}).get("default")
             if default:
-                return f"{default} — Ley 11-92 Art. 375, bienes suntuarios electronicos"
+                return f"{default} — Ley 11-92 Art. 375 (mod. Ley 253-12)"
     except Exception:
         pass
     return "NO APLICA"

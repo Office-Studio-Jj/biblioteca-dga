@@ -988,23 +988,29 @@
     }
   },
   "regla_general_isc_rd": {
-    "descripcion": "ISC en Republica Dominicana aplica EXCLUSIVAMENTE a los capitulos listados en Ley 11-92 Titulo IV y sus partidas afectadas. Cualquier inferencia fuera de este lookup es incorrecta.",
+    "descripcion": "ISC en RD aplica solo a los SON de isc_lookup.json (Ley 11-92 Art. 375 mod. Ley 253-12; Ley 112-00; Art. 23 Ley 557-05 mod. Art. 30 Ley 495-06). Vehiculos (Cap. 87) no pagan ISC: CO2 (Ley 253-12) + 17% primer registro (Art. 22 Ley 557-05).",
     "capitulos_con_isc": [
+      "16",
       "22",
       "24",
       "27",
+      "33",
+      "39",
+      "57",
+      "58",
+      "71",
+      "73",
+      "74",
+      "76",
+      "84",
       "85",
-      "87"
+      "88",
+      "89",
+      "90",
+      "91",
+      "93"
     ],
-    "capitulos_sin_isc_general": [
-      "01-21",
-      "23",
-      "25-26",
-      "28-84",
-      "86",
-      "88-97"
-    ],
-    "regla_de_oro": "Si el capitulo no esta en el listado de capitulos_con_isc, NO AGREGAR ISC aunque Gemini sugiera lo contrario."
+    "regla_de_oro": "Si el SON no esta en isc_lookup.json, NO AGREGAR ISC aunque Gemini sugiera lo contrario."
   },
   "secciones": {
     "I": {

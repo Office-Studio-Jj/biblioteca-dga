@@ -3536,7 +3536,7 @@ def api_consultar_isc_partida():
                     entry = verificados[codigo]
                     return jsonify({"ok": True, "codigo": codigo,
                                     "isc": entry.get("isc", "NO APLICA"),
-                                    "base_legal": "Ley 11-92 Art. 375, bienes suntuarios electronicos",
+                                    "base_legal": cap_data.get("base_legal", "Ley 11-92 Art. 375 (mod. Ley 253-12)"),
                                     "fuente": f"isc_lookup.json[cap.{cap}].codigos_verificados[{codigo}]",
                                     "certeza": "ALTA", "otros_cargos": "NINGUNO"})
                 partidas_afectadas = cap_data.get("partidas_afectadas", [])

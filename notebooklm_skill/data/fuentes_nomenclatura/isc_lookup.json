@@ -1,91 +1,1024 @@
 {
-  "_meta": {
-    "descripcion": "Lookup de ISC (Impuesto Selectivo al Consumo) para partidas arancelarias RD",
-    "fuente_legal": "Ley 11-92 Codigo Tributario RD, Titulo IV Arts. 361-400; Ley 253-12",
-    "ultima_actualizacion": "2026-04-21",
-    "nota": "ISC aplica sobre CIF + Gravamen como base imponible salvo indicacion especial"
-  },
-  "capitulos_con_isc": {
-    "22": {
-      "descripcion": "Bebidas alcoholicas",
-      "tipo": "mixto",
-      "nota": "Monto Especifico RD$/litro segun tipo + Ad Valorem sobre CIF",
-      "tasas": {
-        "cerveza": "RD$8.72/litro + 7% CIF",
-        "vinos": "RD$22.87/litro + 10% CIF",
-        "ron": "RD$102.57/litro + 7% CIF",
-        "whisky_brandy": "RD$102.57/litro + 7% CIF",
-        "otras_bebidas_alc": "RD$102.57/litro + 7% CIF"
-      }
+ "_meta": {
+  "descripcion": "ISC (Impuesto Selectivo al Consumo) por SON del Arancel RD",
+  "fuente_legal": "Ley 11-92 Titulo IV, Art. 375 (mod. Ley 253-12) y Art. 379; Ley 112-00; Art. 23 Ley 557-05 (mod. Art. 30 Ley 495-06); Art. 31 Ley 495-06",
+  "generado_por": "scripts/build_isc_lookup.py (0% IA)",
+  "nota": "Ad valorem del Art. 375: base CIF + gravamen en importacion. Alcohol y tabaco: monto especifico ajustable por inflacion + ad valorem sobre precio al por menor. Vehiculos (Cap. 87) NO pagan ISC: pagan impuesto por emision de CO2 (Ley 253-12; Norma General DGII 06-2012) y 17% de primer registro (Art. 22 Ley 557-05), ambos en la DGII.",
+  "pendientes_correlacion": {
+   "8525.80.20": {
+    "descripcion": "Camaras digitales",
+    "tasa_ley": "20%",
+    "candidatos": [
+     "8525.81",
+     "8525.83",
+     "8525.89"
+    ]
+   },
+   "8525.80.30": {
+    "descripcion": "Videocamaras",
+    "tasa_ley": "20%",
+    "candidatos": [
+     "8525.81",
+     "8525.83",
+     "8525.89"
+    ]
+   },
+   "8519.81.91": {
+    "descripcion": "Reproductores de casetes de bolsillo",
+    "tasa_ley": "20%",
+    "candidatos": [
+     "8519.81"
+    ]
+   },
+   "8529.10.91": {
+    "descripcion": "Antenas para telefonia celular y buscapersonas",
+    "tasa_ley": "10%",
+    "candidatos": [
+     "8529.10.90"
+    ]
+   }
+  }
+ },
+ "capitulos_con_isc": {
+  "16": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [],
+   "codigos_verificados": {
+    "1604.31.00": {
+     "isc": "20%",
+     "descripcion": "Caviar"
     },
-    "24": {
-      "descripcion": "Tabaco y cigarrillos",
-      "tipo": "mixto",
-      "nota": "Monto Especifico RD$/caja o unidad + Ad Valorem",
-      "tasas": {
-        "cigarrillos": "RD$5.50/cajetilla + 20% CIF",
-        "puros": "RD$5.50/unidad + 20% CIF",
-        "tabaco_procesado": "20% CIF"
-      }
-    },
-    "27": {
-      "descripcion": "Hidrocarburos y combustibles",
-      "tipo": "especifico",
-      "nota": "Monto fijo por unidad de medida segun Ley 112-00",
-      "tasas": {
-        "gasolina_premium": "RD$50.63/galon",
-        "gasolina_regular": "RD$47.58/galon",
-        "gasoil_optimo": "RD$22.38/galon",
-        "gasoil_regular": "RD$19.47/galon",
-        "kerosene": "RD$8.06/galon",
-        "gas_licuado": "RD$0.00 (exento)"
-      }
-    },
-    "85": {
-      "descripcion": "Maquinas, aparatos electricos, electronicos y sus partes",
-      "tipo": "ad_valorem",
-      "nota": "Bienes suntuarios electronicos — ISC 10% sobre CIF segun Titulo IV Ley 11-92",
-      "tasas": {
-        "default": "10%"
-      },
-      "partidas_afectadas": [
-        "8521", "8525", "8527", "8528"
-      ],
-      "codigos_verificados": {
-        "8521.10.00": {"isc": "10%", "descripcion": "Aparatos de grabacion o reproduccion de video"},
-        "8525.89.10": {"isc": "10%", "descripcion": "Camaras de television — las demas"},
-        "8525.89.11": {"isc": "10%", "descripcion": "Camaras termograficas (infrarrojas)"},
-        "8525.89.19": {"isc": "10%", "descripcion": "Las demas camaras de television"},
-        "8527.21.00": {"isc": "10%", "descripcion": "Receptores combinados con aparato de grabacion"},
-        "8528.42.00": {"isc": "10%", "descripcion": "Monitores aptos para conectar directamente a maquinas"},
-        "8528.49.00": {"isc": "10%", "descripcion": "Los demas monitores de los tipos usados solo con ADP"},
-        "8528.52.00": {"isc": "10%", "descripcion": "Monitores aptos para conectar directamente a maquinas — capaces de recibir TV"},
-        "8528.59.10": {"isc": "10%", "descripcion": "Videomonitores"},
-        "8528.59.90": {"isc": "10%", "descripcion": "Los demas monitores"},
-        "8528.62.00": {"isc": "10%", "descripcion": "Proyectores aptos para conectar a ADP"},
-        "8528.69.00": {"isc": "10%", "descripcion": "Los demas proyectores"},
-        "8528.71.11": {"isc": "10%", "descripcion": "Cajas decodificadoras para TV"},
-        "8528.71.19": {"isc": "10%", "descripcion": "Los demas receptores con decodificador"},
-        "8528.72.00": {"isc": "10%", "descripcion": "Los demas, en colores"},
-        "8528.73.00": {"isc": "10%", "descripcion": "Los demas, monocromos"}
-      }
-    },
-    "87": {
-      "descripcion": "Vehiculos automoviles",
-      "tipo": "progresivo_CO2",
-      "nota": "Escala progresiva basada en emisiones CO2 g/km y/o cilindrada — Ley 253-12",
-      "tasas": {
-        "0_99_g_km_CO2": "0%",
-        "100_149_g_km_CO2": "1% por g/km sobre CIF",
-        "150_199_g_km_CO2": "1.5% por g/km sobre CIF",
-        "200_249_g_km_CO2": "2% por g/km sobre CIF",
-        "250_mas_g_km_CO2": "2.5% por g/km sobre CIF",
-        "cilindraje_1500cc_o_menos": "10%",
-        "cilindraje_1501_2000cc": "16%",
-        "cilindraje_2001_3000cc": "22%",
-        "cilindraje_3001_mas": "25%"
-      }
+    "1604.32.00": {
+     "isc": "20%",
+     "descripcion": "Sucedaneos del caviar"
     }
+   }
   },
-  "regla_general": "Para capitulos NO listados aqui: ISC = NO APLICA"
+  "22": {
+   "descripcion": "Productos del alcohol (Art. 379)",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) Parr. I-III",
+   "tipo": "mixto",
+   "tasas": {
+    "default": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor"
+   },
+   "partidas_afectadas": [],
+   "codigos_verificados": {
+    "2203.00.00": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "Cerveza de malta. malta."
+    },
+    "2204.10.00": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "-Vino -Vino espumoso"
+    },
+    "2204.21.00": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- En recipientes con capacidad inferior o igual a 2 l"
+    },
+    "2204.22.00": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- En recipientes con capacidad superior a 2 l, l, pero inferior"
+    },
+    "2204.29.00": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- Los demás"
+    },
+    "2204.30.00": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "-Los -Los demás mostos de uva"
+    },
+    "2205.10.00": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "-En -En recipientes con capacidad inferior o igual a 2 l"
+    },
+    "2205.90.00": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "-Los -Los demás"
+    },
+    "2206.00.00": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "Las demás bebidas fermentadas (por (por ejemplo: ejemplo: sidra, sidra, perada, "
+    },
+    "2207.10.00": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "-Alcohol -Alcohol etílico sin desnaturalizar con grado alcohólico volumétrico"
+    },
+    "2207.20.00": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "-Alcohol -Alcohol etílico y aguardiente desnaturalizados, desnaturalizados, de c"
+    },
+    "2208.20.30": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- De alta graduación alcohólica para la obtención de brandy"
+    },
+    "2208.20.91": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- - Aguardiente de vino (por (por ejemplo: ejemplo: coñac y otros brandys de vin"
+    },
+    "2208.20.92": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- - Aguardiente de orujo de uvas (por (por ejemplo: ejemplo: «grappa») «grappa»)"
+    },
+    "2208.30.10": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- De alta graduación alcohólica (por (por ejemplo: ejemplo: alcoholes de malta) "
+    },
+    "2208.30.20": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- Whisky escocés «Scotch» «Scotch» y whisky irlandés «Irish» «Irish»"
+    },
+    "2208.30.30": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- Whisky escocés «Scotch» «Scotch» y whisky irlandés «Irish» «Irish» en botella,"
+    },
+    "2208.30.90": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- Los demás"
+    },
+    "2208.40.11": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- En envases de contenido neto inferior o igual a 5 litros, litros, con"
+    },
+    "2208.40.12": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- En envases de contenido neto superior a 5 litros, litros, con grado"
+    },
+    "2208.40.19": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- Los demás"
+    },
+    "2208.50.00": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "-Gin -Gin y ginebra"
+    },
+    "2208.60.00": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "-Vodka -Vodka"
+    },
+    "2208.70.10": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- De anís"
+    },
+    "2208.70.20": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- Cremas"
+    },
+    "2208.70.90": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- Los demás"
+    },
+    "2208.90.10": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- Alcohol etílico sin desnaturalizar con un grado alcohólico 20"
+    },
+    "2208.90.41": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- - De agaves (tequila (tequila y similares) similares)"
+    },
+    "2208.90.42": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- - De anís"
+    },
+    "2208.90.43": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- - De uva (por (por ejemplo: ejemplo: pisco) pisco)"
+    },
+    "2208.90.49": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- - Los demás"
+    },
+    "2208.90.90": {
+     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- Los demás"
+    }
+   }
+  },
+  "24": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "mixto",
+   "tasas": {},
+   "partidas_afectadas": [],
+   "codigos_verificados": {
+    "2402.10.11": {
+     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- - Elaborados a mano, mano, con cilindro compuesto por hojas de tabaco"
+    },
+    "2402.10.12": {
+     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- - Elaborados a máquina, máquina, con cilindro compuesto por hojas de"
+    },
+    "2402.10.21": {
+     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- - Elaborados a mano, mano, con cilindro compuesto por hojas de tabaco"
+    },
+    "2402.10.22": {
+     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- - Elaborados a máquina con cilindro compuesto por hojas de tabaco"
+    },
+    "2402.10.99": {
+     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- Los demás"
+    },
+    "2402.20.10": {
+     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- De tabaco negro, negro, cajetilla de 20 unidades"
+    },
+    "2402.20.20": {
+     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- De tabaco rubio, rubio, cajetilla de 20 unidades"
+    },
+    "2402.20.30": {
+     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- - De tabaco negro, negro, cajetilla de 10 unidades"
+    },
+    "2402.20.40": {
+     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "- - De tabaco rubio, rubio, cajetilla de 10 unidades"
+    },
+    "2402.90.00": {
+     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "descripcion": "-Los -Los demás"
+    },
+    "2403.11.00": {
+     "isc": "130%",
+     "descripcion": "Tabaco para pipa de agua"
+    },
+    "2403.19.00": {
+     "isc": "130%",
+     "descripcion": "Los demas (tabaco para fumar)"
+    },
+    "2403.99.90": {
+     "isc": "130%",
+     "descripcion": "Los demas (tabaco)"
+    }
+   }
+  },
+  "27": {
+   "descripcion": "Combustibles fosiles",
+   "base_legal": "Ley 112-00; Art. 23 Ley 557-05 (mod. Art. 30 Ley 495-06); Art. 31 Ley 495-06",
+   "tipo": "mixto",
+   "tasas": {},
+   "partidas_afectadas": [],
+   "codigos_verificados": {
+    "2710.12.11": {
+     "isc": "Monto especifico por galon de la Ley 112-00 (ajustado periodicamente: verificar monto vigente MICM/DGII) + 16% ad valorem (Art. 23 Ley 557-05, mod. Art. 30 Ley 495-06)",
+     "descripcion": "- De aviación"
+    },
+    "2710.12.13": {
+     "isc": "Monto especifico por galon de la Ley 112-00 (ajustado periodicamente: verificar monto vigente MICM/DGII) + 16% ad valorem (Art. 23 Ley 557-05, mod. Art. 30 Ley 495-06)",
+     "descripcion": "- - Gasolina «premium» «premium»"
+    },
+    "2710.12.14": {
+     "isc": "Monto especifico por galon de la Ley 112-00 (ajustado periodicamente: verificar monto vigente MICM/DGII) + 16% ad valorem (Art. 23 Ley 557-05, mod. Art. 30 Ley 495-06) + RD$5.00/galon gasolina regular (Art. 31 Ley 495-06)",
+     "descripcion": "- - Gasolina regular"
+    },
+    "2710.12.20": {
+     "isc": "Monto especifico por galon de la Ley 112-00 (ajustado periodicamente: verificar monto vigente MICM/DGII) + 16% ad valorem (Art. 23 Ley 557-05, mod. Art. 30 Ley 495-06)",
+     "descripcion": "- - Carburantes tipo gasolina, gasolina, para reactores y turbinas"
+    },
+    "2710.12.41": {
+     "isc": "Monto especifico por galon de la Ley 112-00 (ajustado periodicamente: verificar monto vigente MICM/DGII) + 16% ad valorem (Art. 23 Ley 557-05, mod. Art. 30 Ley 495-06)",
+     "descripcion": "- Queroseno"
+    },
+    "2710.12.51": {
+     "isc": "Monto especifico por galon de la Ley 112-00 (ajustado periodicamente: verificar monto vigente MICM/DGII) + 16% ad valorem (Art. 23 Ley 557-05, mod. Art. 30 Ley 495-06) + RD$3.00/galon gasoil (Art. 31 Ley 495-06)",
+     "descripcion": "- Gasoils (gasóleo (gasóleo o diesel) diesel) óptimo"
+    },
+    "2710.12.52": {
+     "isc": "Monto especifico por galon de la Ley 112-00 (ajustado periodicamente: verificar monto vigente MICM/DGII) + 16% ad valorem (Art. 23 Ley 557-05, mod. Art. 30 Ley 495-06) + RD$3.00/galon gasoil (Art. 31 Ley 495-06)",
+     "descripcion": "- Gasoils (gasóleo (gasóleo o diesel) diesel) regular"
+    },
+    "2710.12.60": {
+     "isc": "Monto especifico por galon de la Ley 112-00 (ajustado periodicamente: verificar monto vigente MICM/DGII) + 16% ad valorem (Art. 23 Ley 557-05, mod. Art. 30 Ley 495-06)",
+     "descripcion": "- - Fueloils (fuel) (fuel)"
+    }
+   }
+  },
+  "33": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [
+    "3303"
+   ],
+   "codigos_verificados": {
+    "3303.00.00": {
+     "isc": "20%",
+     "descripcion": "Perfumes y aguas de tocador"
+    }
+   }
+  },
+  "39": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [],
+   "codigos_verificados": {
+    "3922.10.11": {
+     "isc": "20%",
+     "descripcion": "Banera tipo jacuzzi, de plastico reforzado con fibra de vidrio"
+    }
+   }
+  },
+  "57": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [
+    "5701",
+    "5702",
+    "5703"
+   ],
+   "codigos_verificados": {
+    "5701.10.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras de nudo"
+    },
+    "5701.90.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras de nudo"
+    },
+    "5702.10.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5702.20.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5702.31.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5702.32.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5702.39.10": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5702.39.90": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5702.41.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5702.42.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5702.49.10": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5702.49.90": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5702.50.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5702.91.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5702.92.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5702.99.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras tejidas"
+    },
+    "5703.10.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras con mechon insertado"
+    },
+    "5703.21.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras con mechon insertado"
+    },
+    "5703.29.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras con mechon insertado"
+    },
+    "5703.31.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras con mechon insertado"
+    },
+    "5703.39.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras con mechon insertado"
+    },
+    "5703.90.00": {
+     "isc": "20%",
+     "descripcion": "Alfombras con mechon insertado"
+    }
+   }
+  },
+  "58": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [
+    "5805"
+   ],
+   "codigos_verificados": {
+    "5805.00.00": {
+     "isc": "20%",
+     "descripcion": "Tapiceria tejida a mano"
+    }
+   }
+  },
+  "71": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [
+    "7113",
+    "7114",
+    "7116",
+    "7117"
+   ],
+   "codigos_verificados": {
+    "7113.11.11": {
+     "isc": "20%",
+     "descripcion": "Articulos de joyeria"
+    },
+    "7113.11.12": {
+     "isc": "20%",
+     "descripcion": "Articulos de joyeria"
+    },
+    "7113.11.13": {
+     "isc": "20%",
+     "descripcion": "Articulos de joyeria"
+    },
+    "7113.11.14": {
+     "isc": "20%",
+     "descripcion": "Articulos de joyeria"
+    },
+    "7113.19.11": {
+     "isc": "20%",
+     "descripcion": "Articulos de joyeria"
+    },
+    "7113.19.12": {
+     "isc": "20%",
+     "descripcion": "Articulos de joyeria"
+    },
+    "7113.19.13": {
+     "isc": "20%",
+     "descripcion": "Articulos de joyeria"
+    },
+    "7113.19.14": {
+     "isc": "20%",
+     "descripcion": "Articulos de joyeria"
+    },
+    "7113.19.91": {
+     "isc": "20%",
+     "descripcion": "Articulos de joyeria"
+    },
+    "7113.19.99": {
+     "isc": "20%",
+     "descripcion": "Articulos de joyeria"
+    },
+    "7113.20.11": {
+     "isc": "20%",
+     "descripcion": "Articulos de joyeria"
+    },
+    "7113.20.12": {
+     "isc": "20%",
+     "descripcion": "Articulos de joyeria"
+    },
+    "7113.20.19": {
+     "isc": "20%",
+     "descripcion": "Articulos de joyeria"
+    },
+    "7114.11.00": {
+     "isc": "20%",
+     "descripcion": "Articulos de orfebreria"
+    },
+    "7114.19.10": {
+     "isc": "20%",
+     "descripcion": "Articulos de orfebreria"
+    },
+    "7114.19.90": {
+     "isc": "20%",
+     "descripcion": "Articulos de orfebreria"
+    },
+    "7114.20.00": {
+     "isc": "20%",
+     "descripcion": "Articulos de orfebreria"
+    },
+    "7116.10.00": {
+     "isc": "20%",
+     "descripcion": "Manufacturas de perlas o piedras preciosas"
+    },
+    "7116.20.00": {
+     "isc": "20%",
+     "descripcion": "Manufacturas de perlas o piedras preciosas"
+    },
+    "7117.11.00": {
+     "isc": "20%",
+     "descripcion": "Bisuteria"
+    },
+    "7117.19.11": {
+     "isc": "20%",
+     "descripcion": "Bisuteria"
+    },
+    "7117.19.12": {
+     "isc": "20%",
+     "descripcion": "Bisuteria"
+    },
+    "7117.19.13": {
+     "isc": "20%",
+     "descripcion": "Bisuteria"
+    },
+    "7117.19.14": {
+     "isc": "20%",
+     "descripcion": "Bisuteria"
+    },
+    "7117.19.15": {
+     "isc": "20%",
+     "descripcion": "Bisuteria"
+    },
+    "7117.19.19": {
+     "isc": "20%",
+     "descripcion": "Bisuteria"
+    },
+    "7117.90.11": {
+     "isc": "20%",
+     "descripcion": "Bisuteria"
+    },
+    "7117.90.12": {
+     "isc": "20%",
+     "descripcion": "Bisuteria"
+    },
+    "7117.90.13": {
+     "isc": "20%",
+     "descripcion": "Bisuteria"
+    },
+    "7117.90.14": {
+     "isc": "20%",
+     "descripcion": "Bisuteria"
+    },
+    "7117.90.19": {
+     "isc": "20%",
+     "descripcion": "Bisuteria"
+    }
+   }
+  },
+  "73": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [],
+   "codigos_verificados": {
+    "7324.21.10": {
+     "isc": "20%",
+     "descripcion": "Banera tipo jacuzzi, de fundicion"
+    }
+   }
+  },
+  "74": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [],
+   "codigos_verificados": {
+    "7418.20.11": {
+     "isc": "20%",
+     "descripcion": "Banera tipo jacuzzi, de cobre (ley: 7418.20.00)"
+    }
+   }
+  },
+  "76": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [],
+   "codigos_verificados": {
+    "7615.20.11": {
+     "isc": "20%",
+     "descripcion": "Banera tipo jacuzzi, de aluminio (ley: 7615.20.00)"
+    }
+   }
+  },
+  "84": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [
+    "8415"
+   ],
+   "codigos_verificados": {
+    "8415.10.00": {
+     "isc": "20%",
+     "descripcion": "Maquinas y aparatos de aire acondicionado y sus partes"
+    },
+    "8415.20.00": {
+     "isc": "20%",
+     "descripcion": "Maquinas y aparatos de aire acondicionado y sus partes"
+    },
+    "8415.81.00": {
+     "isc": "20%",
+     "descripcion": "Maquinas y aparatos de aire acondicionado y sus partes"
+    },
+    "8415.82.00": {
+     "isc": "20%",
+     "descripcion": "Maquinas y aparatos de aire acondicionado y sus partes"
+    },
+    "8415.83.00": {
+     "isc": "20%",
+     "descripcion": "Maquinas y aparatos de aire acondicionado y sus partes"
+    },
+    "8415.90.11": {
+     "isc": "20%",
+     "descripcion": "Maquinas y aparatos de aire acondicionado y sus partes"
+    },
+    "8415.90.12": {
+     "isc": "20%",
+     "descripcion": "Maquinas y aparatos de aire acondicionado y sus partes"
+    },
+    "8415.90.19": {
+     "isc": "20%",
+     "descripcion": "Maquinas y aparatos de aire acondicionado y sus partes"
+    },
+    "8479.60.00": {
+     "isc": "20%",
+     "descripcion": "Aparatos de evaporacion para refrigerar el aire"
+    }
+   }
+  },
+  "85": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "mixto",
+   "tasas": {},
+   "partidas_afectadas": [
+    "8521",
+    "8529"
+   ],
+   "codigos_verificados": {
+    "8508.11.00": {
+     "isc": "20%",
+     "descripcion": "Aspiradoras"
+    },
+    "8508.19.00": {
+     "isc": "20%",
+     "descripcion": "Aspiradoras, las demas"
+    },
+    "8508.60.00": {
+     "isc": "20%",
+     "descripcion": "Las demas aspiradoras"
+    },
+    "8509.40.90": {
+     "isc": "20%",
+     "descripcion": "Trituradoras y mezcladoras de alimentos, los demas"
+    },
+    "8509.80.10": {
+     "isc": "20%",
+     "descripcion": "Enceradoras de pisos"
+    },
+    "8509.80.20": {
+     "isc": "20%",
+     "descripcion": "Trituradores de desperdicios de cocina"
+    },
+    "8509.80.90": {
+     "isc": "20%",
+     "descripcion": "Los demas aparatos electromecanicos domesticos"
+    },
+    "8516.10.00": {
+     "isc": "20%",
+     "descripcion": "Calentadores electricos de agua"
+    },
+    "8516.50.00": {
+     "isc": "20%",
+     "descripcion": "Hornos de microondas"
+    },
+    "8516.60.10": {
+     "isc": "20%",
+     "descripcion": "Hornos"
+    },
+    "8516.60.30": {
+     "isc": "20%",
+     "descripcion": "Calentadores, parrillas y asadores"
+    },
+    "8516.71.00": {
+     "isc": "20%",
+     "descripcion": "Aparatos para preparar cafe o te"
+    },
+    "8516.72.00": {
+     "isc": "20%",
+     "descripcion": "Tostadoras de pan"
+    },
+    "8516.79.11": {
+     "isc": "20%",
+     "descripcion": "Los demas aparatos electrotermicos (ley: 8516.79.00)"
+    },
+    "8516.79.12": {
+     "isc": "20%",
+     "descripcion": "Los demas aparatos electrotermicos (ley: 8516.79.00)"
+    },
+    "8516.79.19": {
+     "isc": "20%",
+     "descripcion": "Los demas aparatos electrotermicos (ley: 8516.79.00)"
+    },
+    "8517.69.20": {
+     "isc": "20%",
+     "descripcion": "Videofonos"
+    },
+    "8519.20.00": {
+     "isc": "20%",
+     "descripcion": "Tocadiscos de ficha o moneda"
+    },
+    "8519.30.00": {
+     "isc": "20%",
+     "descripcion": "Giradiscos"
+    },
+    "8519.81.10": {
+     "isc": "VERIFICAR 20% - Art. 375 grava 'Reproductores de casetes de bolsillo' (codigo de la ley 8519.81.91); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Aparatos para reproducir dictados"
+    },
+    "8519.81.20": {
+     "isc": "VERIFICAR 20% - Art. 375 grava 'Reproductores de casetes de bolsillo' (codigo de la ley 8519.81.91); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Reproductores de sonido sin receptor de radio tipo MP3, MP3,"
+    },
+    "8519.81.30": {
+     "isc": "VERIFICAR 20% - Art. 375 grava 'Reproductores de casetes de bolsillo' (codigo de la ley 8519.81.91); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Aparatos para dictar que solo funcionen con fuente de"
+    },
+    "8519.81.90": {
+     "isc": "VERIFICAR 20% - Art. 375 grava 'Reproductores de casetes de bolsillo' (codigo de la ley 8519.81.91); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Los demás"
+    },
+    "8521.10.00": {
+     "isc": "20%",
+     "descripcion": "Aparatos de grabacion o reproduccion de video"
+    },
+    "8521.90.10": {
+     "isc": "20%",
+     "descripcion": "Aparatos de grabacion o reproduccion de video"
+    },
+    "8521.90.20": {
+     "isc": "20%",
+     "descripcion": "Aparatos de grabacion o reproduccion de video"
+    },
+    "8521.90.30": {
+     "isc": "20%",
+     "descripcion": "Aparatos de grabacion o reproduccion de video"
+    },
+    "8521.90.90": {
+     "isc": "20%",
+     "descripcion": "Aparatos de grabacion o reproduccion de video"
+    },
+    "8525.81.11": {
+     "isc": "VERIFICAR 20% o VERIFICAR 20% - Art. 375 grava 'Camaras digitales' (codigo de la ley 8525.80.20); correlacion con la 7ma Enmienda pendiente de confirmar con DGA (- - Cámaras de televisión) - Art. 375 grava 'Videocamaras' (codigo de la ley 8525.80.30); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Cámaras de televisión"
+    },
+    "8525.81.12": {
+     "isc": "VERIFICAR 20% o VERIFICAR 20% - Art. 375 grava 'Camaras digitales' (codigo de la ley 8525.80.20); correlacion con la 7ma Enmienda pendiente de confirmar con DGA (- - Cámaras digitales para sistemas de seguridad, seguridad, de los tipos) - Art. 375 grava 'Videocamaras' (codigo de la ley 8525.80.30); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Cámaras digitales para sistemas de seguridad, seguridad, de los tipos"
+    },
+    "8525.81.19": {
+     "isc": "VERIFICAR 20% o VERIFICAR 20% - Art. 375 grava 'Camaras digitales' (codigo de la ley 8525.80.20); correlacion con la 7ma Enmienda pendiente de confirmar con DGA (- - Las demás) - Art. 375 grava 'Videocamaras' (codigo de la ley 8525.80.30); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Las demás"
+    },
+    "8525.83.11": {
+     "isc": "VERIFICAR 20% o VERIFICAR 20% - Art. 375 grava 'Camaras digitales' (codigo de la ley 8525.80.20); correlacion con la 7ma Enmienda pendiente de confirmar con DGA (- - Cámaras de televisión) - Art. 375 grava 'Videocamaras' (codigo de la ley 8525.80.30); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Cámaras de televisión"
+    },
+    "8525.83.12": {
+     "isc": "VERIFICAR 20% o VERIFICAR 20% - Art. 375 grava 'Camaras digitales' (codigo de la ley 8525.80.20); correlacion con la 7ma Enmienda pendiente de confirmar con DGA (- - Cámaras digitales para sistemas de seguridad, seguridad, de los tipos) - Art. 375 grava 'Videocamaras' (codigo de la ley 8525.80.30); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Cámaras digitales para sistemas de seguridad, seguridad, de los tipos"
+    },
+    "8525.83.19": {
+     "isc": "VERIFICAR 20% o VERIFICAR 20% - Art. 375 grava 'Camaras digitales' (codigo de la ley 8525.80.20); correlacion con la 7ma Enmienda pendiente de confirmar con DGA (- - Las demás) - Art. 375 grava 'Videocamaras' (codigo de la ley 8525.80.30); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Las demás"
+    },
+    "8525.89.11": {
+     "isc": "VERIFICAR 20% o VERIFICAR 20% - Art. 375 grava 'Camaras digitales' (codigo de la ley 8525.80.20); correlacion con la 7ma Enmienda pendiente de confirmar con DGA (- - Cámaras termográficas (infrarrojas) (infrarrojas)) - Art. 375 grava 'Videocamaras' (codigo de la ley 8525.80.30); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Cámaras termográficas (infrarrojas) (infrarrojas)"
+    },
+    "8525.89.12": {
+     "isc": "VERIFICAR 20% o VERIFICAR 20% - Art. 375 grava 'Camaras digitales' (codigo de la ley 8525.80.20); correlacion con la 7ma Enmienda pendiente de confirmar con DGA (- - Cámaras digitales, digitales, denominadas («WebCam»), («WebCam»), de las uti) - Art. 375 grava 'Videocamaras' (codigo de la ley 8525.80.30); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Cámaras digitales, digitales, denominadas («WebCam»), («WebCam»), de las uti"
+    },
+    "8525.89.13": {
+     "isc": "VERIFICAR 20% o VERIFICAR 20% - Art. 375 grava 'Camaras digitales' (codigo de la ley 8525.80.20); correlacion con la 7ma Enmienda pendiente de confirmar con DGA (- - Cámaras digitales diseñadas para ser instaladas en vehículos) - Art. 375 grava 'Videocamaras' (codigo de la ley 8525.80.30); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Cámaras digitales diseñadas para ser instaladas en vehículos"
+    },
+    "8525.89.19": {
+     "isc": "VERIFICAR 20% o VERIFICAR 20% - Art. 375 grava 'Camaras digitales' (codigo de la ley 8525.80.20); correlacion con la 7ma Enmienda pendiente de confirmar con DGA (- - Las demás) - Art. 375 grava 'Videocamaras' (codigo de la ley 8525.80.30); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- - Las demás"
+    },
+    "8527.13.10": {
+     "isc": "20%",
+     "descripcion": "Aparatos combinados con reproductor optico"
+    },
+    "8527.21.10": {
+     "isc": "20%",
+     "descripcion": "Receptores combinados con reproductor optico"
+    },
+    "8527.91.10": {
+     "isc": "20%",
+     "descripcion": "Los demas receptores combinados con reproductor optico"
+    },
+    "8528.59.10": {
+     "isc": "10%",
+     "descripcion": "Videomonitores en colores"
+    },
+    "8528.72.00": {
+     "isc": "10%",
+     "descripcion": "Receptores de television en colores"
+    },
+    "8529.10.10": {
+     "isc": "10%",
+     "descripcion": "Antenas exteriores para TV o radiodifusion"
+    },
+    "8529.10.20": {
+     "isc": "10%",
+     "descripcion": "Antenas parabolicas"
+    },
+    "8529.10.90": {
+     "isc": "VERIFICAR 10% o 20% (Partes de los aparatos de las partidas 85.25 a 85.28) - Art. 375 grava 'Antenas para telefonia celular y buscapersonas' (codigo de la ley 8529.10.91); correlacion con la 7ma Enmienda pendiente de confirmar con DGA",
+     "descripcion": "- Los demás"
+    },
+    "8529.90.10": {
+     "isc": "20%",
+     "descripcion": "Partes de los aparatos de las partidas 85.25 a 85.28"
+    },
+    "8529.90.90": {
+     "isc": "20%",
+     "descripcion": "Partes de los aparatos de las partidas 85.25 a 85.28"
+    }
+   }
+  },
+  "88": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [
+    "8801"
+   ],
+   "codigos_verificados": {
+    "8801.00.00": {
+     "isc": "20%",
+     "descripcion": "Globos, dirigibles y planeadores"
+    }
+   }
+  },
+  "89": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [],
+   "codigos_verificados": {
+    "8903.31.11": {
+     "isc": "20%",
+     "descripcion": "Yates (ley: 8903.91.10)"
+    },
+    "8903.32.11": {
+     "isc": "20%",
+     "descripcion": "Yates (ley: 8903.91.10)"
+    },
+    "8903.33.11": {
+     "isc": "20%",
+     "descripcion": "Yates (ley: 8903.91.10)"
+    },
+    "8903.99.20": {
+     "isc": "20%",
+     "descripcion": "Motocicletas acuaticas (jet ski)"
+    }
+   }
+  },
+  "90": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [],
+   "codigos_verificados": {
+    "9019.10.12": {
+     "isc": "20%",
+     "descripcion": "Banera tipo jacuzzi con bombas e hidromasaje"
+    }
+   }
+  },
+  "91": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "20%"
+   },
+   "partidas_afectadas": [
+    "9101"
+   ],
+   "codigos_verificados": {
+    "9101.11.00": {
+     "isc": "20%",
+     "descripcion": "Relojes con caja de metal precioso"
+    },
+    "9101.19.00": {
+     "isc": "20%",
+     "descripcion": "Relojes con caja de metal precioso"
+    },
+    "9101.21.00": {
+     "isc": "20%",
+     "descripcion": "Relojes con caja de metal precioso"
+    },
+    "9101.29.00": {
+     "isc": "20%",
+     "descripcion": "Relojes con caja de metal precioso"
+    },
+    "9101.91.00": {
+     "isc": "20%",
+     "descripcion": "Relojes con caja de metal precioso"
+    },
+    "9101.99.00": {
+     "isc": "20%",
+     "descripcion": "Relojes con caja de metal precioso"
+    },
+    "9111.10.00": {
+     "isc": "20%",
+     "descripcion": "Cajas de metal precioso"
+    },
+    "9113.10.00": {
+     "isc": "20%",
+     "descripcion": "Pulseras de metal precioso"
+    }
+   }
+  },
+  "93": {
+   "descripcion": "Bienes gravados Art. 375",
+   "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) - ad valorem sobre CIF + gravamen",
+   "tipo": "ad_valorem",
+   "tasas": {
+    "default": "78%"
+   },
+   "partidas_afectadas": [
+    "9302"
+   ],
+   "codigos_verificados": {
+    "9302.00.10": {
+     "isc": "78%",
+     "descripcion": "Revolveres y pistolas"
+    },
+    "9302.00.20": {
+     "isc": "78%",
+     "descripcion": "Revolveres y pistolas"
+    },
+    "9302.00.90": {
+     "isc": "78%",
+     "descripcion": "Revolveres y pistolas"
+    }
+   }
+  }
+ },
+ "regla_general": "ISC solo aplica a los SON listados aqui (Ley 11-92 Art. 375 (mod. Ley 253-12) y leyes de combustibles). Resto: NO APLICA"
 }

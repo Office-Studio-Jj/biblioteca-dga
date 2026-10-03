@@ -96,14 +96,13 @@ Regla booleana segun la columna EX. ITBIS del Arancel de Aduanas:
 - Si la partida no tiene exencion (campo vacio o sin marcacion): retornar ITBIS = 18% sobre (valor CIF + Gravamen).
 - Productos tipicamente exentos: alimentos basicos de la canasta familiar, medicamentos, insumos agricolas, libros y revistas. En caso de duda sobre la exencion, indicar "18% (verificar exencion en Arancel)".
 
-C. IMPUESTO SELECTIVO AL CONSUMO (ISC) — aplicar segun el capitulo del Arancel (Ley 11-92 Titulo IV):
-- Capitulo 22 (Bebidas alcoholicas): ISC mixto = Monto Especifico en RD$/litro segun tipo de bebida + Ad Valorem (%) sobre valor CIF.
-- Capitulo 24 (Tabaco y Cigarrillos): ISC mixto = Monto Especifico en RD$/unidad o caja + Ad Valorem (%).
-- Capitulo 27 (Hidrocarburos/Combustibles): ISC = Monto Fijo por unidad de medida segun Ley 112-00 (no es porcentual, es un valor absoluto RD$ por galon/litro).
-- Capitulo 85 (Equipos electronicos — bienes suntuarios): ISC = 10% Ad Valorem sobre CIF. Aplica especificamente a: televisores (8528.7x.xx), monitores (8528.4x-5x-6x), videomonitores (8528.59.10), proyectores (8528.6x), camaras de video (8525.8x), aparatos de grabacion/reproduccion de video (8521.xx). OBLIGATORIO indicar "10% — Ley 11-92 Art. 375, bienes suntuarios" para estos codigos.
-- Capitulo 87 (Vehiculos automotores): ISC = Escala progresiva basada en emisiones de CO2 (g/km) y/o cilindrada del motor segun Ley 253-12.
-- Todos los demas capitulos no listados: ISC = NO APLICA.
-REGLA CRITICA ISC: Nunca pongas "NO APLICA" para partidas del Capitulo 85 listadas arriba. Si el codigo es de la familia 8528.xx o 8525.8x o 8521.xx, el ISC ES 10%.
+C. IMPUESTO SELECTIVO AL CONSUMO (ISC) — Ley 11-92 Titulo IV, Art. 375 (mod. Ley 253-12). La tasa exacta por SON la fija isc_lookup.json; el sistema corrige tu valor:
+- Alcohol (22.03-22.08): monto especifico por litro de ALCOHOL ABSOLUTO (ajustado por inflacion) + 10% ad valorem sobre el precio de venta al por menor.
+- Cigarrillos (24.02): monto especifico por cajetilla (ajustado por inflacion) + 20% sobre el precio al por menor. Tabaco para pipa de agua (2403.11/19, 2403.99.90): 130%.
+- Combustibles (27.10): monto por galon de la Ley 112-00 + 16% ad valorem (Art. 23 Ley 557-05, mod. Ley 495-06).
+- Bienes del Art. 375 al 20%: caviar, perfumes, jacuzzis, alfombras, joyeria y bisuteria, aires acondicionados (84.15), aspiradoras, microondas y otros electrodomesticos, video (85.21), relojes de metal precioso, yates y jet ski. Al 10%: TV a color (8528.72.00), videomonitores (8528.59.10), antenas (8529.10). Revolveres y pistolas: 78%.
+- Vehiculos (Cap. 87): NO pagan ISC; pagan impuesto por emision de CO2 y 17% de primer registro en la DGII.
+- Cualquier otro SON: ISC = NO APLICA.
 
 D. PRESENTACION OBLIGATORIA DE LA CARGA IMPOSITIVA TOTAL:
 Incluir SIEMPRE una tabla con porcentaje y descripcion de cada cargo:
@@ -112,7 +111,7 @@ Incluir SIEMPRE una tabla con porcentaje y descripcion de cada cargo:
 |-----------------|----------------------|------------------------|------------------------------------------|
 | Gravamen (NMF)  | Valor CIF            | X%                     | Estandar o preferencial (tratado)        |
 | ITBIS           | CIF + Gravamen       | 18% o EXENTO           | Ley o base de exencion si aplica         |
-| ISC             | Segun tipo (Cap.)    | Monto o % si aplica    | Caps. 22, 24, 27, 85 (elec.), 87        |
+| ISC             | Segun tipo (Cap.)    | Monto o % si aplica    | Solo SON del Art. 375 y combustibles   |
 
 NOTA CRITICA: Si el Arancel.pdf disponible en la fuente indica una tasa diferente a las estandar, USAR la tasa del Arancel.pdf como fuente primaria. Las tasas de este prompt son orientativas. El Arancel vigente (Septima Enmienda) prevalece siempre.
 
@@ -233,7 +232,7 @@ RGI: [Regla(s) General(es) de Interpretacion aplicada(s), ej: RGI 1, o RGI 1 + R
 RESTRICCIONES: [restricciones o permisos previos aplicables en max 1 linea, o NINGUNA]
 GRAVAMEN: [X% — NMF estandar / o tasa preferencial indicando el tratado (DR-CAFTA, CARICOM, EPA)]
 ITBIS: [18% sobre (CIF + Gravamen) / o EXENTO — indicar base legal de exencion]
-ISC: [NO APLICA / o descripcion del cargo selectivo con tasa o monto si aplica (Caps. 22, 24, 27, 87)]
+ISC: [NO APLICA / o descripcion del cargo selectivo con tasa o monto si aplica (Art. 375 Ley 11-92 y Ley 112-00)]
 VUCERD: [SI — indicar tipo de permiso VUCERD requerido y la institucion gubernamental que lo emite (ej: Permiso Sanitario — Ministerio de Salud Publica, Permiso Fitosanitario — Ministerio de Agricultura, Registro Sanitario — DIGEMAPS, Permiso Ambiental — Ministerio de Medio Ambiente, etc.) / NO REQUIERE]
 OTROS_PERMISOS: [Listar cada permiso adicional con nombre completo y la institucion que lo expide, separados por punto y coma. Ej: Certificado de No Objecion — CNZFE; Licencia de Importacion — Ministerio de Industria y Comercio. Si no aplica: NINGUNO]
 ---FIN_CLASIFICACION---""",
@@ -869,7 +868,7 @@ def _corregir_isc_con_lookup(answer: str, notebook_id: str) -> str:
 
     # (A) FALSO NEGATIVO: lookup tiene tasa, Gemini dijo NO APLICA
     if isc_verificado and dice_no_aplica:
-        isc_correcto = f"{isc_verificado} — Ley 11-92 Art. 375, bienes suntuarios electronicos"
+        isc_correcto = f"{isc_verificado} — Ley 11-92 Art. 375 (mod. Ley 253-12)"
         print(f"[ISC-GATE-A] FALSO NEG: '{isc_gemini}' -> '{isc_correcto}' para {codigo}")
         if m_isc:
             answer = answer[:m_isc.start()] + f"ISC: {isc_correcto}" + answer[m_isc.end():]

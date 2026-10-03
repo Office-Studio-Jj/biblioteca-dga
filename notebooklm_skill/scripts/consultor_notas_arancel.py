@@ -89,149 +89,39 @@ def analizar_codigo(codigo: str) -> dict:
     cache = _cargar_cache()
     capitulo = codigo[:2]
     partida = codigo[:4]
+    cap_data = cache.get("capitulos", {}).get(capitulo) or {}
+    notas = cap_data.get("notas_legales", [])
 
-    capitulos_con_isc = cache.get("regla_general_isc_rd", {}).get("capitulos_con_isc", [])
-
-    cap_data = cache.get("capitulos", {}).get(capitulo)
-
-    # Capitulo sin ISC en RD (ni siquiera figura en la lista de capitulos_con_isc)
-    if capitulo not in capitulos_con_isc:
+    # Fuente unica de ISC: isc_lookup.json, generado por scripts/build_isc_lookup.py desde el
+    # Art. 375 de la Ley 11-92 (mod. Ley 253-12) y las leyes de combustibles.
+    try:
+        with open(_ISC_LOOKUP, "r", encoding="utf-8") as f:
+            isc_data = json.load(f)
+    except Exception as e:
+        return {"codigo": codigo, "capitulo": capitulo, "partida": partida, "aplica_isc": "verificar",
+                "tasa_isc": None, "razon": f"isc_lookup.json no disponible: {e}", "advertencia": None,
+                "notas_legales": notas, "fuente": "consultor_notas_arancel.py", "veredicto": "VERIFICAR"}
+    cap_isc = isc_data.get("capitulos_con_isc", {}).get(capitulo) or {}
+    entrada = cap_isc.get("codigos_verificados", {}).get(codigo)
+    if not entrada:
         return {
-            "codigo": codigo,
-            "capitulo": capitulo,
-            "partida": partida,
-            "aplica_isc": False,
+            "codigo": codigo, "capitulo": capitulo, "partida": partida, "aplica_isc": False,
             "tasa_isc": None,
-            "razon": (f"Capitulo {capitulo} no esta en la lista de capitulos afectados por ISC "
-                      f"({capitulos_con_isc}). Ley 11-92 Titulo IV no aplica a esta mercancia."),
-            "advertencia": None,
-            "notas_legales": (cap_data or {}).get("notas_legales", []),
-            "fuente": f"notas_capitulos_cache.json + Ley 11-92 Titulo IV (cap. {capitulo} sin ISC)",
-            "veredicto": "CAPITULO_NO_ISC"
+            "razon": (f"{codigo} no figura entre los bienes gravados con ISC "
+                      f"(Ley 11-92 Art. 375, mod. Ley 253-12; Ley 112-00)."),
+            "advertencia": None, "notas_legales": notas,
+            "fuente": "isc_lookup.json", "veredicto": "NO_APLICA_ISC" if cap_isc else "CAPITULO_NO_ISC",
         }
-
-    # Capitulo con ISC pero sin entrada detallada en cache
-    if not cap_data:
-        return {
-            "codigo": codigo,
-            "capitulo": capitulo,
-            "partida": partida,
-            "aplica_isc": "verificar",
-            "tasa_isc": None,
-            "razon": (f"Capitulo {capitulo} figura como afectado por ISC pero sin notas "
-                      f"detalladas en cache. Consultar isc_lookup.json o PDF del Arancel."),
-            "advertencia": f"Agregar entrada para cap. {capitulo} en notas_capitulos_cache.json",
-            "notas_legales": [],
-            "fuente": f"notas_capitulos_cache.json (cap. {capitulo} sin detalle)",
-            "veredicto": "VERIFICAR"
-        }
-
-    aplica = cap_data.get("aplica_isc", False)
-    partidas_con_isc = cap_data.get("partidas_con_isc", [])
-    partidas_sin_isc = cap_data.get("partidas_sin_isc_explicito", [])
-    tipo_isc = cap_data.get("tipo_isc", "")
-    base_legal = cap_data.get("base_legal_isc", "")
-
-    # Caso ISC total para el capitulo
-    if aplica is True:
-        aplica_a_esta_partida = not partidas_con_isc or any(
-            partida == p for p in partidas_con_isc
-        )
-        if aplica_a_esta_partida:
-            return {
-                "codigo": codigo,
-                "capitulo": capitulo,
-                "partida": partida,
-                "aplica_isc": True,
-                "tasa_isc": tipo_isc,
-                "razon": f"Partida {partida} afectada por ISC del capitulo {capitulo}",
-                "advertencia": None,
-                "notas_legales": cap_data.get("notas_legales", []),
-                "base_legal": base_legal,
-                "fuente": f"notas_capitulos_cache.json[cap.{capitulo}] (ISC total capitulo)",
-                "veredicto": "APLICA_ISC"
-            }
-        return {
-            "codigo": codigo,
-            "capitulo": capitulo,
-            "partida": partida,
-            "aplica_isc": False,
-            "tasa_isc": None,
-            "razon": (f"Capitulo {capitulo} tiene ISC pero solo para partidas {partidas_con_isc}; "
-                      f"{partida} no esta afectada."),
-            "advertencia": None,
-            "notas_legales": cap_data.get("notas_legales", []),
-            "base_legal": base_legal,
-            "fuente": f"notas_capitulos_cache.json[cap.{capitulo}]",
-            "veredicto": "NO_APLICA_ISC"
-        }
-
-    # Caso parcial (cap. 85): solo aplica a partidas listadas
-    if aplica == "parcial":
-        if partida in partidas_con_isc:
-            return {
-                "codigo": codigo,
-                "capitulo": capitulo,
-                "partida": partida,
-                "aplica_isc": True,
-                "tasa_isc": tipo_isc,
-                "razon": (f"Partida {partida} listada como bien suntuario electronico "
-                          f"(cap.{capitulo}, Ley 11-92 Art. 375)"),
-                "advertencia": None,
-                "notas_legales": cap_data.get("notas_legales", []),
-                "notas_explicativas": cap_data.get("notas_explicativas_clave", []),
-                "base_legal": base_legal,
-                "fuente": f"notas_capitulos_cache.json[cap.{capitulo}].partidas_con_isc",
-                "veredicto": "APLICA_ISC"
-            }
-        if partida in partidas_sin_isc:
-            return {
-                "codigo": codigo,
-                "capitulo": capitulo,
-                "partida": partida,
-                "aplica_isc": False,
-                "tasa_isc": None,
-                "razon": (f"Partida {partida} NO esta listada como bien suntuario del cap.{capitulo}. "
-                          f"Solo {partidas_con_isc} aplican ISC 10% (Ley 11-92 Art. 375). "
-                          f"{cap_data.get('advertencia_aplicacion', '')}"),
-                "advertencia": ("El capitulo 85 no es homogeneo para ISC. "
-                                "No extrapolar 10% a partidas fuera de la lista."),
-                "notas_legales": cap_data.get("notas_legales", []),
-                "notas_explicativas": cap_data.get("notas_explicativas_clave", []),
-                "base_legal": base_legal,
-                "fuente": f"notas_capitulos_cache.json[cap.{capitulo}].partidas_sin_isc_explicito",
-                "veredicto": "NO_APLICA_ISC"
-            }
-        # Partida no catalogada — necesita verificacion manual
-        return {
-            "codigo": codigo,
-            "capitulo": capitulo,
-            "partida": partida,
-            "aplica_isc": "verificar",
-            "tasa_isc": None,
-            "razon": (f"Partida {partida} no catalogada en cap.{capitulo}. "
-                      f"Partidas con ISC: {partidas_con_isc}. "
-                      f"Verificar manualmente contra Arancel PDF antes de aplicar 10%."),
-            "advertencia": "Partida ambigua — NO aplicar ISC sin verificacion",
-            "notas_legales": cap_data.get("notas_legales", []),
-            "base_legal": base_legal,
-            "fuente": f"notas_capitulos_cache.json[cap.{capitulo}] (partida no catalogada)",
-            "veredicto": "VERIFICAR"
-        }
-
-    # Fallback general
+    verificar = entrada["isc"].startswith("VERIFICAR")
     return {
-        "codigo": codigo,
-        "capitulo": capitulo,
-        "partida": partida,
-        "aplica_isc": False,
-        "tasa_isc": None,
-        "razon": f"Sin disposicion ISC para {codigo}",
-        "advertencia": None,
-        "notas_legales": (cap_data or {}).get("notas_legales", []),
-        "base_legal": base_legal,
-        "fuente": f"notas_capitulos_cache.json (caso no contemplado)",
-        "veredicto": "NO_APLICA_ISC"
+        "codigo": codigo, "capitulo": capitulo, "partida": partida,
+        "aplica_isc": "verificar" if verificar else True,
+        "tasa_isc": entrada["isc"],
+        "razon": f"{codigo} ({entrada.get('descripcion', '')}) gravado con ISC: {entrada['isc']}",
+        "advertencia": "Correlacion del codigo de la ley pendiente de confirmar con DGA" if verificar else None,
+        "notas_legales": notas, "base_legal": cap_isc.get("base_legal", ""),
+        "fuente": f"isc_lookup.json[cap.{capitulo}].codigos_verificados",
+        "veredicto": "VERIFICAR" if verificar else "APLICA_ISC",
     }
 
 

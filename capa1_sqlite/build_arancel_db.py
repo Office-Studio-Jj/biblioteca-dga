@@ -66,7 +66,7 @@ def _isc_para(son: str, isc_data: dict) -> str:
     codigos_ver = entry.get("codigos_verificados", {})
     if son in codigos_ver:
         tasa = codigos_ver[son]
-        return str(tasa.get("tasa", "VERIFICAR")) if isinstance(tasa, dict) else str(tasa)
+        return str(tasa.get("isc", tasa.get("tasa", "VERIFICAR"))) if isinstance(tasa, dict) else str(tasa)
     partidas = entry.get("partidas_afectadas", [])
     partida = son[:7]  # XXXX.XX
     if any(p.startswith(partida) or partida.startswith(p[:7]) for p in partidas):

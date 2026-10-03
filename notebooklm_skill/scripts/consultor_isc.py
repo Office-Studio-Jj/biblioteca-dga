@@ -50,7 +50,7 @@ def _buscar_en_cache(codigo: str, cache: dict) -> dict | None:
             entry = verificados[codigo]
             return {
                 "isc": entry.get("isc", "NO APLICA"),
-                "base_legal": f"Ley 11-92 Art. 375, bienes suntuarios ({cap_data.get('descripcion','')})",
+                "base_legal": cap_data.get("base_legal", "Ley 11-92 Art. 375 (mod. Ley 253-12)"),
                 "fuente": "isc_lookup.json (cache verificado)",
                 "certeza": "ALTA",
                 "otros_cargos": "NINGUNO",
@@ -70,6 +70,18 @@ def _buscar_en_cache(codigo: str, cache: dict) -> dict | None:
                     "otros_cargos": "NINGUNO",
                     "capitulo": cap
                 }
+
+    # El lookup se genera desde el Art. 375 completo (scripts/build_isc_lookup.py):
+    # un SON que no figura en el no paga ISC. No se consulta cache viejo, Gemini ni tabla DGII.
+    if re.match(r"^\d{4}\.\d{2}\.\d{2}$", codigo or "") and cache.get("capitulos_con_isc"):
+        return {
+            "isc": "NO APLICA",
+            "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12): el SON no figura entre los bienes gravados",
+            "fuente": "isc_lookup.json",
+            "certeza": "ALTA",
+            "otros_cargos": "NINGUNO",
+            "capitulo": cap,
+        }
 
     # 2. Cache de consultas previas
     cache_consultas = cache.get("cache_consultas", {})
@@ -160,9 +172,9 @@ _DGII_ISC_URLS = [
 
 # Tabla codificada de ISC conocidos — actualizar cuando DGII publique cambios
 _DGII_ISC_TABLA = {
-    # Capitulo 85 — bienes suntuarios electronicos (Ley 11-92 Art. 375)
-    "85": {"isc": "10%", "base_legal": "Ley 11-92 Art. 375 — bienes suntuarios electronicos importados",
-           "partidas": ["8521", "8525", "8527", "8528"]},
+    # Capitulo 85 — tasas por SON (10% o 20%) en isc_lookup.json (Ley 11-92 Art. 375)
+    "85": {"isc": "VERIFICAR en isc_lookup.json (10% o 20% segun SON)", "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12)",
+           "partidas": ["8521", "8527", "8528", "8529"]},
     # Capitulo 22 — bebidas alcoholicas
     "22": {"isc": "Mixto RD$/litro + Ad Valorem", "base_legal": "Ley 11-92 Art. 367-370",
            "partidas": []},
@@ -171,9 +183,6 @@ _DGII_ISC_TABLA = {
            "partidas": []},
     # Capitulo 27 — hidrocarburos
     "27": {"isc": "RD$/galon (monto especifico)", "base_legal": "Ley 112-00",
-           "partidas": []},
-    # Capitulo 87 — vehiculos
-    "87": {"isc": "Escala progresiva CO2/cilindrada", "base_legal": "Ley 253-12",
            "partidas": []},
 }
 
