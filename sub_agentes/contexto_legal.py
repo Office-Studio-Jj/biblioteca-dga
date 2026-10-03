@@ -85,7 +85,8 @@ def _aperturas(partida, limite=25):
         con.close()
     except sqlite3.Error:
         return []
-    return [f"    {s} {d[:110]} | DAI {g}% ITBIS {i}% ISC {c}" for s, d, g, i, c in filas]
+    from capa1_sqlite.isc_especifico import resumen_isc
+    return [f"    {s} {d[:110]} | DAI {g}% ITBIS {i}% ISC {resumen_isc(s, c)}" for s, d, g, i, c in filas]
 
 
 def construir(capitulos, partidas_destacadas=(), max_partidas_por_cap=60):

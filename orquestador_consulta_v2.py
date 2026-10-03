@@ -532,6 +532,18 @@ def procesar_consulta(texto_usuario: str) -> dict:
     return resultado
 
 
+def _isc_v2(son, isc_pct):
+    """Monto especifico vigente (cigarrillos, alcoholes) o el ISC% de la columna."""
+    try:
+        from capa1_sqlite.isc_especifico import texto_isc
+        esp = texto_isc(son)
+        if esp:
+            return esp
+    except Exception:
+        pass
+    return f"{isc_pct}%" if isc_pct is not None else "NO APLICA"
+
+
 def formatear_informe(resultado: dict) -> str:
     """Convierte resultado dict a texto estructurado para respuesta al usuario."""
     son    = resultado.get("codigo_son", "No determinado")
@@ -559,7 +571,7 @@ def formatear_informe(resultado: dict) -> str:
         "### Regimen Tributario (Decreto 36-22)",
         f"- DAI (Arancel): {dai}%" if dai is not None else f"- DAI: {grav}",
         f"- ITBIS: {itbis}%" if itbis is not None else "- ITBIS: verificar",
-        f"- ISC: {isc}%" if isc is not None else "- ISC: NO APLICA",
+        f"- ISC: {_isc_v2(son, isc)}",
         "",
     ]
 

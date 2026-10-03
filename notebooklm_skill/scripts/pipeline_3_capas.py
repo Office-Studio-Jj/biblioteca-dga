@@ -768,6 +768,16 @@ def capa_1_claude_validador(consulta: str, codigo_propuesto: str,
     except Exception as e:
         resultado["error_isc"] = f"{type(e).__name__}: {str(e)[:150]}"
 
+    # 2b. Cigarrillos y alcoholes: monto especifico con vigencia y resolucion (Ley 11-92 Art. 375)
+    try:
+        from isc_especifico import isc_especifico
+        _esp = isc_especifico(codigo_propuesto)
+        if _esp:
+            resultado["isc"] = f"{_esp['texto']} - Ley 11-92 Art. 375. Fuente: {_esp['fuente']}"
+            resultado["isc_especifico"] = _esp
+    except Exception as e:
+        resultado["error_isc_especifico"] = f"{type(e).__name__}: {str(e)[:150]}"
+
     # 3. ITBIS: 18% (Ley 253-12) salvo que el Arancel marque el SON en la columna EX. ITBIS
     if _tasas and _tasas["itbis"] == "EXENTO":
         resultado["itbis"] = "EXENTO (columna EX. ITBIS del Arancel, Decreto 36-22)"

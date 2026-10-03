@@ -184,4 +184,7 @@ def son_en_biblioteca(son):
         return None
     if not fila:
         return None
-    return dict(zip(("son", "descripcion", "gravamen", "itbis", "isc"), fila))
+    datos = dict(zip(("son", "descripcion", "gravamen", "itbis", "isc"), fila))
+    from capa1_sqlite.isc_especifico import texto_isc
+    datos["isc"] = texto_isc(son, datos["isc"])  # monto especifico vigente (cigarrillos, alcoholes)
+    return datos
