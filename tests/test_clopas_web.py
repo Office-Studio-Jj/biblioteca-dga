@@ -52,3 +52,21 @@ def test_seccion_calcula_y_clasifica():
     assert "La Ley 3489 de 1953 fue derogada por la Ley 168-21." in texto
     assert "gratis" not in html.lower()
     assert "<form" not in html.lower()
+
+
+def test_seccion_montos_isc_oct_dic_2026():
+    # BR-20261002-2205: texto del brief, entre "Base legal" y "Para quien es", con enlace oficial.
+    html = _html()
+    i_legal, i_isc, i_quien = (html.index('id="titulo-legal"'), html.index('id="titulo-isc"'),
+                               html.index('id="titulo-quien"'))
+    assert i_legal < i_isc < i_quien
+    seccion = html[i_isc:i_quien]
+    assert "Montos del ISC, octubre-diciembre 2026" in seccion
+    assert "Resolución DDG-AR1-2026-00068" in seccion
+    for monto in ("RD$65.02 por cajetilla", "RD$32.51 por cajetilla", "RD$768.65 por litro de alcohol absoluto"):
+        assert monto in seccion
+    assert "Ley 11-92, Código Tributario, Art. 375, Párrafos I, III y IX." in seccion
+    assert 'href="https://www.aduanas.gob.do/media/lu4c1bpi/' in seccion and "Ver la resolución oficial (PDF)" in seccion
+    assert "La liquidación final la determina la Dirección General de Aduanas." in seccion
+    # La app muestra los montos pero no calcula el ISC: no se promete un calculo.
+    assert "aplica estos montos en el cálculo" not in seccion

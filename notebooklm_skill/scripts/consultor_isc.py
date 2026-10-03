@@ -40,7 +40,27 @@ def _guardar_cache(data: dict) -> None:
         print(f"[ISC] Error guardando cache: {e}")
 
 
+def _isc_monto_especifico(codigo: str) -> dict | None:
+    """Cigarrillos y alcoholes: monto especifico vigente con su resolucion (capa1_sqlite)."""
+    import sys
+    _capa1 = os.path.join(_BASE, "..", "..", "capa1_sqlite")
+    if _capa1 not in sys.path:
+        sys.path.insert(0, _capa1)
+    from isc_especifico import isc_especifico
+    esp = isc_especifico(codigo)
+    if not esp:
+        return None
+    base = "; ".join(sorted({m["base_legal"] for m in esp["montos"]})) or "Ley 11-92 Art. 375"
+    return {"isc": esp["texto"], "base_legal": base, "fuente": esp["fuente"],
+            "certeza": "ALTA" if esp["estado"] == "vigente" else "BAJA",
+            "otros_cargos": "NINGUNO", "capitulo": codigo[:2]}
+
+
 def _buscar_en_cache(codigo: str, cache: dict) -> dict | None:
+    # 0. Monto especifico con vigencia (prevalece sobre el lookup por capitulo)
+    esp = _isc_monto_especifico(codigo)
+    if esp:
+        return esp
     # 1. Lookup directo por codigo especifico
     cap = codigo[:2]
     cap_data = cache.get("capitulos_con_isc", {}).get(cap)

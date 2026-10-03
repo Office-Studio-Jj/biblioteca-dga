@@ -136,6 +136,17 @@ p { margin: 0 0 1em; }
 .normas strong { color: var(--oro-claro); }
 .aviso { border-left: 4px solid var(--oro); background: var(--fondo-2); padding: 16px 18px; border-radius: 0 var(--radio) var(--radio) 0; max-width: 760px; color: var(--texto-suave); }
 .aviso strong { color: var(--texto); }
+.seccion-alterna .aviso { background: var(--fondo); }
+
+/* Montos del ISC */
+.montos { width: 100%; max-width: 760px; border-collapse: collapse; margin: 16px 0 20px; background: var(--fondo); border: 1px solid var(--borde); border-radius: var(--radio); overflow: hidden; }
+.montos th, .montos td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--borde); vertical-align: top; }
+.montos thead th { color: var(--texto-suave); font-size: .85rem; text-transform: uppercase; letter-spacing: .08em; }
+.montos tbody th { font-weight: 600; }
+.montos td { color: var(--oro-claro); font-variant-numeric: tabular-nums; }
+.montos tbody tr:last-child th, .montos tbody tr:last-child td { border-bottom: 0; }
+.nota-montos { color: var(--texto-suave); max-width: 760px; margin: 8px 0 0; }
+.nota-montos strong { color: var(--texto); }
 
 .publico { list-style: none; padding: 0; margin: 24px 0 0; display: flex; flex-wrap: wrap; gap: 10px; }
 .publico li { border: 1px solid var(--borde); border-radius: 999px; padding: 8px 18px; background: var(--fondo); }

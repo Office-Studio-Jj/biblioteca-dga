@@ -1,0 +1,76 @@
+{
+  "_meta": {
+    "descripcion": "Montos especificos del ISC de cigarrillos y alcoholes, con vigencia y fuente. Lo lee capa1_sqlite/isc_especifico.py.",
+    "base_legal": "Ley 11-92 Codigo Tributario, Art. 375 Parr. I, III y IX (montos especificos) y Art. 367 lit. b y c (base imponible), modificados por la Ley 30-26 (Arts. 41 y 42).",
+    "indexacion": "Trimestral hasta 2026 (resoluciones informativas DGII). Desde 2027, ajuste anual por inflacion (Ley 30-26 Art. 42): cargar el nuevo periodo con su resolucion.",
+    "fecha_aplicable": "La obligacion tributaria aduanera nace cuando la autoridad acepta a tramite la declaracion (Ley 168-21 Art. 82). La app usa la fecha de la consulta como referencia.",
+    "por_verificar": "https://dgii.gov.do/legislacion/resoluciones/Paginas/default.aspx",
+    "ultima_actualizacion": "2026-10-03",
+    "verificado": "Montos leidos con pdfplumber en los PDF oficiales de ambas resoluciones (BR-20261002-2205).",
+    "ad_valorem": "Porcentajes de Ley 11-92 Art. 375 (tabaco 20%, Parr. VIII mod. Ley 30-26 Art. 42; alcohol 10%, DGII) sobre el precio de venta al por menor (Art. 367, mod. Ley 30-26 Art. 41). Los usa tambien scripts/build_isc_lookup.py."
+  },
+  "grupos": {
+    "cigarrillos_20": {
+      "producto": "Cigarrillos, cajetilla de 20 unidades",
+      "unidad": "por cajetilla de 20",
+      "codigos": [
+        "2402.20.10",
+        "2402.20.20",
+        "2402.90.00"
+      ],
+      "base_legal": "Ley 11-92 Art. 375 Parr. V, VII, VIII y IX",
+      "ad_valorem": "20% ad valorem sobre el precio de venta al por menor"
+    },
+    "cigarrillos_10": {
+      "producto": "Cigarrillos, cajetilla de 10 unidades",
+      "unidad": "por cajetilla de 10",
+      "codigos": [
+        "2402.20.30",
+        "2402.20.40",
+        "2402.90.00"
+      ],
+      "base_legal": "Ley 11-92 Art. 375 Parr. V, VII, VIII y IX",
+      "ad_valorem": "20% ad valorem sobre el precio de venta al por menor"
+    },
+    "alcoholes": {
+      "producto": "Alcoholes, bebidas alcoholicas y cervezas",
+      "unidad": "por litro de alcohol absoluto",
+      "partidas": [
+        "2203",
+        "2204",
+        "2205",
+        "2206",
+        "2207",
+        "2208"
+      ],
+      "base_legal": "Ley 11-92 Art. 375 Parr. I-III",
+      "ad_valorem": "10% ad valorem sobre el precio de venta al por menor"
+    }
+  },
+  "periodos": [
+    {
+      "vigente_desde": "2026-07-01",
+      "vigente_hasta": "2026-09-30",
+      "resolucion": "Resolucion DGII DDG-AR1-2026-00004 (17-06-2026)",
+      "enlace": "https://dgii.gov.do/legislacion/resoluciones/Documents/DDG-%20AR1-2026-00004.pdf",
+      "montos": {
+        "cigarrillos_20": "64.65",
+        "cigarrillos_10": "32.33",
+        "alcoholes": "764.29"
+      },
+      "codigo_resolucion": "DDG-AR1-2026-00004"
+    },
+    {
+      "vigente_desde": "2026-10-01",
+      "vigente_hasta": "2026-12-31",
+      "resolucion": "Resolucion DGII DDG-AR1-2026-00068 (29-09-2026)",
+      "enlace": "https://www.aduanas.gob.do/media/lu4c1bpi/resoluci%C3%B3n-n%C3%BAm-ddg-ar1-2026-00068-montos-espec%C3%ADficos-isc-octubre-diciembre-2026.pdf",
+      "montos": {
+        "cigarrillos_20": "65.02",
+        "cigarrillos_10": "32.51",
+        "alcoholes": "768.65"
+      },
+      "codigo_resolucion": "DDG-AR1-2026-00068"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ Uso: python scripts/build_isc_lookup.py
 import json
 import os
 import sqlite3
+import sys
 
 _RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _DB = os.path.join(_RAIZ, "capa1_sqlite", "arancel_rd.db")
@@ -70,13 +71,21 @@ PENDIENTES = {
     "8529.10.91": ("Antenas para telefonia celular y buscapersonas", 10, ["8529.10.90"]),
 }
 
-# Montos especificos vigentes del 01-10-2026 al 31-12-2026: Resolucion DGII DDG-AR1-2026-00068
-# (29-09-2026), que ajusta por inflacion los de Ley 11-92 Art. 375 Parr. I, III, V y VIII.
-VIGENCIA = "vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068"
-ALCOHOL = (f"RD$768.65 por litro de alcohol absoluto ({VIGENCIA}) "
-           "+ 10% ad valorem sobre el precio de venta al por menor")
-TABACO = (f"RD$65.02 por cajetilla de 20 / RD$32.51 por cajetilla de 10 ({VIGENCIA}) "
-          "+ 20% ad valorem sobre el precio de venta al por menor")
+# Alcohol y tabaco: montos especificos con vigencia en isc_montos_especificos.json (Res. DGII por
+# periodo; Ley 11-92 Art. 375 Parr. I, III, V y VIII). El texto es el del periodo vigente al generar;
+# en consulta, capa1_sqlite/isc_especifico.py lo recalcula segun la fecha.
+sys.path.insert(0, os.path.join(_RAIZ, "capa1_sqlite"))
+from isc_especifico import isc_especifico  # noqa: E402
+
+# 2402 sin monto en la resolucion (puros, cigarritos): solo consta el ad valorem del Parr. VIII.
+TABACO_SIN_MONTO = ("20% ad valorem sobre el precio de venta al por menor (Art. 375 Parr. VIII); la resolucion "
+                    "DGII de montos especificos no lista este codigo: verificar monto especifico con la DGII")
+
+
+def isc_tabaco_alcohol(son):
+    esp = isc_especifico(son)
+    return esp["texto"] if esp else TABACO_SIN_MONTO
+
 COMBUSTIBLE = ("Monto especifico por galon de la Ley 112-00 (ajustado periodicamente: verificar monto vigente "
                "MICM/DGII) + 16% ad valorem (Art. 23 Ley 557-05, mod. Art. 30 Ley 495-06)")
 COMBUSTIBLES = {
@@ -110,9 +119,9 @@ def main():
             caps[prefijo[:2]]["partidas_afectadas"].append(prefijo)
 
     for son in sorted(s for s in sons if s[:4] in ("2203", "2204", "2205", "2206", "2207", "2208")):
-        poner(son, ALCOHOL, sons[son][:80], "Productos del alcohol (Art. 379)", f"{ART375} Parr. I-III")
+        poner(son, isc_especifico(son)["texto"], sons[son][:80], "Productos del alcohol (Art. 379)", f"{ART375} Parr. I-III")
     for son in sorted(s for s in sons if s.startswith("2402")):
-        poner(son, TABACO, sons[son][:80], "Productos del tabaco (Art. 379)", f"{ART375} Parr. V, VII, VIII")
+        poner(son, isc_tabaco_alcohol(son), sons[son][:80], "Productos del tabaco (Art. 379)", f"{ART375} Parr. V, VII, VIII")
     for son, extra in COMBUSTIBLES.items():
         if son in sons:
             poner(son, COMBUSTIBLE + extra, sons[son][:80], "Combustibles fosiles",

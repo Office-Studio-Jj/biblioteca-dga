@@ -63,7 +63,13 @@ def consultar_son_exacto(son: str) -> dict | None:
         return None
     if row is None:
         return None
-    return dict(row)
+    fila = dict(row)
+    try:
+        from isc_especifico import texto_isc
+    except ImportError:
+        from capa1_sqlite.isc_especifico import texto_isc
+    fila["isc"] = texto_isc(son, fila.get("isc"))  # monto especifico vigente (cigarrillos, alcoholes)
+    return fila
 
 
 def buscar_clasificacion_sugerida(termino: str, limit: int = 10) -> list[dict]:

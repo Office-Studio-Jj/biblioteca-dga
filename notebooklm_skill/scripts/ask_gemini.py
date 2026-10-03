@@ -860,11 +860,44 @@ def _corregir_isc_con_lookup(answer: str, notebook_id: str) -> str:
                 isc_verificado = cap_data['tasas']['default']
                 fuente_lookup = f"isc_lookup.json[cap.{cap}].partidas_afectadas"
 
+    # Cigarrillos y alcoholes: monto especifico vigente (isc_montos_especificos.json)
+    isc_esp = None
+    try:
+        _capa1 = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'capa1_sqlite')
+        if _capa1 not in sys.path:
+            sys.path.insert(0, _capa1)
+        from isc_especifico import isc_especifico
+        isc_esp = isc_especifico(codigo)
+    except Exception as e:
+        print(f"[ISC-GATE] monto especifico no disponible: {e}")
+    if isc_esp:
+        isc_verificado = isc_esp["texto"]
+        fuente_lookup = "isc_montos_especificos.json"
+
     # Ver lo que Gemini puso en ISC
     m_isc = re.search(r'ISC:\s*([^\n\r]+)', answer)
     isc_gemini = m_isc.group(1).strip() if m_isc else ""
     tiene_tasa_positiva = bool(re.search(r'\b\d+\s*%', isc_gemini))
     dice_no_aplica = ('NO APLICA' in isc_gemini.upper()) or not isc_gemini
+
+    # (0) MONTO ESPECIFICO: cigarrillos y alcoholes siempre llevan el monto de la resolucion vigente
+    if isc_esp and isc_gemini != isc_esp["texto"]:
+        print(f"[ISC-GATE-0] MONTO ESPECIFICO: '{isc_gemini}' -> resolucion vigente para {codigo}")
+        if m_isc:
+            answer = answer[:m_isc.start()] + f"ISC: {isc_esp['texto']}" + answer[m_isc.end():]
+        else:
+            answer = answer.replace('---FIN_CLASIFICACION---',
+                                    f"ISC: {isc_esp['texto']}\n---FIN_CLASIFICACION---")
+        answer += (
+            f"\n\n---CORRECCION_ISC_AUTOMATICA---"
+            f"\nTIPO: monto_especifico"
+            f"\nCODIGO: {codigo}"
+            f"\nISC_ORIGINAL: {isc_gemini or '(vacio)'}"
+            f"\nISC_CORREGIDO: {isc_esp['texto']}"
+            f"\nFUENTE: {fuente_lookup}"
+            f"\n---FIN_CORRECCION_ISC---"
+        )
+        return answer
 
     # (A) FALSO NEGATIVO: lookup tiene tasa, Gemini dijo NO APLICA
     if isc_verificado and dice_no_aplica:
