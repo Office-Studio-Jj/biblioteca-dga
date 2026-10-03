@@ -87,3 +87,14 @@ def test_instalar_marca_y_aviso_legal():
     assert ("CLOPAS es una consultoría privada y no es una entidad del Estado. Sus respuestas orientan; "
             "la clasificación oficial de una mercancía la determina la Dirección General de Aduanas.") in html
     assert 'id="btnAbrirApp"' in html and "getElementById('btnAbrirApp').href" in html
+
+
+def test_instalar_master_ve_opciones_de_admin():
+    client = server.app.test_client()
+    html = client.get("/instalar").get_data(as_text=True)
+    assert 'id="btnWa"' not in html and 'id="urlBox"' not in html
+    with client.session_transaction() as s:
+        s["logged_in"] = True
+        s["role"] = "master"
+    html = client.get("/instalar").get_data(as_text=True)
+    assert 'id="btnWa"' in html and 'id="urlBox"' in html and 'id="btnEmail"' in html
