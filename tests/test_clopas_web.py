@@ -70,3 +70,7 @@ def test_seccion_montos_isc_oct_dic_2026():
     assert "La liquidación final la determina la Dirección General de Aduanas." in seccion
     # La app muestra los montos pero no calcula el ISC: no se promete un calculo.
     assert "aplica estos montos en el cálculo" not in seccion
+    # Ad valorem: 10 % alcohol (DGII) y 20 % tabaco (Ley 30-26, Art. 42). El 7.5 % no tenia sustento.
+    assert "10&nbsp;% para el alcohol y 20&nbsp;% para el tabaco" in seccion
+    assert "Gaceta Oficial" in seccion
+    assert "7.5 %" not in seccion and "7,5 %" not in seccion
