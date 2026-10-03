@@ -1,5 +1,5 @@
 """
-Servidor Web - Logistica de Puertos y Aduanas RD
+Servidor Web - CLOPAS — Consultoría Logística de Puertos y Aduanas
 Acceso protegido con contraseña de administrador
 """
 
@@ -4414,7 +4414,7 @@ if __name__ == "__main__":
     import socket
     local_ip = socket.gethostbyname(socket.gethostname())
     print("\n" + "="*55)
-    print("  Logistica de Puertos y Aduanas RD — Servidor")
+    print("  CLOPAS — Consultoría Logística de Puertos y Aduanas: servidor")
     print("="*55)
     print(f"\n  URL local:   http://localhost:5000")
     print(f"  URL movil:   http://{local_ip}:5000")

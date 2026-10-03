@@ -3383,13 +3383,13 @@
   (function() {
     const appUrl = window.location.origin;
     const msg = encodeURIComponent(
-      '🚢 *CLOPAS — Consultoria Logistica de Puertos y Aduanas*\n\n' +
+      '🚢 *CLOPAS — Consultoría Logística de Puertos y Aduanas*\n\n' +
       'Te comparto la app de consulta de la Biblioteca CLOPAS.\n\n' +
       '👉 ' + appUrl + '\n\n' +
       '📲 Instalar en móvil:\n' +
       '• Android: Chrome → ⋮ → Añadir a inicio\n' +
       '• iPhone: Safari → 📤 → Añadir a inicio\n\n' +
-      '⚠️ Requiere estar en el mismo WiFi'
+      'Funciona con cualquier conexión a internet (WiFi o datos móviles).'
     );
     const btn = document.getElementById('shareWaBtn');
     if (btn) btn.href = 'https://wa.me/18093547636?text=' + msg;
@@ -3463,7 +3463,7 @@
     const subj = encodeURIComponent('🚢 Tu instalador — CLOPAS');
     const body = encodeURIComponent(
       'Hola ' + nombre + ',\n\n' +
-      'A continuacion tu acceso a la app CLOPAS — Consultoria Logistica de Puertos y Aduanas.\n\n' +
+      'A continuacion tu acceso a la app CLOPAS — Consultoría Logística de Puertos y Aduanas.\n\n' +
       '👉 Dirección de la app: ' + appUrl + '\n' +
       '📲 Guía de instalación: ' + appUrl + '/instalar\n\n' +
       'CÓMO INSTALAR:\n' +
@@ -3473,8 +3473,8 @@
       'Tu acceso como Invitado:\n' +
       '• Contraseña: Puertos2024\n' +
       '• Ingresa con tu correo registrado: ' + correo + '\n\n' +
-      '⚠️ Debes estar conectado al mismo WiFi del servidor.\n\n' +
-      'Distribuido por: consultoria.puertos.aduanas@gmail.com\n' +
+      'Funciona con cualquier conexión a internet (WiFi o datos móviles).\n\n' +
+      'Contacto: consultoria.puertos.aduanas@gmail.com\n' +
       'WhatsApp: (809) 354-7636'
     );
     window.open('mailto:' + correo + '?subject=' + subj + '&body=' + body, '_blank');
