@@ -19,6 +19,7 @@ import os
 import re
 import sqlite3
 import sys
+import unicodedata
 from decimal import Decimal, InvalidOperation
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -164,77 +165,68 @@ def _buscar_fts(termino: str, capitulo: str = "", limit: int = 5) -> list[dict]:
         return []
 
 
+_VACIAS = {
+    "a", "al", "de", "del", "el", "la", "las", "lo", "los", "un", "una", "unos", "unas",
+    "para", "por", "con", "sin", "en", "y", "o", "e", "u", "que", "tipo",
+}
+
+
+def _palabras(texto: str) -> list[str]:
+    """Palabras en minuscula y sin acentos ("Patineta Eléctrica" → ["patineta", "electrica"])."""
+    sin_acentos = "".join(
+        c for c in unicodedata.normalize("NFD", (texto or "").lower())
+        if unicodedata.category(c) != "Mn"
+    )
+    return re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*", sin_acentos)
+
+
 def _buscar_sinonimos_v2(termino: str) -> list[dict]:
     """
-    Busca sinonimos arancelarios en SQLite con matching multi-estrategia.
-    1. Match exacto de la consulta contra termino_busqueda
-    2. Match de la consulta CONTIENE el termino
-    3. Match de palabras clave (bigrams) de la consulta
-    Incluye columna son_destino (agregada en fix 04-05-2026).
+    Sinonimos arancelarios que nombran el producto de la consulta, por palabras completas.
+
+    El sinonimo tiene que coincidir con la consulta entera ("exacta") o con su comienzo
+    ("inicio"): en espanol el nucleo va primero, asi "funda para tablet" no es una tablet
+    ni "pantalla de laptop" una laptop. Se ignoran los sinonimos hechos solo de palabras
+    vacias. Antes se comparaban pedazos de texto y "para" llevaba "zapatos para correr"
+    a 8517.79.00 ("pantalla para celular").
+    Cada resultado trae "coincidencia": "exacta" o "inicio". Los mas largos van primero.
     """
-    if not termino:
+    consulta = _palabras(termino)
+    if not consulta:
         return []
-    termino_lower = termino.lower().strip()
     cols = ["termino_busqueda", "termino_oficial", "capitulo_sugerido",
             "partida_sugerida", "tipo", "son_destino"]
-    seen_sons = set()
-    resultados = []
-
     try:
         con = sqlite3.connect(_DB)
-
-        # Estrategia 1: la consulta contiene el termino_busqueda
         rows = con.execute(
             "SELECT termino_busqueda, termino_oficial, capitulo_sugerido, "
-            "partida_sugerida, tipo, son_destino "
-            "FROM sinonimos_arancelarios WHERE ? LIKE '%' || LOWER(termino_busqueda) || '%'",
-            (termino_lower,)
+            "partida_sugerida, tipo, son_destino FROM sinonimos_arancelarios"
         ).fetchall()
-        for r in rows:
-            d = dict(zip(cols, r))
-            k = d.get("son_destino") or d.get("partida_sugerida", "")
-            if k and k not in seen_sons:
-                seen_sons.add(k)
-                resultados.append(d)
-
-        # Estrategia 2: el termino_busqueda contiene la consulta
-        if not resultados:
-            rows2 = con.execute(
-                "SELECT termino_busqueda, termino_oficial, capitulo_sugerido, "
-                "partida_sugerida, tipo, son_destino "
-                "FROM sinonimos_arancelarios WHERE LOWER(termino_busqueda) LIKE ?",
-                (f"%{termino_lower}%",)
-            ).fetchall()
-            for r in rows2:
-                d = dict(zip(cols, r))
-                k = d.get("son_destino") or d.get("partida_sugerida", "")
-                if k and k not in seen_sons:
-                    seen_sons.add(k)
-                    resultados.append(d)
-
-        # Estrategia 3: bigrams de palabras (min 4 chars)
-        if not resultados:
-            palabras = [w for w in termino_lower.split() if len(w) >= 4]
-            for i in range(len(palabras)):
-                for j in range(i + 1, min(i + 3, len(palabras) + 1)):
-                    frase = " ".join(palabras[i:j])
-                    rows3 = con.execute(
-                        "SELECT termino_busqueda, termino_oficial, capitulo_sugerido, "
-                        "partida_sugerida, tipo, son_destino "
-                        "FROM sinonimos_arancelarios WHERE LOWER(termino_busqueda) LIKE ?",
-                        (f"%{frase}%",)
-                    ).fetchall()
-                    for r in rows3:
-                        d = dict(zip(cols, r))
-                        k = d.get("son_destino") or d.get("partida_sugerida", "")
-                        if k and k not in seen_sons:
-                            seen_sons.add(k)
-                            resultados.append(d)
-
         con.close()
     except Exception:
-        pass
+        return []
 
+    candidatos = []
+    for r in rows:
+        d = dict(zip(cols, r))
+        sin = _palabras(d["termino_busqueda"])
+        if not sin or all(p in _VACIAS for p in sin):
+            continue
+        if consulta == sin:
+            d["coincidencia"] = "exacta"
+        elif consulta[:len(sin)] == sin:
+            d["coincidencia"] = "inicio"
+        else:
+            continue
+        candidatos.append((len(sin), d))
+    candidatos.sort(key=lambda c: -c[0])
+
+    vistos, resultados = set(), []
+    for _, d in candidatos:
+        k = d.get("son_destino") or d.get("partida_sugerida", "")
+        if k and k not in vistos:
+            vistos.add(k)
+            resultados.append(d)
     return resultados
 
 
@@ -372,7 +364,8 @@ def procesar_consulta(texto_usuario: str, solo_son_exacto: bool = False) -> dict
         if son_t and _son_exacto_db(son_t):
             son_candidato = son_t
             rgi_usada     = "RGI 1 (via sinonimo arancelario)"
-            confianza     = "ALTA"
+            # Solo el sinonimo que es la consulta entera da ALTA; "laptop dell" → MEDIA.
+            confianza     = "ALTA" if sin.get("coincidencia") == "exacta" else "MEDIA"
             break
 
     # ── PASO 2: navegador_jerarquico_sa (RGI 1→3a — navega el arbol SA) ───
@@ -565,10 +558,11 @@ def procesar_consulta(texto_usuario: str, solo_son_exacto: bool = False) -> dict
             and consulta_enriquecida.lower() != consulta_original_raw.lower()
             and son_final
             and confianza in ("ALTA", "MEDIA")):
-        # Validar relevancia: al menos 1 palabra de 4+ chars de la consulta
-        # debe aparecer en la descripcion oficial del SON
-        _palabras_consulta = [w.lower() for w in consulta_original_raw.split() if len(w) >= 4]
-        _relevante = any(p in desc_final for p in _palabras_consulta) if _palabras_consulta else False
+        # Validar relevancia: al menos 1 palabra de 4+ chars de la consulta (no "para")
+        # debe aparecer como palabra en la descripcion oficial del SON
+        _palabras_consulta = [w for w in _palabras(consulta_original_raw)
+                              if len(w) >= 4 and w not in _VACIAS]
+        _relevante = bool(set(_palabras_consulta) & set(_palabras(desc_final)))
         if _relevante:
             try:
                 with sqlite3.connect(_DB) as _conn:

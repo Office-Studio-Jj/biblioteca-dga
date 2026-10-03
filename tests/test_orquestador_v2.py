@@ -70,3 +70,28 @@ def test_consultar_subpartida_exacta_no_cae_al_pipeline(monkeypatch):
     assert resp.status_code == 200, datos
     assert datos["cache_via"] == "orquestador_v2"
     assert datos["meta"]["codigo"] == "8471.30.00"
+
+
+def _sons(consulta):
+    return [s.get("son_destino") or s.get("partida_sugerida") for s in v2._buscar_sinonimos_v2(consulta)]
+
+
+def test_sinonimos_no_coinciden_por_palabras_sueltas():
+    # "para" llevaba estas consultas a "pantalla para celular" (8517.79.00)
+    for consulta in ("zapatos para correr", "camisa para hombre", "zapatos de cuero para hombre"):
+        assert _sons(consulta) == [], consulta
+
+
+def test_sinonimos_respetan_el_nucleo_de_la_frase():
+    # el producto es la funda, el cargador o la pantalla, no la tablet ni la laptop
+    for consulta in ("funda para tablet", "cargador para laptop", "pantalla de laptop",
+                     "mesa para computadora portatil"):
+        assert _sons(consulta) == [], consulta
+
+
+def test_sinonimos_validos_siguen_respondiendo():
+    exacto = v2._buscar_sinonimos_v2("Patineta Eléctrica")
+    assert exacto[0]["son_destino"] == "8711.60.14" and exacto[0]["coincidencia"] == "exacta"
+    assert _sons("pantalla para celular") == ["8517.79.00"]
+    inicio = v2._buscar_sinonimos_v2("bocina bluetooth")
+    assert inicio[0]["partida_sugerida"] == "8518" and inicio[0]["coincidencia"] == "inicio"
