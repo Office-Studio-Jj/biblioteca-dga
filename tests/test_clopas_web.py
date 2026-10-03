@@ -74,3 +74,16 @@ def test_seccion_montos_isc_oct_dic_2026():
     assert "10&nbsp;% para el alcohol y 20&nbsp;% para el tabaco" in seccion
     assert "Gaceta Oficial" in seccion
     assert "7.5 %" not in seccion and "7,5 %" not in seccion
+
+
+def test_instalar_marca_y_aviso_legal():
+    resp = server.app.test_client().get("/instalar")
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    titulo = "Instalar CLOPAS — Consultoría Logística de Puertos y Aduanas"
+    assert f"<title>{titulo}</title>" in html and titulo in html.split("<h1", 1)[1]
+    assert "Distribuido oficialmente por" not in html
+    assert "consultoria.puertos.aduanas@gmail.com" in html
+    assert ("CLOPAS es una consultoría privada y no es una entidad del Estado. Sus respuestas orientan; "
+            "la clasificación oficial de una mercancía la determina la Dirección General de Aduanas.") in html
+    assert 'id="btnAbrirApp"' in html and "getElementById('btnAbrirApp').href" in html
