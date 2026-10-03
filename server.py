@@ -1122,7 +1122,8 @@ def consultar():
     if not archivo and notebook_id == "biblioteca-de-nomenclaturas":
         try:
             from orquestador_consulta_v2 import procesar_consulta as _pc_v2, formatear_informe as _fi_v2
-            _res_v2 = _pc_v2(question)
+            # Solo subpartida exacta: el texto libre lo decide el pipeline (Claude arbitro).
+            _res_v2 = _pc_v2(question, solo_son_exacto=True)
             # Interceptor CEO-001: corregir 8701→8711 para patineta/scooter
             _son_v2 = _res_v2.get("codigo_son", "")
             if _son_v2 and _son_v2.startswith("8701"):
@@ -1179,6 +1180,8 @@ def consultar():
                         _resp_v2["cuadernos_complementarios"] = [c["cuaderno"] for c in _comps]
                     _complementarios_futures = []
                 return jsonify(_resp_v2)
+            elif _res_v2.get("limitado_son_exacto"):
+                print("[ORQUESTADOR_V2] texto libre sin subpartida exacta — sigue al pipeline_3_capas")
             else:
                 # v2 no resolvio el SON — intentar R4 (fallback_clasificacion) antes del pipeline viejo
                 print(f"[ORQUESTADOR_V2] sin codigo_son — advertencias: {_res_v2.get('advertencias')}. Intentando R4.")
@@ -4385,7 +4388,8 @@ def clasificar_v2():
         if _root_v2 not in _sys_v2.path:
             _sys_v2.path.insert(0, _root_v2)
         from orquestador_consulta_v2 import procesar_consulta, formatear_informe
-        resultado = procesar_consulta(consulta)
+        # Igual que /consultar: solo subpartida exacta hasta depurar los sinonimos.
+        resultado = procesar_consulta(consulta, solo_son_exacto=True)
         return jsonify({
             "ok": bool(resultado.get("codigo_son")),
             "resultado": resultado,
