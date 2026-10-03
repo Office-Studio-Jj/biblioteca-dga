@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es-DO">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Editar CLOPAS — Consultoría Logística de Puertos y Aduanas</title>
+  <meta name="theme-color" content="#0f172a">
+  <link rel="icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='web/clopas.css') }}">
+  <style>
+    .editor { padding: 24px 0 120px; }
+    .editor h1 { font-size: 1.5rem; margin: 0 0 4px; }
+    .ayuda { color: var(--texto-suave); font-size: .9rem; margin: 0 0 20px; }
+    .bloque { background: var(--fondo-2); border: 1px solid var(--borde); border-radius: var(--radio); padding: 16px; margin: 0 0 20px; }
+    .bloque > h2 { font-size: 1.1rem; color: var(--oro); margin: 0 0 12px; }
+    .campo { display: block; margin: 0 0 12px; }
+    .campo span { display: block; font-size: .85rem; color: var(--texto-suave); margin-bottom: 4px; }
+    .campo input, .campo textarea, .campo select {
+      width: 100%; box-sizing: border-box; min-height: 48px; padding: 10px 12px;
+      background: var(--fondo); color: var(--texto); border: 1px solid var(--borde); border-radius: 10px;
+      font: inherit; font-size: 1rem;
+    }
+    .campo textarea { min-height: 96px; resize: vertical; }
+    .campo input:focus-visible, .campo textarea:focus-visible, .campo select:focus-visible,
+    .editor button:focus-visible, .acciones-fijas button:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+    .item { border: 1px solid var(--borde); border-radius: 12px; padding: 12px; margin: 0 0 12px; }
+    .item-cab { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .item-cab strong { color: var(--texto); font-size: .9rem; }
+    .mini { display: flex; flex-wrap: wrap; gap: 6px; }
+    .editor button, .acciones-fijas button {
+      min-height: 48px; min-width: 48px; padding: 0 14px; border-radius: 999px; cursor: pointer;
+      font: inherit; font-weight: 700; border: 1px solid var(--borde); background: var(--fondo); color: var(--texto);
+    }
+    .editor button.agregar { border-color: var(--oro); color: var(--oro-claro); }
+    .editor button.quitar { color: #fca5a5; }
+    .acciones-fijas {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+      background: var(--fondo); border-top: 2px solid var(--oro); padding: 10px 16px;
+    }
+    .acciones-fijas .contenedor { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .acciones-fijas .boton-chico { min-height: 48px; }
+    .acciones-fijas .guardar { background: var(--oro); color: var(--fondo); border-color: var(--oro); }
+    #estado { flex: 1 1 200px; font-size: .9rem; color: var(--texto-suave); }
+    #estado.error { color: #fca5a5; }
+    #estado.ok { color: #86efac; }
+  </style>
+</head>
+<body>
+  <main class="contenedor editor" id="contenido">
+    <h1>Editar la página CLOPAS</h1>
+    <p class="ayuda">Los cambios se publican en <a href="{{ url_for('clopas_web') }}">/clopas</a> al pulsar <strong>Guardar</strong>.
+      En los textos puedes usar <code>**negrita**</code> y enlaces como <code>[texto](https://...)</code>.
+      El aviso legal de la página es fijo y no se edita aquí.</p>
+    <form id="form" novalidate></form>
+  </main>
+
+  <div class="acciones-fijas">
+    <div class="contenedor">
+      <button type="button" class="guardar" id="btnGuardar">Guardar</button>
+      <button type="button" id="btnDeshacer">Deshacer último guardado</button>
+      <a class="boton boton-chico" href="{{ url_for('clopas_web') }}">Ver página</a>
+      <span id="estado" role="status" aria-live="polite">Cargando…</span>
+    </div>
+  </div>
+
+<script nonce="{{ csp_nonce }}">
+(function () {
+  const ICONOS = {{ iconos|list|tojson }};
+  // Esquema del editor: t = texto corto, a = texto largo, i = icono, lista = lista de objetos o de textos.
+  const ESQUEMA = [
+    { titulo: 'Portada', ruta: ['portada'], campos: [['sobretitulo', 'Sobretítulo', 't'], ['titulo', 'Título', 't'], ['entrada', 'Entrada', 'a'], ['nota', 'Nota', 'a']] },
+    { titulo: 'Qué puedes hacer (funciones)', ruta: ['funciones'], lista: [['icono', 'Ícono', 'i'], ['titulo', 'Título', 't'], ['texto', 'Texto', 'a'], ['accion', 'Botón "Usar en la app" lleva a (ruta como / o enlace https://)', 't']], nombre: 'Función' },
+    { titulo: 'Cómo funciona', ruta: ['pasos'], lista: [['titulo', 'Título', 't'], ['texto', 'Texto', 'a']], nombre: 'Paso' },
+    { titulo: 'Calcula y clasifica: introducción', ruta: ['calcula'], campos: [['intro', 'Introducción', 'a']] },
+    { titulo: 'Calcula y clasifica: pasos', ruta: ['calcula', 'pasos'], lista: [['titulo', 'Título', 't'], ['texto', 'Texto', 'a']], nombre: 'Paso' },
+    { titulo: 'Qué necesito para clasificar', ruta: ['calcula', 'requisitos'], textos: true, nombre: 'Requisito' },
+    { titulo: 'Base legal: introducción', ruta: ['base_legal'], campos: [['intro', 'Introducción', 'a']] },
+    { titulo: 'Base legal: normas', ruta: ['base_legal', 'normas'], textos: true, nombre: 'Norma', largo: true },
+    { titulo: 'Montos del ISC', ruta: ['isc'], campos: [['titulo', 'Título', 't'], ['intro', 'Introducción', 'a'], ['nota', 'Nota', 'a'], ['base_legal', 'Base legal', 'a'], ['enlace', 'Enlace a la resolución', 't']] },
+    { titulo: 'Montos del ISC: filas', ruta: ['isc', 'filas'], lista: [['producto', 'Producto', 't'], ['monto', 'Monto específico', 't']], nombre: 'Fila' },
+    { titulo: 'Para quién es', ruta: ['publico'], textos: true, nombre: 'Público' },
+    { titulo: 'Cierre', ruta: [], campos: [['cierre', 'Título del cierre', 't']] },
+  ];
+
+  const form = document.getElementById('form');
+  const estado = document.getElementById('estado');
+  let datos = null;
+  let sucio = false;
+
+  function msg(t, tipo) { estado.textContent = t; estado.className = tipo || ''; }
+  function get(obj, ruta) { return ruta.reduce((o, k) => o[k], obj); }
+  function el(tag, attrs, hijos) {
+    const e = document.createElement(tag);
+    Object.entries(attrs || {}).forEach(([k, v]) => { if (k === 'text') e.textContent = v; else e.setAttribute(k, v); });
+    (hijos || []).forEach(h => e.appendChild(h));
+    return e;
+  }
+  function boton(texto, clase, fn, etiqueta) {
+    const b = el('button', { type: 'button', class: clase || '', text: texto });
+    if (etiqueta) b.setAttribute('aria-label', etiqueta);
+    b.addEventListener('click', fn);
+    return b;
+  }
+  function campo(obj, clave, etiqueta, tipo) {
+    let input;
+    if (tipo === 'i') {
+      input = el('select');
+      ICONOS.forEach(n => { const o = el('option', { value: n, text: n }); if (obj[clave] === n) o.selected = true; input.appendChild(o); });
+    } else {
+      input = el(tipo === 'a' ? 'textarea' : 'input', tipo === 'a' ? {} : { type: 'text' });
+      input.value = obj[clave] == null ? '' : obj[clave];
+    }
+    input.addEventListener('input', () => { obj[clave] = input.value; sucio = true; });
+    input.addEventListener('change', () => { obj[clave] = input.value; sucio = true; });
+    return el('label', { class: 'campo' }, [el('span', { text: etiqueta }), input]);
+  }
+
+  function pintar() {
+    form.textContent = '';
+    ESQUEMA.forEach(sec => {
+      const bloque = el('section', { class: 'bloque' }, [el('h2', { text: sec.titulo })]);
+      const destino = sec.ruta.length ? get(datos, sec.ruta) : datos;
+      if (sec.campos) {
+        sec.campos.forEach(([k, et, t]) => bloque.appendChild(campo(destino, k, et, t)));
+      } else {
+        const lista = destino;
+        lista.forEach((item, i) => {
+          const n = `${sec.nombre} ${i + 1}`;
+          const cab = el('div', { class: 'item-cab' }, [el('strong', { text: n }), el('div', { class: 'mini' }, [
+            boton('↑', '', () => mover(lista, i, -1), `Subir ${n}`),
+            boton('↓', '', () => mover(lista, i, 1), `Bajar ${n}`),
+            boton('Quitar', 'quitar', () => { if (lista.length > 1 && confirm(`¿Quitar ${n}?`)) { lista.splice(i, 1); sucio = true; pintar(); } }, `Quitar ${n}`),
+          ])]);
+          const caja = el('div', { class: 'item' }, [cab]);
+          if (sec.textos) {
+            const envoltura = { v: item };
+            const c = campo(envoltura, 'v', 'Texto', sec.largo ? 'a' : 't');
+            c.querySelector('input,textarea').addEventListener('input', () => { lista[i] = envoltura.v; });
+            caja.appendChild(c);
+          } else {
+            sec.lista.forEach(([k, et, t]) => caja.appendChild(campo(item, k, et, t)));
+          }
+          bloque.appendChild(caja);
+        });
+        bloque.appendChild(boton(`Agregar ${sec.nombre.toLowerCase()}`, 'agregar', () => {
+          if (sec.textos) lista.push('');
+          else { const nuevo = {}; sec.lista.forEach(([k, , t]) => { nuevo[k] = t === 'i' ? ICONOS[0] : (k === 'accion' ? '/' : ''); }); lista.push(nuevo); }
+          sucio = true; pintar();
+        }));
+      }
+      form.appendChild(bloque);
+    });
+  }
+  function mover(lista, i, d) {
+    const j = i + d;
+    if (j < 0 || j >= lista.length) return;
+    [lista[i], lista[j]] = [lista[j], lista[i]];
+    sucio = true; pintar();
+  }
+
+  async function cargar() {
+    const r = await fetch('/clopas/contenido.json', { cache: 'no-store' });
+    datos = await r.json();
+    sucio = false;
+    pintar();
+    msg(`Versión ${datos.version}${datos.actualizado ? ' · ' + datos.actualizado : ''}`);
+  }
+  async function enviar(url, cuerpo, okTexto) {
+    msg('Guardando…');
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { msg(j.error || `Error ${r.status}`, 'error'); return; }
+      await cargar();
+      msg(`${okTexto}: versión ${j.version}`, 'ok');
+    } catch (e) { msg('Sin conexión. No se guardó.', 'error'); }
+  }
+
+  document.getElementById('btnGuardar').addEventListener('click', () => enviar('/clopas/contenido', datos, 'Guardado'));
+  document.getElementById('btnDeshacer').addEventListener('click', () => {
+    if (confirm('¿Volver a la versión anterior al último guardado?')) enviar('/clopas/contenido/restaurar', {}, 'Restaurado');
+  });
+  window.addEventListener('beforeunload', e => { if (sucio) { e.preventDefault(); e.returnValue = ''; } });
+  cargar().catch(() => msg('No se pudo cargar el contenido.', 'error'));
+})();
+</script>
+</body>
+</html>

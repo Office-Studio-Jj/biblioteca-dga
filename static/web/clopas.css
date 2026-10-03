@@ -155,3 +155,22 @@ p { margin: 0 0 1em; }
 
 .pie { border-top: 1px solid var(--borde); padding: 24px 0; color: var(--texto-suave); font-size: .9rem; text-align: center; }
 .pie p { margin: 0; }
+
+/* Funciones: enlace a la app */
+.tarjeta { display: flex; flex-direction: column; }
+.tarjeta p { flex: 1; }
+.tarjeta-accion {
+  display: inline-flex; align-items: center; align-self: flex-start; min-height: 48px; margin-top: 16px;
+  padding: 0 18px; border: 1px solid var(--oro); border-radius: 999px;
+  color: var(--oro-claro); font-weight: 700; text-decoration: none;
+}
+.tarjeta-accion:hover { background: rgba(212, 175, 55, .12); }
+.tarjeta-accion:focus-visible { outline: 3px solid var(--cian); outline-offset: 3px; }
+
+/* Barra visible solo para el master */
+.barra-master {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+  padding: 8px 16px; background: var(--fondo-2); border-bottom: 2px solid var(--oro);
+  color: var(--texto); font-size: .9rem;
+}
+.barra-master .boton-chico { min-height: 48px; }

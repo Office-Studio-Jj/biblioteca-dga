@@ -18,7 +18,21 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='web/clopas.css') }}">
 </head>
 <body>
+{% set ICONOS = {
+  'camara': '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg>',
+  'documento': '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+  'moneda': '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v18M7 7.5C7 5.6 9.2 5 12 5s5 .9 5 2.8-2 2.6-5 3.2-5 1.4-5 3.4S9.2 17 12 17s5-.8 5-2.7"/></svg>',
+  'lupa': '<svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>',
+  'verificado': '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 13l2 2 4-4"/></svg>',
+  'candado': '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10h16v10H4z"/><path d="M8 10V6a4 4 0 018 0v4"/></svg>'
+} %}
   <a class="saltar" href="#contenido">Saltar al contenido</a>
+  {% if es_master %}
+  <div class="barra-master" role="region" aria-label="Edición">
+    <span>Modo master · versión {{ c.version }}{% if c.actualizado %} · {{ c.actualizado }}{% endif %}</span>
+    <a class="boton boton-chico" href="{{ url_for('clopas_editar') }}">Editar esta página</a>
+  </div>
+  {% endif %}
 
   <header class="barra">
     <div class="contenedor barra-interior">
@@ -38,14 +52,14 @@
   <main id="contenido">
     <section class="portada" id="inicio" aria-labelledby="titulo-portada">
       <div class="contenedor portada-interior">
-        <p class="sobretitulo">Consultoría Logística de Puertos y Aduanas</p>
-        <h1 id="titulo-portada">Clasifica tu mercancía con la base legal a la vista</h1>
-        <p class="entrada">CLOPAS responde desde tu celular qué código arancelario corresponde a un producto, qué gravámenes paga al importarse en la República Dominicana y qué norma lo sustenta.</p>
+        <p class="sobretitulo">{{ c.portada.sobretitulo }}</p>
+        <h1 id="titulo-portada">{{ c.portada.titulo }}</h1>
+        <p class="entrada">{{ fmt(c.portada.entrada) }}</p>
         <div class="acciones">
           <a class="boton boton-principal" href="{{ url_for('instalar') }}">Instalar la app</a>
           <a class="boton boton-secundario" href="{{ url_for('login') }}">Ya tengo cuenta</a>
         </div>
-        <p class="nota-portada">Funciona en Android y iPhone desde el navegador. No ocupa espacio de tienda de aplicaciones.</p>
+        <p class="nota-portada">{{ fmt(c.portada.nota) }}</p>
       </div>
     </section>
 
@@ -53,36 +67,14 @@
       <div class="contenedor">
         <h2 id="titulo-funciones">Qué puedes hacer</h2>
         <ul class="tarjetas">
+          {% for f in c.funciones %}
           <li class="tarjeta">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg>
-            <h3>Consultar como prefieras</h3>
-            <p>Describe el producto, toma una foto, elige una imagen de la galería o sube la ficha técnica en PDF. Si la foto o el archivo no se leen, escribe sus datos principales.</p>
+            {{ ICONOS.get(f.icono, ICONOS['documento'])|safe }}
+            <h3>{{ f.titulo }}</h3>
+            <p>{{ fmt(f.texto) }}</p>
+            <a class="tarjeta-accion" href="{{ f.accion }}"{% if f.accion.startswith('https://') %} target="_blank" rel="noopener noreferrer"{% endif %}>Usar en la app<span class="sr-only">: {{ f.titulo }}</span></a>
           </li>
-          <li class="tarjeta">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
-            <h3>Clasificación razonada</h3>
-            <p>Revisa las notas legales de sección y capítulo y aplica las Reglas Generales Interpretativas antes de proponer el código.</p>
-          </li>
-          <li class="tarjeta">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v18M7 7.5C7 5.6 9.2 5 12 5s5 .9 5 2.8-2 2.6-5 3.2-5 1.4-5 3.4S9.2 17 12 17s5-.8 5-2.7"/></svg>
-            <h3>Gravámenes</h3>
-            <p>Muestra el DAI, el ITBIS y, cuando aplica, el ISC de la subpartida, tomados del Arancel y no de memoria.</p>
-          </li>
-          <li class="tarjeta">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
-            <h3>Ficha merceológica</h3>
-            <p>Describe qué es el producto, de qué está hecho, para qué sirve y quién lo usa: las preguntas que deciden la partida.</p>
-          </li>
-          <li class="tarjeta">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 13l2 2 4-4"/></svg>
-            <h3>Segunda opinión e informe</h3>
-            <p>Compara tu clasificación con la de CLOPAS y descarga un informe en PDF con el veredicto y las referencias.</p>
-          </li>
-          <li class="tarjeta">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10h16v10H4z"/><path d="M8 10V6a4 4 0 018 0v4"/></svg>
-            <h3>Permisos de otras instituciones</h3>
-            <p>Indica si la mercancía requiere permisos que se tramitan por la Ventanilla Única (VUCERD / SIREVUCE).</p>
-          </li>
+          {% endfor %}
         </ul>
       </div>
     </section>
@@ -91,18 +83,12 @@
       <div class="contenedor">
         <h2 id="titulo-como">Cómo funciona</h2>
         <ol class="pasos">
+          {% for p in c.pasos %}
           <li>
-            <h3>Instala la app</h3>
-            <p>Abre el enlace en Chrome, Samsung Internet o Safari y agrégala a la pantalla de inicio con un toque.</p>
+            <h3>{{ p.titulo }}</h3>
+            <p>{{ fmt(p.texto) }}</p>
           </li>
-          <li>
-            <h3>Haz tu consulta</h3>
-            <p>Escribe o fotografía el producto. Si falta un dato que decide la subpartida, como el material o la potencia, CLOPAS te lo pide.</p>
-          </li>
-          <li>
-            <h3>Recibe la respuesta con su fuente</h3>
-            <p>Código arancelario, gravámenes y la norma o nota legal en la que se apoya la respuesta.</p>
-          </li>
+          {% endfor %}
         </ol>
       </div>
     </section>
@@ -110,27 +96,18 @@
     <section class="seccion seccion-separada" id="calcula" aria-labelledby="titulo-calcula">
       <div class="contenedor">
         <h2 id="titulo-calcula">Calcula y clasifica con respaldo</h2>
-        <p class="intro-seccion">Primero se clasifica y después se calcula: el cálculo solo sirve si la subpartida es la correcta.</p>
+        <p class="intro-seccion">{{ fmt(c.calcula.intro) }}</p>
         <ol class="pasos pasos-claro">
+          {% for p in c.calcula.pasos %}
           <li>
-            <h3>Clasifica con CLOPAS</h3>
-            <p>Describe el producto o sube su ficha técnica; si el archivo no se lee, escribe sus datos principales. CLOPAS aplica las notas legales y las Reglas Generales Interpretativas y propone la subpartida.</p>
+            <h3>{{ p.titulo }}</h3>
+            <p>{{ fmt(p.texto) }}</p>
           </li>
-          <li>
-            <h3>Calcula con el simulador oficial</h3>
-            <p>Con la subpartida en mano, usa el Simulador de Liquidación de Impuestos que la Dirección General de Aduanas ofrece en su <a href="https://siga.aduanas.gob.do/Default.aspx" target="_blank" rel="noopener noreferrer">portal SIGA<span class="sr-only"> (se abre en otra pestaña)</span></a>, sección Ayuda.</p>
-          </li>
-          <li>
-            <h3>Guarda la base legal</h3>
-            <p>Las respuestas de CLOPAS indican la norma o la nota legal en la que se apoyan.</p>
-          </li>
+          {% endfor %}
         </ol>
         <h3 class="subtitulo-requisitos">Qué necesito para clasificar mi producto</h3>
         <ul class="requisitos">
-          <li>Ficha técnica o descripción del producto</li>
-          <li>Material</li>
-          <li>Uso</li>
-          <li>Peso o potencia, cuando aplique</li>
+          {% for r in c.calcula.requisitos %}<li>{{ fmt(r) }}</li>{% endfor %}
         </ul>
       </div>
     </section>
@@ -138,14 +115,9 @@
     <section class="seccion" id="base-legal" aria-labelledby="titulo-legal">
       <div class="contenedor">
         <h2 id="titulo-legal">Base legal que consulta</h2>
-        <p class="intro-seccion">Las respuestas se apoyan en normativa vigente de la República Dominicana y en los acuerdos que el país aplica.</p>
+        <p class="intro-seccion">{{ fmt(c.base_legal.intro) }}</p>
         <ul class="normas">
-          <li><strong>Ley 168-21</strong> de Aduanas y su reglamento de aplicación, el <strong>Decreto 755-22</strong>.</li>
-          <li><strong>Arancel de Aduanas</strong> de la República Dominicana, basado en el Sistema Armonizado, con sus notas de sección y capítulo.</li>
-          <li><strong>Ley 11-92</strong>, Código Tributario: ITBIS e Impuesto Selectivo al Consumo.</li>
-          <li><strong>Decreto 36-11</strong>, Reglamento de Valoración Aduanera, y el Acuerdo de Valoración de la OMC.</li>
-          <li><strong>DR-CAFTA</strong> y demás tratados comerciales vigentes para reglas de origen.</li>
-          <li>La <strong>Ley 3489</strong> de 1953 fue derogada por la <strong>Ley 168-21</strong>.</li>
+          {% for n in c.base_legal.normas %}<li>{{ fmt(n) }}</li>{% endfor %}
         </ul>
         <p class="aviso"><strong>Aviso:</strong> CLOPAS es una consultoría privada y no es una entidad del Estado. Sus respuestas orientan; la clasificación oficial de una mercancía la determina la Dirección General de Aduanas.</p>
       </div>
@@ -153,22 +125,21 @@
 
     <section class="seccion seccion-alterna" id="montos-isc" aria-labelledby="titulo-isc">
       <div class="contenedor">
-        <h2 id="titulo-isc">Montos del ISC, octubre-diciembre 2026</h2>
-        <p class="intro-seccion">Del 1 de octubre al 31 de diciembre de 2026 rigen los montos específicos del Impuesto Selectivo al Consumo (ISC) que la Dirección General de Impuestos Internos informó en la Resolución DDG-AR1-2026-00068, del 29 de septiembre de 2026.</p>
+        <h2 id="titulo-isc">{{ c.isc.titulo }}</h2>
+        <p class="intro-seccion">{{ fmt(c.isc.intro) }}</p>
         <table class="montos">
-          <caption class="sr-only">Montos específicos del ISC del 1 de octubre al 31 de diciembre de 2026</caption>
+          <caption class="sr-only">Montos específicos del ISC: {{ c.isc.titulo }}</caption>
           <thead>
             <tr><th scope="col">Producto</th><th scope="col">Monto específico</th></tr>
           </thead>
           <tbody>
-            <tr><th scope="row">Cigarrillos, cajetilla de 20 unidades</th><td>RD$65.02 por cajetilla</td></tr>
-            <tr><th scope="row">Cigarrillos, cajetilla de 10 unidades</th><td>RD$32.51 por cajetilla</td></tr>
-            <tr><th scope="row">Alcoholes y cervezas</th><td>RD$768.65 por litro de alcohol absoluto</td></tr>
+            {% for r in c.isc.filas %}<tr><th scope="row">{{ r.producto }}</th><td>{{ r.monto }}</td></tr>
+            {% endfor %}
           </tbody>
         </table>
-        <p class="aviso">Esta resolución solo fija los montos específicos. El ISC de estos productos también tiene un componente porcentual: según la <a href="https://dgii.gov.do/cicloContribuyente/obligacionesTributarias/principalesImpuestos/Paginas/impuestoSelectivoConsumo.aspx" target="_blank" rel="noopener noreferrer">página del ISC de la DGII<span class="sr-only"> (se abre en otra pestaña)</span></a>, es 10&nbsp;% para el alcohol y 20&nbsp;% para el tabaco. La Ley 30-26, Art. 42, modifica el Párrafo VIII del Art. 375 de la Ley 11-92 y fija el 20&nbsp;% del tabaco. Falta contrastar esa ley con el texto publicado en la Gaceta Oficial. La liquidación final la determina la Dirección General de Aduanas.</p>
-        <p class="nota-montos"><strong>Base legal:</strong> Ley 11-92, Código Tributario, Art. 375, Párrafos I, III y IX.</p>
-        <p class="nota-montos"><a href="https://www.aduanas.gob.do/media/lu4c1bpi/resoluci%C3%B3n-n%C3%BAm-ddg-ar1-2026-00068-montos-espec%C3%ADficos-isc-octubre-diciembre-2026.pdf" target="_blank" rel="noopener noreferrer">Ver la resolución oficial (PDF)<span class="sr-only"> (se abre en otra pestaña)</span></a></p>
+        <p class="aviso">{{ fmt(c.isc.nota) }}</p>
+        <p class="nota-montos"><strong>Base legal:</strong> {{ fmt(c.isc.base_legal) }}</p>
+        <p class="nota-montos">{{ fmt(c.isc.enlace) }}</p>
       </div>
     </section>
 
@@ -176,17 +147,14 @@
       <div class="contenedor">
         <h2 id="titulo-quien">Para quién es</h2>
         <ul class="publico">
-          <li>Agentes de aduanas</li>
-          <li>Importadores y exportadores</li>
-          <li>Consultores de comercio exterior</li>
-          <li>Estudiantes de logística y aduanas</li>
+          {% for x in c.publico %}<li>{{ x }}</li>{% endfor %}
         </ul>
       </div>
     </section>
 
     <section class="cierre" aria-labelledby="titulo-cierre">
       <div class="contenedor">
-        <h2 id="titulo-cierre">Empieza con tu próxima mercancía</h2>
+        <h2 id="titulo-cierre">{{ c.cierre }}</h2>
         <div class="acciones acciones-centro">
           <a class="boton boton-principal" href="{{ url_for('instalar') }}">Instalar la app</a>
           <a class="boton boton-secundario" href="mailto:consultoria.puertos.aduanas@gmail.com">Escríbenos</a>

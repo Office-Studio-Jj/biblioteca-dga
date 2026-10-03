@@ -22,6 +22,7 @@ app = Flask(__name__, static_folder='static')
 
 import sys
 from pathlib import Path
+import clopas_contenido
 
 # ── Fix encoding raiz: Windows cp1252 y Railway ASCII no soportan Unicode ──
 # Forzar UTF-8 en TODOS los contextos: stdout, stderr, subprocesos, locale
@@ -3787,7 +3788,55 @@ def api_generar_informe_pdf():
 @app.route("/clopas")
 def clopas_web():
     """Pagina publica de presentacion de CLOPAS. No requiere sesion."""
-    return render_template("clopas_web.html", anio=time.localtime().tm_year)
+    return render_template("clopas_web.html", anio=time.localtime().tm_year,
+                           c=clopas_contenido.cargar(_DATA_DIR), fmt=clopas_contenido.formato,
+                           es_master=_es_master())
+
+
+def _es_master():
+    return bool(session.get("logged_in")) and session.get("role") == "master"
+
+
+@app.route("/clopas/contenido.json")
+def clopas_contenido_json():
+    """Contenido publico de /clopas (lo baja PowerShell: clopas.ps1 contenido bajar)."""
+    resp = jsonify(clopas_contenido.cargar(_DATA_DIR))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.route("/clopas/editar")
+@master_required
+def clopas_editar():
+    return render_template("clopas_editar.html", iconos=clopas_contenido.ICONOS)
+
+
+@app.route("/clopas/contenido", methods=["POST"])
+def clopas_contenido_guardar():
+    """Guarda el contenido de /clopas. Solo master, solo JSON (bloquea formularios de otros sitios)."""
+    if not _es_master():
+        return jsonify({"error": "Solo el master puede editar."}), 403
+    if not request.is_json:
+        return jsonify({"error": "Envía el contenido como JSON."}), 415
+    try:
+        nuevo = clopas_contenido.guardar(_DATA_DIR, request.get_json(silent=True))
+    except clopas_contenido.ContenidoInvalido as e:
+        return jsonify({"error": f"No se guardó: {e}"}), 400
+    print(f"[CLOPAS_WEB] contenido v{nuevo['version']} guardado por {session.get('correo') or 'master'}")
+    return jsonify({"ok": True, "version": nuevo["version"], "actualizado": nuevo["actualizado"]})
+
+
+@app.route("/clopas/contenido/restaurar", methods=["POST"])
+def clopas_contenido_restaurar():
+    if not _es_master():
+        return jsonify({"error": "Solo el master puede editar."}), 403
+    if not request.is_json:
+        return jsonify({"error": "Envia la solicitud como JSON."}), 415
+    try:
+        nuevo = clopas_contenido.restaurar(_DATA_DIR)
+    except clopas_contenido.ContenidoInvalido as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"ok": True, "version": nuevo["version"]})
 
 @app.route("/instalar")
 def instalar():

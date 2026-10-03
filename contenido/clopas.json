@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "actualizado": "2026-10-03",
+  "portada": {
+    "sobretitulo": "Consultoría Logística de Puertos y Aduanas",
+    "titulo": "Clasifica tu mercancía con la base legal a la vista",
+    "entrada": "CLOPAS responde desde tu celular qué código arancelario corresponde a un producto, qué gravámenes paga al importarse en la República Dominicana y qué norma lo sustenta.",
+    "nota": "Funciona en Android y iPhone desde el navegador. No ocupa espacio de tienda de aplicaciones."
+  },
+  "funciones": [
+    {"icono": "camara", "titulo": "Consultar como prefieras", "texto": "Describe el producto, toma una foto, elige una imagen de la galería o sube la ficha técnica en PDF. Si la foto o el archivo no se leen, escribe sus datos principales.", "accion": "/"},
+    {"icono": "documento", "titulo": "Clasificación razonada", "texto": "Revisa las notas legales de sección y capítulo y aplica las Reglas Generales Interpretativas antes de proponer el código.", "accion": "/"},
+    {"icono": "moneda", "titulo": "Gravámenes", "texto": "Muestra el DAI, el ITBIS y, cuando aplica, el ISC de la subpartida, tomados del Arancel y no de memoria.", "accion": "/"},
+    {"icono": "lupa", "titulo": "Ficha merceológica", "texto": "Describe qué es el producto, de qué está hecho, para qué sirve y quién lo usa: las preguntas que deciden la partida.", "accion": "/"},
+    {"icono": "verificado", "titulo": "Segunda opinión e informe", "texto": "Compara tu clasificación con la de CLOPAS y descarga un informe en PDF con el veredicto y las referencias.", "accion": "/"},
+    {"icono": "candado", "titulo": "Permisos de otras instituciones", "texto": "Indica si la mercancía requiere permisos que se tramitan por la Ventanilla Única (VUCERD / SIREVUCE).", "accion": "/"}
+  ],
+  "pasos": [
+    {"titulo": "Instala la app", "texto": "Abre el enlace en Chrome, Samsung Internet o Safari y agrégala a la pantalla de inicio con un toque."},
+    {"titulo": "Haz tu consulta", "texto": "Escribe o fotografía el producto. Si falta un dato que decide la subpartida, como el material o la potencia, CLOPAS te lo pide."},
+    {"titulo": "Recibe la respuesta con su fuente", "texto": "Código arancelario, gravámenes y la norma o nota legal en la que se apoya la respuesta."}
+  ],
+  "calcula": {
+    "intro": "Primero se clasifica y después se calcula: el cálculo solo sirve si la subpartida es la correcta.",
+    "pasos": [
+      {"titulo": "Clasifica con CLOPAS", "texto": "Describe el producto o sube su ficha técnica; si el archivo no se lee, escribe sus datos principales. CLOPAS aplica las notas legales y las Reglas Generales Interpretativas y propone la subpartida."},
+      {"titulo": "Calcula con el simulador oficial", "texto": "Con la subpartida en mano, usa el Simulador de Liquidación de Impuestos que la Dirección General de Aduanas ofrece en su [portal SIGA](https://siga.aduanas.gob.do/Default.aspx), sección Ayuda."},
+      {"titulo": "Guarda la base legal", "texto": "Las respuestas de CLOPAS indican la norma o la nota legal en la que se apoyan."}
+    ],
+    "requisitos": ["Ficha técnica o descripción del producto", "Material", "Uso", "Peso o potencia, cuando aplique"]
+  },
+  "base_legal": {
+    "intro": "Las respuestas se apoyan en normativa vigente de la República Dominicana y en los acuerdos que el país aplica.",
+    "normas": [
+      "**Ley 168-21** de Aduanas y su reglamento de aplicación, el **Decreto 755-22**.",
+      "**Arancel de Aduanas** de la República Dominicana, basado en el Sistema Armonizado, con sus notas de sección y capítulo.",
+      "**Ley 11-92**, Código Tributario: ITBIS e Impuesto Selectivo al Consumo.",
+      "**Decreto 36-11**, Reglamento de Valoración Aduanera, y el Acuerdo de Valoración de la OMC.",
+      "**DR-CAFTA** y demás tratados comerciales vigentes para reglas de origen.",
+      "La **Ley 3489** de 1953 fue derogada por la **Ley 168-21**."
+    ]
+  },
+  "isc": {
+    "titulo": "Montos del ISC, octubre-diciembre 2026",
+    "intro": "Del 1 de octubre al 31 de diciembre de 2026 rigen los montos específicos del Impuesto Selectivo al Consumo (ISC) que la Dirección General de Impuestos Internos informó en la Resolución DDG-AR1-2026-00068, del 29 de septiembre de 2026.",
+    "filas": [
+      {"producto": "Cigarrillos, cajetilla de 20 unidades", "monto": "RD$65.02 por cajetilla"},
+      {"producto": "Cigarrillos, cajetilla de 10 unidades", "monto": "RD$32.51 por cajetilla"},
+      {"producto": "Alcoholes y cervezas", "monto": "RD$768.65 por litro de alcohol absoluto"}
+    ],
+    "nota": "Esta resolución solo fija los montos específicos. El ISC de estos productos también tiene un componente porcentual: según la [página del ISC de la DGII](https://dgii.gov.do/cicloContribuyente/obligacionesTributarias/principalesImpuestos/Paginas/impuestoSelectivoConsumo.aspx), es 10 % para el alcohol y 20 % para el tabaco. La Ley 30-26, Art. 42, modifica el Párrafo VIII del Art. 375 de la Ley 11-92 y fija el 20 % del tabaco. Falta contrastar esa ley con el texto publicado en la Gaceta Oficial. La liquidación final la determina la Dirección General de Aduanas.",
+    "base_legal": "Ley 11-92, Código Tributario, Art. 375, Párrafos I, III y IX.",
+    "enlace": "[Ver la resolución oficial (PDF)](https://www.aduanas.gob.do/media/lu4c1bpi/resoluci%C3%B3n-n%C3%BAm-ddg-ar1-2026-00068-montos-espec%C3%ADficos-isc-octubre-diciembre-2026.pdf)"
+  },
+  "publico": ["Agentes de aduanas", "Importadores y exportadores", "Consultores de comercio exterior", "Estudiantes de logística y aduanas"],
+  "cierre": "Empieza con tu próxima mercancía"
+}
