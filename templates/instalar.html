@@ -21,7 +21,7 @@
       max-width: 22em; margin: 0 auto;
       text-wrap: balance; overflow-wrap: break-word; hyphens: manual;
     }
-    .hero p   { font-size: 0.75rem; color: #64748b; margin-top: 5px; }
+    .hero p   { font-size: 0.75rem; color: #94a3b8; margin-top: 5px; }
 
     .card { background: #1e293b; border-radius: 18px; padding: 20px 18px; margin-bottom: 16px; }
     .card-title {
@@ -39,6 +39,7 @@
       letter-spacing: 0.5px;
     }
     .btn-copy {
+      min-height: 48px; box-sizing: border-box;
       width: 100%; background: #1e293b; border: 2px solid #334155;
       color: #94a3b8; border-radius: 10px; padding: 10px;
       font-size: 0.82rem; font-weight: 600; cursor: pointer;
@@ -48,10 +49,11 @@
     /* QR */
     .qr-wrap { text-align: center; margin: 16px 0 10px; }
     .qr-wrap img { width: 180px; height: 180px; border-radius: 12px; }
-    .qr-label { font-size: 0.68rem; color: #64748b; margin-top: 6px; }
+    .qr-label { font-size: 0.68rem; color: #94a3b8; margin-top: 6px; }
 
     /* Open button */
     .btn-open {
+      min-height: 48px; box-sizing: border-box;
       display: block; width: 100%;
       background: linear-gradient(135deg, #d4af37, #b8962e);
       color: #0f172a; border: none; border-radius: 14px;
@@ -60,13 +62,15 @@
       cursor: pointer;
     }
     .btn-wa {
+      min-height: 48px; box-sizing: border-box;
       display: block; width: 100%;
-      background: #25d366; color: #fff; border: none; border-radius: 14px;
+      background: #25d366; color: #0f172a; border: none; border-radius: 14px;
       padding: 13px; font-size: 0.88rem; font-weight: 700;
       text-align: center; text-decoration: none; margin-bottom: 10px;
       cursor: pointer;
     }
     .btn-dl {
+      min-height: 48px; box-sizing: border-box;
       display: block; width: 100%;
       background: #1e293b; border: 2px solid #334155; color: #e2e8f0;
       border-radius: 14px; padding: 13px; font-size: 0.88rem; font-weight: 700;
@@ -81,21 +85,23 @@
       font-size: 0.78rem; font-weight: 800; flex-shrink: 0; margin-top: 2px;
     }
     .step-text strong { display: block; font-size: 0.88rem; color: #e2e8f0; margin-bottom: 2px; }
-    .step-text span   { font-size: 0.75rem; color: #64748b; line-height: 1.4; }
+    .step-text span   { font-size: 0.75rem; color: #94a3b8; line-height: 1.4; }
 
     /* Platform tabs */
-    .ptabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; }
+    /* flex-wrap: a 390 px las 3 pestanas caben sin cortar "PC / Mac" */
+    .ptabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 16px; }
     .ptab {
-      flex-shrink: 0; padding: 7px 14px; border-radius: 20px;
+      flex: 0 1 auto; white-space: nowrap; padding: 7px 12px; border-radius: 20px;
+      min-height: 48px; display: inline-flex; align-items: center; gap: 4px;
       border: 2px solid #334155; background: #0f172a;
-      color: #64748b; font-size: 0.75rem; font-weight: 600; cursor: pointer;
+      color: #94a3b8; font-size: 0.75rem; font-weight: 600; cursor: pointer;
     }
     .ptab.active { border-color: #d4af37; color: #d4af37; background: #162030; }
     .pguide { display: none; }
     .pguide.active { display: block; }
 
     .back-link { text-align: center; margin-top: 24px; }
-    .back-link a { color: #64748b; font-size: 0.75rem; text-decoration: none; }
+    .back-link a { color: #94a3b8; font-size: 0.75rem; text-decoration: none; }
 
     /* Aviso legal (mismo texto que /clopas). #94a3b8 sobre #0f172a ~ 6.9:1 (AA) */
     .aviso-legal {
@@ -110,18 +116,18 @@
 <body>
 <div class="wrap">
   <div class="hero">
-    <div class="hero-icon">🚢</div>
+    <div class="hero-icon" aria-hidden="true">🚢</div>
     <h1>Instalar CLOPAS — Consultoría Logística de Puertos y Aduanas</h1>
     <p>Instala la app en tu dispositivo en 3 pasos</p>
   </div>
 
   <!-- URL y QR — solo visible para administrador -->
   <div class="card">
-    <div class="card-title">📥 Descarga la App desde aquí</div>
+    <div class="card-title"><span aria-hidden="true">📥</span> Descarga la App desde aquí</div>
 
     {% if role == 'admin' %}
     <div class="url-box" id="urlBox">{{ server_url }}</div>
-    <button class="btn-copy" id="btnCopy" onclick="copyUrl()">📋 Copiar dirección</button>
+    <button class="btn-copy" id="btnCopy" onclick="copyUrl()"><span aria-hidden="true">📋</span> <span id="copyTxt">Copiar dirección</span></button>
     {% if qr_b64 %}
     <div class="qr-wrap">
       <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR Code">
@@ -130,8 +136,8 @@
     {% endif %}
     {% else %}
     <div style="background:#0f172a;border:2px solid #334155;border-radius:12px;padding:16px;text-align:center;">
-      <div style="font-size:1.8rem;margin-bottom:8px;">🔒</div>
-      <div style="font-size:0.82rem;color:#64748b;line-height:1.5;">La dirección de acceso es visible<br>solo para el <strong style="color:#d4af37;">Administrador</strong>.<br><br>
+      <div style="font-size:1.8rem;margin-bottom:8px;" aria-hidden="true">🔒</div>
+      <div style="font-size:0.82rem;color:#94a3b8;line-height:1.5;">La dirección de acceso es visible<br>solo para el <strong style="color:#d4af37;">Administrador</strong>.<br><br>
       Usa el botón de abajo para acceder<br>o contacta al administrador.</div>
     </div>
     {% endif %}
@@ -144,23 +150,23 @@
 
   <!-- Acciones -->
   <div class="card">
-    <div class="card-title">⚡ Acceso rápido</div>
-    <a class="btn-open" href="#" id="btnAbrirApp" target="_blank">🚀 Abrir App ahora</a>
+    <div class="card-title"><span aria-hidden="true">⚡</span> Acceso rápido</div>
+    <a class="btn-open" href="#" id="btnAbrirApp" target="_blank"><span aria-hidden="true">🚀</span> Abrir App ahora</a>
     {% if role == 'admin' %}
-    <a class="btn-wa" id="btnWa" href="#">💬 Compartir por WhatsApp</a>
-    <a class="btn-dl" id="btnEmail" href="#">✉️ Compartir por Correo</a>
-    <a class="btn-dl" href="/descargar-app" download="Logistica-Puertos-Aduanas-RD.html" style="margin-top:8px;">📥 Descargar archivo instalador</a>
+    <a class="btn-wa" id="btnWa" href="#"><span aria-hidden="true">💬</span> Compartir por WhatsApp</a>
+    <a class="btn-dl" id="btnEmail" href="#"><span aria-hidden="true">✉️</span> Compartir por Correo</a>
+    <a class="btn-dl" href="/descargar-app" download="CLOPAS-Consultoria-Logistica-Puertos-Aduanas.html" style="margin-top:8px;"><span aria-hidden="true">📥</span> Descargar archivo instalador</a>
     {% endif %}
   </div>
 
   <!-- Guías de instalación -->
   <div class="card">
-    <div class="card-title">📲 Cómo instalar la App</div>
+    <div class="card-title"><span aria-hidden="true">📲</span> Cómo instalar la App</div>
 
     <div class="ptabs">
-      <div class="ptab active" onclick="showGuide('android', this)">🤖 Android</div>
-      <div class="ptab" onclick="showGuide('ios', this)">🍎 iPhone / iPad</div>
-      <div class="ptab" onclick="showGuide('pc', this)">💻 PC / Mac</div>
+      <div class="ptab active" onclick="showGuide('android', this)"><span aria-hidden="true">🤖</span> Android</div>
+      <div class="ptab" onclick="showGuide('ios', this)"><span aria-hidden="true">🍎</span> iPhone / iPad</div>
+      <div class="ptab" onclick="showGuide('pc', this)"><span aria-hidden="true">💻</span> PC / Mac</div>
     </div>
 
     <!-- Android -->
@@ -219,29 +225,29 @@
 
   document.getElementById('btnWa').href =
     'https://wa.me/18093547636?text=' +
-    encodeURIComponent('🚢 *Logistica de Puertos y Aduanas RD*\n\nTe comparto la app de la Biblioteca CLOPAS.\n👉 ' + APP_URL + '\n\n📲 Guía de instalación: ' + APP_URL + '/instalar\n\n✉️ Contacto: ' + DIST_EMAIL);
+    encodeURIComponent('🚢 *CLOPAS — Consultoría Logística de Puertos y Aduanas*\n\nTe comparto la app de la Biblioteca CLOPAS.\n👉 ' + APP_URL + '\n\n📲 Guía de instalación: ' + APP_URL + '/instalar\n\n✉️ Contacto: ' + DIST_EMAIL);
 
   document.getElementById('btnEmail').href =
-    'mailto:?subject=' + encodeURIComponent('🚢 Logistica de Puertos y Aduanas RD — Instala la App') +
+    'mailto:?subject=' + encodeURIComponent('🚢 CLOPAS — Consultoría Logística de Puertos y Aduanas: instala la app') +
     '&body=' + encodeURIComponent(
-      'Hola,\n\nTe comparto el acceso a la app Logistica de Puertos y Aduanas RD.\n\n' +
+      'Hola,\n\nTe comparto el acceso a la app de CLOPAS — Consultoría Logística de Puertos y Aduanas.\n\n' +
       '👉 Dirección: ' + APP_URL + '\n' +
       '📲 Guía de instalación: ' + APP_URL + '/instalar\n\n' +
       'INSTALAR EN MÓVIL:\n' +
       '• Android: Chrome → ⋮ → Añadir a pantalla de inicio\n' +
       '• iPhone/iPad: Safari → 📤 → Añadir a inicio\n' +
       '• PC/Mac: Chrome → ícono ⊕ → Instalar\n\n' +
-      '⚠️ Debes estar en el mismo WiFi del servidor.\n\n' +
-      'Distribuido por: ' + DIST_EMAIL
+      'Funciona con cualquier conexión a internet (WiFi o datos móviles).\n\n' +
+      'Contacto: ' + DIST_EMAIL
     );
   {% endif %}
 
   function copyUrl() {
     navigator.clipboard.writeText(APP_URL).then(() => {
       const btn = document.getElementById('btnCopy');
-      btn.textContent = '✅ ¡Copiado!';
+      document.getElementById('copyTxt').textContent = '¡Copiado!';
       btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = '📋 Copiar dirección'; btn.classList.remove('copied'); }, 2000);
+      setTimeout(() => { document.getElementById('copyTxt').textContent = 'Copiar dirección'; btn.classList.remove('copied'); }, 2000);
     });
   }
 

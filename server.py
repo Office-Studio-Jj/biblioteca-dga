@@ -3803,7 +3803,7 @@ def descargar_app():
     html = render_template("app-instalador.html", server_url=server_url, qr_b64=qr_b64)
     resp = make_response(html)
     resp.headers["Content-Type"] = "text/html; charset=utf-8"
-    resp.headers["Content-Disposition"] = "attachment; filename=Logistica-Puertos-Aduanas-RD.html"
+    resp.headers["Content-Disposition"] = "attachment; filename=CLOPAS-Consultoria-Logistica-Puertos-Aduanas.html"
     return resp
 
 # ── Fichas de descarga por rol (compartir por WhatsApp/correo) ──────────
