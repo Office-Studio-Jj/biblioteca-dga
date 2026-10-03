@@ -70,10 +70,13 @@ PENDIENTES = {
     "8529.10.91": ("Antenas para telefonia celular y buscapersonas", 10, ["8529.10.90"]),
 }
 
-ALCOHOL = ("RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: "
-           "verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor")
-TABACO = ("RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano "
-          "por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor")
+# Montos especificos vigentes del 01-10-2026 al 31-12-2026: Resolucion DGII DDG-AR1-2026-00068
+# (29-09-2026), que ajusta por inflacion los de Ley 11-92 Art. 375 Parr. I, III, V y VIII.
+VIGENCIA = "vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068"
+ALCOHOL = (f"RD$768.65 por litro de alcohol absoluto ({VIGENCIA}) "
+           "+ 10% ad valorem sobre el precio de venta al por menor")
+TABACO = (f"RD$65.02 por cajetilla de 20 / RD$32.51 por cajetilla de 10 ({VIGENCIA}) "
+          "+ 20% ad valorem sobre el precio de venta al por menor")
 COMBUSTIBLE = ("Monto especifico por galon de la Ley 112-00 (ajustado periodicamente: verificar monto vigente "
                "MICM/DGII) + 16% ad valorem (Art. 23 Ley 557-05, mod. Art. 30 Ley 495-06)")
 COMBUSTIBLES = {
