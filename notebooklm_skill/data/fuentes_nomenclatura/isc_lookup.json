@@ -64,136 +64,136 @@
    "base_legal": "Ley 11-92 Art. 375 (mod. Ley 253-12) Parr. I-III",
    "tipo": "mixto",
    "tasas": {
-    "default": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor"
+    "default": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor"
    },
    "partidas_afectadas": [],
    "codigos_verificados": {
     "2203.00.00": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "Cerveza de malta. malta."
     },
     "2204.10.00": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "-Vino -Vino espumoso"
     },
     "2204.21.00": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- En recipientes con capacidad inferior o igual a 2 l"
     },
     "2204.22.00": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- En recipientes con capacidad superior a 2 l, l, pero inferior"
     },
     "2204.29.00": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- Los demás"
     },
     "2204.30.00": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "-Los -Los demás mostos de uva"
     },
     "2205.10.00": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "-En -En recipientes con capacidad inferior o igual a 2 l"
     },
     "2205.90.00": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "-Los -Los demás"
     },
     "2206.00.00": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "Las demás bebidas fermentadas (por (por ejemplo: ejemplo: sidra, sidra, perada, "
     },
     "2207.10.00": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "-Alcohol -Alcohol etílico sin desnaturalizar con grado alcohólico volumétrico"
     },
     "2207.20.00": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "-Alcohol -Alcohol etílico y aguardiente desnaturalizados, desnaturalizados, de c"
     },
     "2208.20.30": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- De alta graduación alcohólica para la obtención de brandy"
     },
     "2208.20.91": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- - Aguardiente de vino (por (por ejemplo: ejemplo: coñac y otros brandys de vin"
     },
     "2208.20.92": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- - Aguardiente de orujo de uvas (por (por ejemplo: ejemplo: «grappa») «grappa»)"
     },
     "2208.30.10": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- De alta graduación alcohólica (por (por ejemplo: ejemplo: alcoholes de malta) "
     },
     "2208.30.20": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- Whisky escocés «Scotch» «Scotch» y whisky irlandés «Irish» «Irish»"
     },
     "2208.30.30": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- Whisky escocés «Scotch» «Scotch» y whisky irlandés «Irish» «Irish» en botella,"
     },
     "2208.30.90": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- Los demás"
     },
     "2208.40.11": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- En envases de contenido neto inferior o igual a 5 litros, litros, con"
     },
     "2208.40.12": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- En envases de contenido neto superior a 5 litros, litros, con grado"
     },
     "2208.40.19": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- Los demás"
     },
     "2208.50.00": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "-Gin -Gin y ginebra"
     },
     "2208.60.00": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "-Vodka -Vodka"
     },
     "2208.70.10": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- De anís"
     },
     "2208.70.20": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- Cremas"
     },
     "2208.70.90": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- Los demás"
     },
     "2208.90.10": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- Alcohol etílico sin desnaturalizar con un grado alcohólico 20"
     },
     "2208.90.41": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- - De agaves (tequila (tequila y similares) similares)"
     },
     "2208.90.42": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- - De anís"
     },
     "2208.90.43": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- - De uva (por (por ejemplo: ejemplo: pisco) pisco)"
     },
     "2208.90.49": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- - Los demás"
     },
     "2208.90.90": {
-     "isc": "RD$595.40 por litro de alcohol absoluto (monto desde 2017, ajustado cada ano por inflacion: verificar monto vigente en DGII) + 10% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$768.65 por litro de alcohol absoluto (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 10% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- Los demás"
     }
    }
@@ -206,43 +206,43 @@
    "partidas_afectadas": [],
    "codigos_verificados": {
     "2402.10.11": {
-     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$65.02 por cajetilla de 20 / RD$32.51 por cajetilla de 10 (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 20% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- - Elaborados a mano, mano, con cilindro compuesto por hojas de tabaco"
     },
     "2402.10.12": {
-     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$65.02 por cajetilla de 20 / RD$32.51 por cajetilla de 10 (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 20% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- - Elaborados a máquina, máquina, con cilindro compuesto por hojas de"
     },
     "2402.10.21": {
-     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$65.02 por cajetilla de 20 / RD$32.51 por cajetilla de 10 (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 20% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- - Elaborados a mano, mano, con cilindro compuesto por hojas de tabaco"
     },
     "2402.10.22": {
-     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$65.02 por cajetilla de 20 / RD$32.51 por cajetilla de 10 (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 20% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- - Elaborados a máquina con cilindro compuesto por hojas de tabaco"
     },
     "2402.10.99": {
-     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$65.02 por cajetilla de 20 / RD$32.51 por cajetilla de 10 (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 20% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- Los demás"
     },
     "2402.20.10": {
-     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$65.02 por cajetilla de 20 / RD$32.51 por cajetilla de 10 (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 20% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- De tabaco negro, negro, cajetilla de 20 unidades"
     },
     "2402.20.20": {
-     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$65.02 por cajetilla de 20 / RD$32.51 por cajetilla de 10 (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 20% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- De tabaco rubio, rubio, cajetilla de 20 unidades"
     },
     "2402.20.30": {
-     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$65.02 por cajetilla de 20 / RD$32.51 por cajetilla de 10 (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 20% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- - De tabaco negro, negro, cajetilla de 10 unidades"
     },
     "2402.20.40": {
-     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$65.02 por cajetilla de 20 / RD$32.51 por cajetilla de 10 (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 20% ad valorem sobre el precio de venta al por menor",
      "descripcion": "- - De tabaco rubio, rubio, cajetilla de 10 unidades"
     },
     "2402.90.00": {
-     "isc": "RD$50.00 por cajetilla de 20 / RD$25.00 por cajetilla de 10 (montos 2015, ajustados cada ano por inflacion: verificar monto vigente en DGII) + 20% ad valorem sobre el precio de venta al por menor",
+     "isc": "RD$65.02 por cajetilla de 20 / RD$32.51 por cajetilla de 10 (vigente 01-10-2026 a 31-12-2026, Res. DGII DDG-AR1-2026-00068) + 20% ad valorem sobre el precio de venta al por menor",
      "descripcion": "-Los -Los demás"
     },
     "2403.11.00": {
