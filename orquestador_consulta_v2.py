@@ -19,6 +19,7 @@ import os
 import re
 import sqlite3
 import sys
+from decimal import Decimal, InvalidOperation
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _DB   = os.path.join(_HERE, "capa1_sqlite", "arancel_rd.db")
@@ -63,22 +64,56 @@ _TASAS_DAI_OFICIALES = {0, 3, 8, 14, 20, 25, 40}
 
 # ── Helpers SQLite directos ─────────────────────────────────────────────────
 
+# Columnas reales de la tabla codigos (arancel_rd.db). tests/test_orquestador_v2.py
+# falla si alguna deja de existir en la base.
+_COLUMNAS_CODIGOS = ("son", "descripcion", "gravamen", "itbis", "isc", "fuente")
+
+
+def _tasa(valor) -> Decimal | None:
+    """'20' o '20%' -> Decimal('20'). Texto como 'EXENTO' o 'NO APLICA' -> None."""
+    texto = str(valor or "").strip().rstrip("%").strip()
+    try:
+        return Decimal(texto) if texto else None
+    except InvalidOperation:
+        return None
+
+
 def _son_exacto_db(son: str) -> dict | None:
-    """Lee todos los campos de un SON desde capa1_sqlite/arancel_rd.db."""
+    """Lee un SON desde capa1_sqlite/arancel_rd.db.
+
+    dai_pct, itbis_pct e isc_pct se derivan de gravamen, itbis e isc (la base no
+    tiene columnas con esos nombres). permisos y notas_legales no estan en la base:
+    los permisos salen de permisos_por_capitulo.json (PASO 7) y las notas del lector
+    de notas.
+    """
     if not son:
         return None
     try:
         con = sqlite3.connect(_DB)
         con.row_factory = sqlite3.Row
         row = con.execute(
-            "SELECT son, descripcion, gravamen, itbis, isc, "
-            "dai_pct, itbis_pct, isc_pct, permisos, notas_legales "
-            "FROM codigos WHERE son=?", (son,)
+            f"SELECT {', '.join(_COLUMNAS_CODIGOS)} FROM codigos WHERE son=?", (son,)
         ).fetchone()
         con.close()
-        return dict(row) if row else None
-    except Exception:
+    except sqlite3.Error as e:
+        print(f"[ORQUESTADOR_V2] _son_exacto_db({son}): {e}", file=sys.stderr)
         return None
+    if not row:
+        return None
+    datos = dict(row)
+    datos["dai_pct"] = _tasa(datos.get("gravamen"))
+    datos["itbis_pct"] = _tasa(datos.get("itbis"))
+    datos["isc_pct"] = _tasa(datos.get("isc"))
+    return datos
+
+
+_SON_EN_TEXTO = re.compile(r"(?<![\d.])\d{4}\.\d{2}\.\d{2}(?:\.\d{2})?(?![\d.]*\d)")
+
+
+def _son_en_texto(texto: str) -> str | None:
+    """La unica subpartida (formato XXXX.XX.XX) escrita en el texto; None si hay 0 o varias."""
+    encontrados = set(_SON_EN_TEXTO.findall(texto or ""))
+    return encontrados.pop() if len(encontrados) == 1 else None
 
 
 def _primer_son_de_partida(partida4: str) -> str | None:
@@ -205,15 +240,20 @@ def _buscar_sinonimos_v2(termino: str) -> list[dict]:
 
 # ── Punto de entrada principal ───────────────────────────────────────────────
 
-def procesar_consulta(texto_usuario: str) -> dict:
+def procesar_consulta(texto_usuario: str, solo_son_exacto: bool = False) -> dict:
     """
     Flujo completo v2: texto → SON verificado → gravamenes exactos + permisos.
+
+    solo_son_exacto=True (lo usa /consultar): solo responde cuando la consulta trae una
+    subpartida exacta que existe en el Arancel; el texto libre vuelve sin codigo_son y con
+    limitado_son_exacto=True. Los sinonimos dan falsos positivos (ej. "para" en
+    "pantalla para celular" → zapatos en 8517.79.00) hasta que se depuren.
 
     Modulos activos:
       R3 — clasificador_rgi.py   (RGI 1-6 secuencial)
       R4 — fallback_clasificacion.py  (RGI 4 analogia)
       R1 — validador_son.py      (existencia en arancel_rd.db)
-      SQLite — gravamenes exactos (dai_pct, itbis_pct, isc_pct)
+      SQLite — gravamenes exactos (columnas gravamen, itbis, isc)
       R7 — permisos_por_capitulo.json
       R6 — validador_pre_respuesta.py
     """
@@ -248,20 +288,43 @@ def procesar_consulta(texto_usuario: str) -> dict:
 
     texto_original = texto_usuario.strip()
 
+    # ── PASO 0: subpartida exacta escrita en la consulta ("8471.30.00") ──
+    # Si existe en arancel_rd.db se responde con sus tasas, sin Gemini ni sinonimos.
+    son_exacto = _son_en_texto(texto_original)
+    if son_exacto and not _son_exacto_db(son_exacto):
+        resultado["advertencias"].append(
+            f"La subpartida {son_exacto} no existe en el Arancel RD (Decreto 36-22)."
+        )
+        son_exacto = None
+    if solo_son_exacto and not son_exacto:
+        # Texto libre: lo resuelve el pipeline de 3 capas (Claude arbitro legal).
+        resultado["limitado_son_exacto"] = True
+        return resultado
+
     # === PRE-FILTRO GEMINI (Orden 10 CEO 04-05-2026) ===
     # Traduce lenguaje comercial → lenguaje arancelario SA.
     # Si Gemini falla → texto_usuario queda sin cambio, flujo no se rompe.
-    try:
-        from gemini_prefiltro import enriquecer_consulta as _ge
-        texto_usuario = _ge(texto_usuario)
-        resultado["consulta_enriquecida"] = texto_usuario
-    except Exception:
-        pass
+    if not son_exacto:
+        try:
+            from gemini_prefiltro import enriquecer_consulta as _ge
+            texto_usuario = _ge(texto_usuario)
+            resultado["consulta_enriquecida"] = texto_usuario
+        except Exception:
+            pass
     # === FIN PRE-FILTRO GEMINI ===
 
     son_candidato = None
     rgi_usada = None
     confianza = None
+    if son_exacto:
+        son_candidato = son_exacto
+        rgi_usada     = "Subpartida indicada en la consulta (verificada en el Arancel, Decreto 36-22)"
+        confianza     = "ALTA"
+        resultado["son_exacto"] = True
+        resultado["advertencias"].append(
+            "La subpartida la indico la consulta: CLOPAS verifico que existe y muestra sus "
+            "tasas, pero no comprobo que corresponda al producto."
+        )
 
     # === PASO LEGAL: LECTURA DE NOTAS DE SECCION Y CAPITULO (RGI 1) ===
     # Decreto 755-22 Arts. 62-77: "la clasificacion esta determinada por el
@@ -272,7 +335,7 @@ def procesar_consulta(texto_usuario: str) -> dict:
     _notas_capitulo = {}
     try:
         from navegador_jerarquico_sa import _detectar_capitulo as _det_cap
-        _cap_num = _det_cap(texto_usuario)
+        _cap_num = son_exacto[:2] if son_exacto else _det_cap(texto_usuario)
         if _cap_num:
             from sub_agentes.lector_notas_arancel import leer_notas_capitulo
             _notas_capitulo = leer_notas_capitulo(str(_cap_num).zfill(2))
@@ -297,8 +360,8 @@ def procesar_consulta(texto_usuario: str) -> dict:
     # pise un mapeo directo con un resultado fuzzy incorrecto.
     # BUG-CEO-001 FIX: buscar con texto ORIGINAL primero (Gemini puede borrar
     # las palabras que matchean con sinonimos al traducir).
-    sinonimos = _buscar_sinonimos_v2(texto_original)
-    if not sinonimos:
+    sinonimos = [] if son_candidato else _buscar_sinonimos_v2(texto_original)
+    if not sinonimos and not son_candidato:
         sinonimos = _buscar_sinonimos_v2(texto_usuario)
     for sin in sinonimos:
         son_t = sin.get("son_destino")
@@ -423,10 +486,6 @@ def procesar_consulta(texto_usuario: str) -> dict:
         resultado["confianza"]           = confianza
         resultado["fuente"]              = "arancel_rd.db — Decreto 36-22, 7ma Enmienda SA"
 
-        # Permisos desde columna de la DB
-        if datos.get("permisos"):
-            resultado["permisos"] = datos["permisos"]
-
         # Validar DAI contra tasas oficiales Ley 146-00
         dai_val = datos.get("dai_pct")
         if dai_val is not None:
@@ -532,8 +591,8 @@ def procesar_consulta(texto_usuario: str) -> dict:
     return resultado
 
 
-def _isc_v2(son, isc_pct):
-    """Monto especifico vigente (cigarrillos, alcoholes) o el ISC% de la columna."""
+def _isc_v2(son, isc_pct, isc_texto=None):
+    """Monto especifico vigente (cigarrillos, alcoholes), el ISC% o el texto de la columna isc."""
     try:
         from capa1_sqlite.isc_especifico import texto_isc
         esp = texto_isc(son)
@@ -541,13 +600,15 @@ def _isc_v2(son, isc_pct):
             return esp
     except Exception:
         pass
-    return f"{isc_pct}%" if isc_pct is not None else "NO APLICA"
+    if isc_pct is not None:
+        return f"{isc_pct}%"
+    return isc_texto or "NO APLICA"
 
 
 def formatear_informe(resultado: dict) -> str:
     """Convierte resultado dict a texto estructurado para respuesta al usuario."""
     son    = resultado.get("codigo_son", "No determinado")
-    desc   = resultado.get("descripcion_oficial", "")[:100]
+    desc   = (resultado.get("descripcion_oficial") or "")[:100]
     cap    = resultado.get("capitulo", "?")
     sec    = resultado.get("seccion", "?")
     dai    = resultado.get("dai_pct")
@@ -569,9 +630,9 @@ def formatear_informe(resultado: dict) -> str:
         f"**RGI aplicada:** {rgi} | **Confianza:** {conf}",
         "",
         "### Regimen Tributario (Decreto 36-22)",
-        f"- DAI (Arancel): {dai}%" if dai is not None else f"- DAI: {grav}",
-        f"- ITBIS: {itbis}%" if itbis is not None else "- ITBIS: verificar",
-        f"- ISC: {_isc_v2(son, isc)}",
+        f"- DAI (Arancel): {dai}%" if dai is not None else f"- DAI: {grav or 'verificar'}",
+        f"- ITBIS: {itbis}%" if itbis is not None else f"- ITBIS: {resultado.get('itbis') or 'verificar'}",
+        f"- ISC: {_isc_v2(son, isc, resultado.get('isc'))}",
         "",
     ]
 

@@ -1,0 +1,72 @@
+"""Orquestador v2: lee columnas que existen en arancel_rd.db y responde la subpartida exacta.
+
+Antes pedia dai_pct, itbis_pct, isc_pct, permisos y notas_legales, que la tabla codigos no
+tiene: la consulta fallaba en silencio, ningun SON se verificaba y todo caia al pipeline.
+"""
+
+import os
+import sqlite3
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+import orquestador_consulta_v2 as v2  # noqa: E402
+
+
+def test_columnas_pedidas_existen_en_la_base():
+    con = sqlite3.connect(v2._DB)
+    reales = {fila[1] for fila in con.execute("PRAGMA table_info(codigos)")}
+    con.close()
+    faltan = set(v2._COLUMNAS_CODIGOS) - reales
+    assert not faltan, f"columnas que codigos no tiene: {sorted(faltan)}"
+
+
+def test_son_exacto_db_lee_tasas():
+    carne = v2._son_exacto_db("0201.10.00")
+    assert carne["gravamen"] == "40" and carne["dai_pct"] == 40
+    assert carne["itbis"] == "EXENTO" and carne["itbis_pct"] is None
+
+    cigarrillos = v2._son_exacto_db("2402.20.10")
+    assert cigarrillos["itbis_pct"] == 18
+    assert cigarrillos["isc"].startswith("RD$") and cigarrillos["isc_pct"] is None
+
+    assert v2._son_exacto_db("9999.99.99") is None
+
+
+def test_son_en_texto():
+    assert v2._son_en_texto("8471.30.00") == "8471.30.00"
+    assert v2._son_en_texto("¿Qué paga la 8471.30.00?") == "8471.30.00"
+    assert v2._son_en_texto("laptop") is None
+    assert v2._son_en_texto("8471.30.00 o 8471.41.00") is None  # comparar: lo decide el pipeline
+
+
+def test_subpartida_exacta_se_resuelve_en_v2():
+    r = v2.procesar_consulta("8471.30.00", solo_son_exacto=True)
+    assert r["codigo_son"] == "8471.30.00"
+    assert r["son_exacto"] and r["dai_pct"] == 0 and r["itbis_pct"] == 18
+    informe = v2.formatear_informe(r)
+    assert "8471.30.00" in informe and "DAI (Arancel): 0%" in informe and "ITBIS: 18%" in informe
+
+
+def test_texto_libre_queda_para_el_pipeline():
+    r = v2.procesar_consulta("zapatos de cuero para hombre", solo_son_exacto=True)
+    assert r["codigo_son"] is None and r["limitado_son_exacto"]
+
+
+def test_consultar_subpartida_exacta_no_cae_al_pipeline(monkeypatch):
+    import server
+    from notion_service import buscar_notion
+
+    monkeypatch.setattr(server, "_get_cached", lambda *a: None)
+    monkeypatch.setattr(server, "_set_cached", lambda *a: None)
+    monkeypatch.setattr(buscar_notion, "buscar", lambda *a, **k: [])
+
+    cliente = server.app.test_client()
+    with cliente.session_transaction() as s:
+        s["logged_in"] = True
+    resp = cliente.post("/consultar", json={"question": "8471.30.00",
+                                            "notebook_id": "biblioteca-de-nomenclaturas"})
+    datos = resp.get_json()
+    assert resp.status_code == 200, datos
+    assert datos["cache_via"] == "orquestador_v2"
+    assert datos["meta"]["codigo"] == "8471.30.00"
