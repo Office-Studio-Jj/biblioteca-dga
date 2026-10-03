@@ -3794,6 +3794,9 @@ def instalar():
     server_url = _get_public_url()
     qr_b64     = _gen_qr_base64(server_url)
     role       = session.get("role", "invitado")
+    # "admin" es el rol legado; hoy el administrador inicia sesion como "master".
+    if session.get("logged_in") and role == "master":
+        role = "admin"
     return render_template("instalar.html", server_url=server_url, qr_b64=qr_b64, role=role)
 
 @app.route("/descargar-app")
