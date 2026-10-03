@@ -32,3 +32,23 @@ def test_marca_y_aviso_legal():
 def test_css_publico():
     resp = server.app.test_client().get("/static/web/clopas.css")
     assert resp.status_code == 200
+
+
+def test_seccion_calcula_y_clasifica():
+    import re
+
+    html = _html()
+    texto = re.sub(r"<[^>]+>", "", html)
+    assert 'id="calcula"' in html
+    assert "Calcula y clasifica con respaldo" in texto
+    assert (
+        "Primero se clasifica y después se calcula: el cálculo solo sirve "
+        "si la subpartida es la correcta." in texto
+    )
+    enlace = re.search(r'<a[^>]+href="https://siga\.aduanas\.gob\.do/Default\.aspx"[^>]*>', html)
+    assert enlace, "falta el enlace al portal SIGA"
+    rel = re.search(r'rel="([^"]*)"', enlace.group(0))
+    assert rel and "noopener" in rel.group(1)
+    assert "La Ley 3489 de 1953 fue derogada por la Ley 168-21." in texto
+    assert "gratis" not in html.lower()
+    assert "<form" not in html.lower()
