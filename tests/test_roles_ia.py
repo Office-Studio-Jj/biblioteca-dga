@@ -50,8 +50,13 @@ def test_verificador_solo_informa():
     assert no["existe"] is False and no["codigo_correcto"] == ""
 
 
-def test_supervisor_no_sustituye_codigo_inexistente():
+def test_supervisor_no_sustituye_codigo_inexistente(monkeypatch, tmp_path):
     import supervisor_interno as si
+    # Basta la cache del Arancel: sin esto se leen con pdfplumber todos los PDF
+    # de fuentes_nomenclatura (en la laptop, ~40 sin rastrear y casi 3 minutos).
+    monkeypatch.setattr(si, "_FUENTES_DIR", str(tmp_path))
+    monkeypatch.setattr(si, "_FUENTES_CARGADAS", False)
+    monkeypatch.setattr(si, "_FUENTES_TEXTO", {"prueba.pdf": "Capitulo 85"})
     resp = ("---DATOS_CLASIFICACION---\nSUBPARTIDA_NAC: 8517.70.00 pantalla\nAUDITORIA: APROBADA\n"
             "---FIN_CLASIFICACION---")
     nueva, estado, _ = si._check_fuentes_pdf(resp, "pantalla celular", "biblioteca-de-nomenclaturas")

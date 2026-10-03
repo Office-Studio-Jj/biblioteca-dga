@@ -70,12 +70,20 @@ if _IS_CLOUD:
     _BASE     = Path("/app")
     PYTHON    = sys.executable
     SKILL_DIR = str(_BASE / "notebooklm_skill")
-    _DATA_DIR = Path("/data")
+    _DATA_DIR = Path(os.environ.get("CLOPAS_DATA_DIR") or "/data")  # CI: carpeta temporal
 else:
-    _BASE     = Path(r"C:\Users\Usuario")
-    PYTHON    = str(_BASE / r".claude\skills\notebooklm\.venv\Scripts\python.exe")
-    SKILL_DIR = str(_BASE / r".claude\skills\notebooklm")
-    _DATA_DIR = Path(r"C:\Users\Usuario\Desktop\Biblioteca Notebooklm DGA\usuarios_y_administradores")
+    # PC original: C:\Users\Usuario. Otra maquina (laptop, pytest): CLOPAS_LOCAL_BASE,
+    # o el perfil del usuario; los datos van a CLOPAS_DATA_DIR o a .datos_locales del repo.
+    _REPO     = Path(__file__).resolve().parent
+    _PC_ORIG  = Path(r"C:\Users\Usuario")
+    _BASE     = Path(os.environ.get("CLOPAS_LOCAL_BASE") or (_PC_ORIG if _PC_ORIG.exists() else Path.home()))
+    _VENV_PY  = _BASE / r".claude\skills\notebooklm\.venv\Scripts\python.exe"
+    PYTHON    = str(_VENV_PY) if _VENV_PY.exists() else sys.executable
+    _SKILL    = _BASE / r".claude\skills\notebooklm"
+    SKILL_DIR = str(_SKILL if _SKILL.exists() else _REPO / "notebooklm_skill")
+    _DATA_ORIG = _BASE / r"Desktop\Biblioteca Notebooklm DGA\usuarios_y_administradores"
+    _DATA_DIR = Path(os.environ.get("CLOPAS_DATA_DIR")
+                     or (_DATA_ORIG if _DATA_ORIG.parent.exists() else _REPO / ".datos_locales"))
 
 _DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -3086,7 +3094,7 @@ def admin_diagnostico_notebooklm():
 
     return jsonify(report)
 
-GUIA_FILE = str((_BASE / "app/guia_instalacion.txt") if _IS_CLOUD else Path(r"C:\Users\Usuario\Desktop\Biblioteca Notebooklm DGA\servidor-movil\guia_instalacion.txt"))
+GUIA_FILE = str((_BASE / "app/guia_instalacion.txt") if _IS_CLOUD else _BASE / r"Desktop\Biblioteca Notebooklm DGA\servidor-movil\guia_instalacion.txt")
 
 # ── Guía de instalación ──────────────────────────────────────────────────
 @app.route("/guia")
