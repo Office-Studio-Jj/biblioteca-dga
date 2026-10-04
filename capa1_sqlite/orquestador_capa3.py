@@ -5,7 +5,9 @@ Integración pasos bloqueantes CEO 05-05-2026: Paso 0.5, Paso 5, Paso 6.5, Paso 
 """
 import json
 import os
+import re
 import sqlite3
+import unicodedata
 import threading
 from decimal import Decimal, InvalidOperation
 
@@ -187,18 +189,52 @@ def registrar_clasificacion(son: str, pregunta: str, resultado: str, usuario: st
         print(f"[CAPA1] Error registrar_clasificacion: {e}")
 
 
+_VACIAS = {
+    "a", "al", "de", "del", "el", "la", "las", "lo", "los", "un", "una", "unos", "unas",
+    "para", "por", "con", "sin", "en", "y", "o", "e", "u", "que", "tipo",
+}
+
+
+def _palabras(texto: str) -> list[str]:
+    """Palabras en minuscula y sin acentos ("Patineta Eléctrica" -> ["patineta", "electrica"])."""
+    sin_acentos = "".join(
+        c for c in unicodedata.normalize("NFD", (texto or "").lower())
+        if unicodedata.category(c) != "Mn"
+    )
+    return re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*", sin_acentos)
+
+
 def buscar_sinonimos(termino: str) -> list[dict]:
-    """Busca sinónimos arancelarios para un término de búsqueda."""
-    if not termino:
+    """
+    Sinónimos arancelarios que nombran el producto, por palabras completas (mismo criterio
+    que orquestador_consulta_v2._buscar_sinonimos_v2).
+
+    El sinónimo debe coincidir con la consulta entera ("exacta") o con su comienzo ("inicio"):
+    "funda para tablet" no es una tablet. Antes se usaba LIKE '%termino%' y la palabra "para"
+    traía todos los sinónimos que la contienen. Los más largos van primero.
+    """
+    consulta = _palabras(termino)
+    if not consulta:
         return []
     try:
-        rows = _con().execute(
-            "SELECT * FROM sinonimos_arancelarios WHERE termino_busqueda LIKE ?",
-            (f"%{termino.strip().lower()}%",)
-        ).fetchall()
-        return [dict(r) for r in rows]
+        rows = _con().execute("SELECT * FROM sinonimos_arancelarios").fetchall()
     except Exception:
         return []
+    candidatos = []
+    for r in rows:
+        d = dict(r)
+        sin = _palabras(d.get("termino_busqueda", ""))
+        if not sin or all(p in _VACIAS for p in sin):
+            continue
+        if consulta == sin:
+            d["coincidencia"] = "exacta"
+        elif consulta[:len(sin)] == sin:
+            d["coincidencia"] = "inicio"
+        else:
+            continue
+        candidatos.append((len(sin), d))
+    candidatos.sort(key=lambda c: -c[0])
+    return [d for _, d in candidatos]
 
 
 def buscar_partes_producto(parte: str) -> list[dict]:
