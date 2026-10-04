@@ -95,3 +95,14 @@ def test_sinonimos_validos_siguen_respondiendo():
     assert _sons("pantalla para celular") == ["8517.79.00"]
     inicio = v2._buscar_sinonimos_v2("bocina bluetooth")
     assert inicio[0]["partida_sugerida"] == "8518" and inicio[0]["coincidencia"] == "inicio"
+
+
+def test_capa3_sinonimos_usa_el_mismo_criterio():
+    # capa1_sqlite.orquestador_capa3.buscar_sinonimos (RGI 1 y agente guardian) usaba LIKE '%termino%'
+    from capa1_sqlite import orquestador_capa3 as c3
+    sons = lambda q: [s.get("son_destino") or s.get("partida_sugerida") for s in c3.buscar_sinonimos(q)]
+    for consulta in ("para", "zapatos para correr", "funda para tablet", "pantalla de laptop"):
+        assert sons(consulta) == [], consulta
+    exacto = c3.buscar_sinonimos("Patineta Eléctrica")
+    assert exacto and exacto[0]["son_destino"] == "8711.60.14" and exacto[0]["coincidencia"] == "exacta"
+    assert "8517.79.00" in sons("pantalla para celular")

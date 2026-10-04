@@ -99,7 +99,7 @@
     },
     {
       "id": "ERR-008",
-      "titulo": "Supervisor no accede a los 7616 codigos despues de auto-heal",
+      "titulo": "Supervisor no accede a 7616 codigos despues de auto-heal",
       "componente": "notebooklm_skill/scripts/supervisor_interno.py",
       "tipo": "cache/datos",
       "reportado": 1,
